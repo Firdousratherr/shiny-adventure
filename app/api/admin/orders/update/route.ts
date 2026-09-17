@@ -25,20 +25,53 @@ export async function POST(request: Request) {
     const refundReference = text(body.get('refundReference'), 150);
     const refundRaw = text(body.get('refundAmount'), 30);
     if (!orderNumber || !statuses.has(target)) return NextResponse.json({ error: 'Invalid order update.' }, { status: 400 });
+    if (trackingUrl && !/^https:\/\//i.test(trackingUrl)) return NextResponse.json({ error: 'Tracking URL must use HTTPS.' }, { status: 400 });
+
     const result = await db.$transaction(async tx => {
       const order = await tx.order.findUnique({ where: { orderNumber }, include: { items: true } });
       if (!order) throw new Error('NOT_FOUND');
       if (!canTransition(order.status, target)) throw new Error('INVALID_TRANSITION');
+
       let refundAmount: Prisma.Decimal | undefined;
-      if (refundRaw) { try { refundAmount = new Prisma.Decimal(refundRaw); } catch { throw new Error('INVALID_REFUND'); } if (refundAmount.lessThan(0) || refundAmount.greaterThan(order.totalAmount)) throw new Error('INVALID_REFUND'); }
+      if (refundRaw) {
+        try { refundAmount = new Prisma.Decimal(refundRaw); } catch { throw new Error('INVALID_REFUND'); }
+        if (!refundAmount.isFinite() || refundAmount.lessThan(0) || refundAmount.greaterThan(order.totalAmount)) throw new Error('INVALID_REFUND');
+      }
       if (target === 'REFUNDED' && !refundAmount) refundAmount = order.totalAmount;
       if (target === 'REFUNDED' && !refundMethod) throw new Error('REFUND_METHOD_REQUIRED');
-      if (target === 'CANCELLED' && order.status === 'CONFIRMED') for (const item of order.items) await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
-      const updated = await tx.order.update({ where: { id: order.id }, data: { status: target, sourceOrderId: sourceOrderId || order.sourceOrderId, courierName: courierName || order.courierName, trackingNumber: trackingNumber || order.trackingNumber, trackingUrl: trackingUrl || order.trackingUrl, cancellationReason: target === 'CANCELLED' ? (note || order.cancellationReason) : order.cancellationReason, refundAmount: refundAmount ?? order.refundAmount, refundMethod: refundMethod || order.refundMethod, refundReference: refundReference || order.refundReference, refundProcessedAt: target === 'REFUNDED' ? new Date() : order.refundProcessedAt }, select: { orderNumber: true, status: true, email: true } });
+
+      // Stock is deducted exactly once, at payment confirmation. Restore it only when
+      // a paid order is cancelled before source fulfillment. Later RTO/return stock
+      // handling is deliberately manual because the physical item may not be back.
+      if (target === 'CANCELLED' && ['CONFIRMED'].includes(order.status)) {
+        for (const item of order.items) {
+          await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+        }
+      }
+
+      const updated = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: target,
+          sourceOrderId: sourceOrderId || order.sourceOrderId,
+          courierName: courierName || order.courierName,
+          trackingNumber: trackingNumber || order.trackingNumber,
+          trackingUrl: trackingUrl || order.trackingUrl,
+          cancellationReason: target === 'CANCELLED' ? (note || order.cancellationReason) : order.cancellationReason,
+          refundAmount: refundAmount ?? order.refundAmount,
+          refundMethod: refundMethod || order.refundMethod,
+          refundReference: refundReference || order.refundReference,
+          refundProcessedAt: target === 'REFUNDED' ? new Date() : order.refundProcessedAt,
+        },
+        select: { orderNumber: true, status: true, email: true },
+      });
       await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: order.status, newStatus: target, changedBy: session.user.email!, note: note || null } });
       return updated;
     });
-    if (result.email && statusMessage[target]) void notifyCustomer(result.email, result.orderNumber, target, `${statusMessage[target]}${note ? ` Note: ${note}` : ''}`);
+
+    if (result.email && statusMessage[target]) {
+      void notifyCustomer(result.email, result.orderNumber, target, `${statusMessage[target]}${note ? ` Note: ${note}` : ''}`);
+    }
     return NextResponse.json({ orderNumber: result.orderNumber, status: result.status });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
