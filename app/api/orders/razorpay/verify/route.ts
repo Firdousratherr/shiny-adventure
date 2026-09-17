@@ -2,15 +2,20 @@ import { NextResponse } from 'next/server';
 import { db } from '../../../../../lib/db';
 import { getRazorpay, verifyCheckoutSignature } from '../../../../../lib/razorpay';
 import { notifyCustomer } from '../../../../../lib/email';
+import { rateLimit } from '../../../../../lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+    const limited = await rateLimit(`razorpay-verify:${ip}`, 20, 600);
+    if (limited.limited) return NextResponse.json({ error: 'Too many payment verification attempts. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
+
     const body = await request.json();
-    const orderNumber = typeof body.orderNumber === 'string' ? body.orderNumber.trim() : '';
+    const orderNumber = typeof body.orderNumber === 'string' ? body.orderNumber.trim().toUpperCase() : '';
     const paymentId = typeof body.razorpay_payment_id === 'string' ? body.razorpay_payment_id : '';
     const razorpayOrderId = typeof body.razorpay_order_id === 'string' ? body.razorpay_order_id : '';
     const signature = typeof body.razorpay_signature === 'string' ? body.razorpay_signature : '';
-    if (!orderNumber || !paymentId || !razorpayOrderId || !signature) return NextResponse.json({ error: 'Incomplete Razorpay response.' }, { status: 400 });
+    if (!/^ORD-\d{4}-\d{4,}$/.test(orderNumber) || !paymentId || !razorpayOrderId || !signature) return NextResponse.json({ error: 'Incomplete Razorpay response.' }, { status: 400 });
     const order = await db.order.findUnique({ where: { orderNumber }, include: { items: true } });
     if (!order || order.razorpayOrderId !== razorpayOrderId) return NextResponse.json({ error: 'Razorpay order mismatch.' }, { status: 400 });
     if (order.status !== 'PAYMENT_PENDING') return NextResponse.json({ error: 'Order is already processed.' }, { status: 409 });
@@ -19,8 +24,6 @@ export async function POST(request: Request) {
     if (payment.order_id !== razorpayOrderId || payment.status !== 'captured' || Number(payment.amount) !== Math.round(Number(order.totalAmount) * 100)) return NextResponse.json({ error: 'Razorpay payment is not captured for the expected amount.' }, { status: 400 });
 
     const result = await db.$transaction(async tx => {
-      // Claim first so concurrent browser verification and webhook delivery cannot
-      // both deduct inventory for the same payment.
       const claimed = await tx.order.updateMany({ where: { id: order.id, status: 'PAYMENT_PENDING' }, data: { status: 'CONFIRMED', razorpayPaymentId: paymentId, razorpaySignature: signature, paymentMethod: 'RAZORPAY', paymentVerifiedAt: new Date(), paymentVerifiedBy: 'RAZORPAY', paymentVerificationNote: 'Razorpay payment captured and verified server-side.', paymentRejectionReason: null } });
       if (claimed.count !== 1) throw new Error('ALREADY_PROCESSED');
       for (const item of order.items) {
