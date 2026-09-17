@@ -4,7 +4,8 @@ import { db } from '../../../../../lib/db';
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const adminEmail = session?.user?.email;
+  if (!adminEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.json();
     const orderNumber = typeof body.orderNumber === 'string' ? body.orderNumber.trim() : '';
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
     if (order.status !== 'PAYMENT_PENDING') return NextResponse.json({ error: 'Only payment-pending orders can be rejected.' }, { status: 409 });
     const updated = await db.$transaction(async (tx) => {
       const result = await tx.order.update({ where: { id: order.id }, data: { paymentRejectionReason: reason }, select: { orderNumber: true, status: true, paymentRejectionReason: true } });
-      await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: 'PAYMENT_PENDING', newStatus: 'PAYMENT_PENDING', changedBy: session.user.email!, note: `Payment rejected: ${reason}` } });
+      await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: 'PAYMENT_PENDING', newStatus: 'PAYMENT_PENDING', changedBy: adminEmail, note: `Payment rejected: ${reason}` } });
       return result;
     });
     return NextResponse.json(updated);
