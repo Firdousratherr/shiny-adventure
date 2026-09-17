@@ -1,25 +1,22 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const SAFE_METHODS = new Set(['GET','HEAD','OPTIONS']);
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+function isSameOrigin(request: NextRequest) {
+  if (SAFE_METHODS.has(request.method)) return true;
+  if (request.nextUrl.pathname === '/api/webhooks/razorpay') return true;
+  const origin = request.headers.get('origin');
+  const host = request.headers.get('host');
+  if (origin && host) {
+    try { return new URL(origin).host === host; } catch { return false; }
+  }
+  const fetchSite = request.headers.get('sec-fetch-site');
+  return !fetchSite || ['same-origin', 'same-site', 'none'].includes(fetchSite);
+}
 
 export function middleware(request: NextRequest) {
-  if (!SAFE_METHODS.has(request.method)) {
-    const pathname = request.nextUrl.pathname;
-    if (pathname !== '/api/webhooks/razorpay') {
-      const origin = request.headers.get('origin');
-      const host = request.headers.get('host');
-      let invalid = false;
-      if (origin) {
-        try { invalid = new URL(origin).host !== host; } catch { invalid = true; }
-      } else {
-        const fetchSite = request.headers.get('sec-fetch-site');
-        invalid = Boolean(fetchSite && !['same-origin','same-site','none'].includes(fetchSite));
-      }
-      if (invalid) return NextResponse.json({ error: 'Cross-site requests are not allowed.' }, { status: 403 });
-    }
-  }
-
+  if (!isSameOrigin(request)) return NextResponse.json({ error: 'Cross-site requests are not allowed.' }, { status: 403 });
   const response = NextResponse.next();
   const h = response.headers;
   h.set('X-Content-Type-Options', 'nosniff');
