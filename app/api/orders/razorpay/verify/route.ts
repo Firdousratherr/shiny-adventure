@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       for (const item of order.items) {
         const updated = await tx.product.updateMany({ where: { id: item.productId, status: 'ACTIVE', stock: { gte: item.quantity } }, data: { stock: { decrement: item.quantity } } });
         if (updated.count !== 1) throw new Error(`INSUFFICIENT_STOCK:${item.productName}`);
+        await tx.inventoryMovement.create({ data: { productId: item.productId, orderId: order.id, quantity: -item.quantity, reason: 'PAYMENT_CONFIRMED_DEDUCTION' } });
       }
       await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: 'PAYMENT_PENDING', newStatus: 'CONFIRMED', changedBy: 'RAZORPAY', note: 'Razorpay payment captured and inventory deducted.' } });
       return { orderNumber: order.orderNumber, status: 'CONFIRMED' as const, email: order.email };
