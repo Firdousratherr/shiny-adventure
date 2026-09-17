@@ -3,9 +3,14 @@ import { Prisma } from '@prisma/client';
 import { db } from '../../../lib/db';
 import { checkoutSchema } from '../../../lib/validation';
 import { deliveryCharge, total } from '../../../lib/pricing';
+import { rateLimit } from '../../../lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+    const limited = await rateLimit(`checkout:${ip}`, 20, 600);
+    if (limited.limited) return NextResponse.json({ error: 'Too many checkout attempts. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
+
     const parsed = checkoutSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: 'Please check your checkout details.', issues: parsed.error.flatten() }, { status: 400 });
     const data = parsed.data;
@@ -22,7 +27,7 @@ export async function POST(request: Request) {
     const order = await db.$transaction(async tx => {
       const counter = await tx.orderCounter.update({ where: { id: 1 }, data: { value: { increment: 1 } }, select: { value: true } });
       const orderNumber = `ORD-${new Date().getFullYear()}-${String(counter.value).padStart(4, '0')}`;
-      return tx.order.create({ data: { orderNumber, customerName: data.customerName, email: data.email || null, phone: data.phone, addressLine1: data.addressLine1, addressLine2: data.addressLine2 || null, landmark: data.landmark || null, city: data.city, district: data.district, state: data.state, pinCode: data.pinCode, totalAmount: amount, deliveryCharge: shipping, status: 'PAYMENT_PENDING', items: { create: data.items.map(item => { const p = byId.get(item.productId)!; return { productId: p.id, productName: p.name, quantity: item.quantity, unitPrice: p.sellingPrice, sourceCost: p.sourceCost }; }) }, history: { create: { oldStatus: null, newStatus: 'PAYMENT_PENDING', changedBy: 'SYSTEM', note: 'Order created; awaiting manual UPI payment verification.' } } } });
+      return tx.order.create({ data: { orderNumber, customerName: data.customerName, email: data.email || null, phone: data.phone, addressLine1: data.addressLine1, addressLine2: data.addressLine2 || null, landmark: data.landmark || null, city: data.city, district: data.district, state: data.state, pinCode: data.pinCode, totalAmount: amount, deliveryCharge: shipping, status: 'PAYMENT_PENDING', items: { create: data.items.map(item => { const p = byId.get(item.productId)!; return { productId: p.id, productName: p.name, quantity: item.quantity, unitPrice: p.sellingPrice, sourceCost: p.sourceCost }; }) }, history: { create: { oldStatus: null, newStatus: 'PAYMENT_PENDING', changedBy: 'SYSTEM', note: 'Order created; awaiting payment verification.' } } } });
     });
     return NextResponse.json({ orderNumber: order.orderNumber, totalAmount: amount.toFixed(2), deliveryCharge: shipping.toFixed(2) }, { status: 201 });
   } catch (error) { console.error('order creation failed', error); return NextResponse.json({ error: 'Unable to create your order right now.' }, { status: 500 }); }
