@@ -3,9 +3,11 @@ import { auth } from '../../../../../auth';
 import { db } from '../../../../../lib/db';
 import { Prisma, type OrderStatus } from '@prisma/client';
 import { canTransition } from '../../../../../lib/orders/status';
+import { notifyCustomer } from '../../../../../lib/email';
 
 const statuses = new Set<OrderStatus>(['CONFIRMED','ORDERED_FROM_SOURCE','SHIPPED','DELIVERED','CANCELLED','RTO','RETURN_REQUESTED','REFUNDED']);
 const text = (v: unknown, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : '';
+const statusMessage: Partial<Record<OrderStatus,string>> = { ORDERED_FROM_SOURCE:'Your order has been placed with the source supplier and is being prepared.', SHIPPED:'Your order has been shipped.', DELIVERED:'Your order has been marked as delivered.', CANCELLED:'Your order has been cancelled.', RTO:'Your order has been marked as returned to origin.', RETURN_REQUESTED:'Your return request has been recorded and is under review.', REFUNDED:'Your refund has been processed.' };
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -28,31 +30,16 @@ export async function POST(request: Request) {
       if (!order) throw new Error('NOT_FOUND');
       if (!canTransition(order.status, target)) throw new Error('INVALID_TRANSITION');
       let refundAmount: Prisma.Decimal | undefined;
-      if (refundRaw) {
-        try { refundAmount = new Prisma.Decimal(refundRaw); } catch { throw new Error('INVALID_REFUND'); }
-        if (refundAmount.lessThan(0) || refundAmount.greaterThan(order.totalAmount)) throw new Error('INVALID_REFUND');
-      }
+      if (refundRaw) { try { refundAmount = new Prisma.Decimal(refundRaw); } catch { throw new Error('INVALID_REFUND'); } if (refundAmount.lessThan(0) || refundAmount.greaterThan(order.totalAmount)) throw new Error('INVALID_REFUND'); }
       if (target === 'REFUNDED' && !refundAmount) refundAmount = order.totalAmount;
       if (target === 'REFUNDED' && !refundMethod) throw new Error('REFUND_METHOD_REQUIRED');
-      if (target === 'CANCELLED' && order.status === 'CONFIRMED') {
-        for (const item of order.items) await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
-      }
-      const updated = await tx.order.update({ where: { id: order.id }, data: {
-        status: target,
-        sourceOrderId: sourceOrderId || order.sourceOrderId,
-        courierName: courierName || order.courierName,
-        trackingNumber: trackingNumber || order.trackingNumber,
-        trackingUrl: trackingUrl || order.trackingUrl,
-        cancellationReason: target === 'CANCELLED' ? (note || order.cancellationReason) : order.cancellationReason,
-        refundAmount: refundAmount ?? order.refundAmount,
-        refundMethod: refundMethod || order.refundMethod,
-        refundReference: refundReference || order.refundReference,
-        refundProcessedAt: target === 'REFUNDED' ? new Date() : order.refundProcessedAt,
-      }, select: { orderNumber: true, status: true } });
+      if (target === 'CANCELLED' && order.status === 'CONFIRMED') for (const item of order.items) await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+      const updated = await tx.order.update({ where: { id: order.id }, data: { status: target, sourceOrderId: sourceOrderId || order.sourceOrderId, courierName: courierName || order.courierName, trackingNumber: trackingNumber || order.trackingNumber, trackingUrl: trackingUrl || order.trackingUrl, cancellationReason: target === 'CANCELLED' ? (note || order.cancellationReason) : order.cancellationReason, refundAmount: refundAmount ?? order.refundAmount, refundMethod: refundMethod || order.refundMethod, refundReference: refundReference || order.refundReference, refundProcessedAt: target === 'REFUNDED' ? new Date() : order.refundProcessedAt }, select: { orderNumber: true, status: true, email: true } });
       await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: order.status, newStatus: target, changedBy: session.user.email!, note: note || null } });
       return updated;
     });
-    return NextResponse.json(result);
+    if (result.email && statusMessage[target]) void notifyCustomer(result.email, result.orderNumber, target, `${statusMessage[target]}${note ? ` Note: ${note}` : ''}`);
+    return NextResponse.json({ orderNumber: result.orderNumber, status: result.status });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     if (message === 'NOT_FOUND') return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
