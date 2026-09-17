@@ -16,13 +16,24 @@ export async function POST(request: Request) {
       if (!order) throw new Error('NOT_FOUND');
       if (order.status !== 'PAYMENT_PENDING') throw new Error('INVALID_STATUS');
       if (!order.upiTransactionId || !order.paymentScreenshotUrl) throw new Error('PAYMENT_PROOF_MISSING');
-      for (const item of order.items) {
-        const updated = await tx.product.updateMany({ where: { id: item.productId, status: 'ACTIVE', stock: { gte: item.quantity } }, data: { stock: { decrement: item.quantity } } });
-        if (updated.count !== 1) throw new Error(`INSUFFICIENT_STOCK:${item.productName}`);
+
+      // Claim the payment transition before touching inventory. This makes two
+      // simultaneous admin clicks mutually exclusive and prevents double deduction.
+      const claimed = await tx.order.updateMany({ where: { id: order.id, status: 'PAYMENT_PENDING' }, data: { status: 'CONFIRMED', paymentVerifiedAt: new Date(), paymentVerifiedBy: session.user.email, paymentVerificationNote: note || null, paymentRejectionReason: null } });
+      if (claimed.count !== 1) throw new Error('INVALID_STATUS');
+
+      try {
+        for (const item of order.items) {
+          const updated = await tx.product.updateMany({ where: { id: item.productId, status: 'ACTIVE', stock: { gte: item.quantity } }, data: { stock: { decrement: item.quantity } } });
+          if (updated.count !== 1) throw new Error(`INSUFFICIENT_STOCK:${item.productName}`);
+        }
+      } catch (error) {
+        // Throwing rolls back the status claim and every stock decrement atomically.
+        throw error;
       }
-      const updatedOrder = await tx.order.update({ where: { id: order.id }, data: { status: 'CONFIRMED', paymentVerifiedAt: new Date(), paymentVerifiedBy: session.user.email, paymentVerificationNote: note || null, paymentRejectionReason: null }, select: { orderNumber: true, status: true, email: true } });
+
       await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: 'PAYMENT_PENDING', newStatus: 'CONFIRMED', changedBy: session.user.email, note: note || 'Payment manually verified; inventory deducted.' } });
-      return updatedOrder;
+      return { orderNumber: order.orderNumber, status: 'CONFIRMED' as const, email: order.email };
     });
     if (result.email) void notifyCustomer(result.email, result.orderNumber, 'CONFIRMED', 'Your payment has been verified and your order is being prepared.');
     return NextResponse.json(result);
