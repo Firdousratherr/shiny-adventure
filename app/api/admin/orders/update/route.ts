@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
+import { Prisma, type OrderStatus } from '@prisma/client';
 import { auth } from '../../../../../auth';
 import { db } from '../../../../../lib/db';
-import { Prisma, type OrderStatus } from '@prisma/client';
 import { canTransition } from '../../../../../lib/orders/status';
 import { notifyCustomer } from '../../../../../lib/email';
 
@@ -11,7 +11,8 @@ const statusMessage: Partial<Record<OrderStatus,string>> = { ORDERED_FROM_SOURCE
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const adminEmail = session?.user?.email;
+  if (!adminEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.formData();
     const orderNumber = text(body.get('orderNumber'), 50).toUpperCase();
@@ -67,11 +68,11 @@ export async function POST(request: Request) {
         },
         select: { orderNumber: true, status: true, email: true },
       });
-      await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: order.status, newStatus: target, changedBy: session.user.email!, note: note || null } });
+      await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: order.status, newStatus: target, changedBy: adminEmail, note: note || null } });
       return updated;
     });
 
-    if (result.email && statusMessage[target]) void notifyCustomer(result.email, result.orderNumber, target, `${statusMessage[target]}${note ? ` Note: ${note}` : ''}`);
+    if (result.email && statusMessage[target]) void notifyCustomer(result.email, result.orderNumber, target, statusMessage[target]);
     return NextResponse.json({ orderNumber: result.orderNumber, status: result.status });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
