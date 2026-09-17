@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../../lib/db';
 import { getRazorpay, verifyCheckoutSignature } from '../../../../../lib/razorpay';
+import { notifyCustomer } from '../../../../../lib/email';
 
 export async function POST(request: Request) {
   try {
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
       await tx.order.update({ where: { id: order.id }, data: { razorpayPaymentId: paymentId, razorpaySignature: signature, paymentMethod: 'RAZORPAY', paymentVerifiedAt: new Date(), paymentVerifiedBy: 'RAZORPAY', paymentVerificationNote: 'Razorpay payment captured and verified server-side.', paymentRejectionReason: null, status: 'CONFIRMED' } });
       await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: 'PAYMENT_PENDING', newStatus: 'CONFIRMED', changedBy: 'RAZORPAY', note: 'Razorpay payment captured and inventory deducted.' } });
     });
+    if (order.email) void notifyCustomer(order.email, orderNumber, 'CONFIRMED', 'Your Razorpay payment has been verified and your order is being prepared.');
     return NextResponse.json({ ok: true, orderNumber });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
