@@ -1,2 +1,39 @@
-import Link from 'next/link';import {db} from '../lib/db';
-export default async function Home(){const products=await db.product.findMany({where:{status:'ACTIVE'},orderBy:{createdAt:'desc'},take:8,select:{id:true,name:true,slug:true,sellingPrice:true,images:{orderBy:{sortOrder:'asc'},take:1,select:{url:true,altText:true}}}});return <main><header className="sticky top-0 z-20 border-b bg-white/95 backdrop-blur"><div className="container flex h-16 items-center justify-between"><Link href="/" className="text-2xl font-black">ShopKart</Link><nav className="hidden gap-6 md:flex"><Link href="/products">Shop</Link><Link href="/track">Track Order</Link></nav><Link href="/cart" className="rounded-full bg-slate-900 px-4 py-2 font-semibold text-white">Cart</Link></div></header><section className="bg-slate-900 text-white"><div className="container py-20"><p className="text-sm font-bold uppercase tracking-widest text-slate-300">Everyday shopping</p><h1 className="mt-3 max-w-3xl text-4xl font-black md:text-6xl">Useful products, simple prices, delivered to your door.</h1><p className="mt-5 max-w-2xl text-lg text-slate-300">Discover products selected for Indian shoppers.</p><Link href="/products" className="mt-8 inline-block rounded-xl bg-white px-6 py-3 font-bold text-slate-900">Shop now</Link></div></section><section className="container py-12"><div className="flex items-end justify-between"><h2 className="text-2xl font-bold">Featured products</h2><Link href="/products" className="font-semibold">View all →</Link></div><div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{products.map(p=><Link key={p.id} href={`/product/${p.slug}`} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100"><div className="flex h-48 items-center justify-center bg-slate-100">{p.images[0]?<img src={p.images[0].url} alt={p.images[0].altText||p.name} className="h-full w-full object-cover"/>:<span className="text-6xl">🛍️</span>}</div><div className="p-5"><h3 className="font-bold">{p.name}</h3><p className="mt-2 text-xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN',{minimumFractionDigits:2})}</p></div></Link>)}</div></section><footer className="border-t bg-white"><div className="container py-8 text-sm text-slate-500">© 2026 ShopKart · <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link></div></footer></main>}
+import Link from 'next/link';
+import { db } from '../lib/db';
+
+export default async function Home() {
+  const products = await db.product.findMany({
+    where: { status: 'ACTIVE' },
+    orderBy: { createdAt: 'desc' },
+    take: 8,
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      sellingPrice: true,
+      images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true, altText: true } },
+    },
+  });
+
+  return (
+    <main>
+      <header className="sticky top-0 z-20 border-b bg-white/95 backdrop-blur">
+        <div className="container flex h-16 items-center justify-between">
+          <Link href="/" className="text-2xl font-black">Zenvora</Link>
+          <nav className="hidden gap-6 md:flex"><Link href="/products">Shop</Link><Link href="/track">Track Order</Link></nav>
+          <Link href="/cart" className="rounded-full bg-slate-900 px-4 py-2 font-semibold text-white">Cart</Link>
+        </div>
+      </header>
+      <section className="bg-slate-900 text-white"><div className="container py-20">
+        <p className="text-sm font-bold uppercase tracking-widest text-slate-300">Zenvora · Everyday shopping</p>
+        <h1 className="mt-3 max-w-3xl text-4xl font-black md:text-6xl">Useful products, simple prices, delivered to your door.</h1>
+        <p className="mt-5 max-w-2xl text-lg text-slate-300">Discover products selected for Indian shoppers.</p>
+        <Link href="/products" className="mt-8 inline-block rounded-xl bg-white px-6 py-3 font-bold text-slate-900">Shop now</Link>
+      </div></section>
+      <section className="container py-12"><div className="flex items-end justify-between"><h2 className="text-2xl font-bold">Featured products</h2><Link href="/products" className="font-semibold">View all →</Link></div>
+        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{products.map((p) => <Link key={p.id} href={`/product/${p.slug}`} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100"><div className="flex h-48 items-center justify-center bg-slate-100">{p.images[0] ? <img src={p.images[0].url} alt={p.images[0].altText || p.name} className="h-full w-full object-cover" /> : <span className="text-6xl">🛍️</span>}</div><div className="p-5"><h3 className="font-bold">{p.name}</h3><p className="mt-2 text-xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p></div></Link>)}</div>
+      </section>
+      <footer className="border-t bg-white"><div className="container py-8 text-sm text-slate-500">© 2026 Zenvora · <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link></div></footer>
+    </main>
+  );
+}
