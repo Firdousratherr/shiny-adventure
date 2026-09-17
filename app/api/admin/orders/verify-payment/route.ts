@@ -5,7 +5,8 @@ import { notifyCustomer } from '../../../../../lib/email';
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const adminEmail = session?.user?.email;
+  if (!adminEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.json();
     const orderNumber = typeof body.orderNumber === 'string' ? body.orderNumber.trim().toUpperCase() : '';
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
       if (order.status !== 'PAYMENT_PENDING') throw new Error('INVALID_STATUS');
       if (!order.upiTransactionId || !order.paymentScreenshotUrl) throw new Error('PAYMENT_PROOF_MISSING');
 
-      const claimed = await tx.order.updateMany({ where: { id: order.id, status: 'PAYMENT_PENDING' }, data: { status: 'CONFIRMED', paymentVerifiedAt: new Date(), paymentVerifiedBy: session.user.email, paymentVerificationNote: note || null, paymentRejectionReason: null } });
+      const claimed = await tx.order.updateMany({ where: { id: order.id, status: 'PAYMENT_PENDING' }, data: { status: 'CONFIRMED', paymentVerifiedAt: new Date(), paymentVerifiedBy: adminEmail, paymentVerificationNote: note || null, paymentRejectionReason: null } });
       if (claimed.count !== 1) throw new Error('INVALID_STATUS');
 
       for (const item of order.items) {
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
         await tx.inventoryMovement.create({ data: { productId: item.productId, orderId: order.id, quantity: -item.quantity, reason: 'PAYMENT_CONFIRMED_DEDUCTION' } });
       }
 
-      await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: 'PAYMENT_PENDING', newStatus: 'CONFIRMED', changedBy: session.user.email, note: note || 'Payment manually verified; inventory deducted.' } });
+      await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: 'PAYMENT_PENDING', newStatus: 'CONFIRMED', changedBy: adminEmail, note: note || 'Payment manually verified; inventory deducted.' } });
       return { orderNumber: order.orderNumber, status: 'CONFIRMED' as const, email: order.email };
     });
     if (result.email) void notifyCustomer(result.email, result.orderNumber, 'CONFIRMED', 'Your payment has been verified and your order is being prepared.');
