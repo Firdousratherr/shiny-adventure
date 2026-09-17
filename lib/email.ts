@@ -1,6 +1,44 @@
 import nodemailer from 'nodemailer';
 
-type Mail={to:string;subject:string;text:string;html:string};
-function transport(){const {SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASSWORD}=process.env;if(!SMTP_HOST||!SMTP_USER||!SMTP_PASSWORD)return null;return nodemailer.createTransport({host:SMTP_HOST,port:Number(SMTP_PORT||587),secure:Number(SMTP_PORT||587)===465,auth:{user:SMTP_USER,pass:SMTP_PASSWORD}})}
-export async function sendEmail(mail:Mail){const t=transport();if(!t)return false;try{await t.sendMail({...mail,from:process.env.SMTP_FROM||process.env.SMTP_USER});return true}catch(error){console.error('email notification failed',error);return false}}
-export async function notifyCustomer(to:string,orderNumber:string,status:string,extra=''){return sendEmail({to,subject:`Zenvora order ${orderNumber} — ${status.replaceAll('_',' ')}`,text:`Your Zenvora order ${orderNumber} is now ${status.replaceAll('_',' ')}. ${extra}`.trim(),html:`<div style="font-family:Arial,sans-serif;max-width:600px"><h2>Zenvora order update</h2><p>Order <b>${orderNumber}</b> is now <b>${status.replaceAll('_',' ')}</b>.</p>${extra?`<p>${extra}</p>`:''}<p>You can use the Zenvora order tracking page to check the latest status.</p></div>`})}
+type Mail = { to: string; subject: string; text: string; html: string };
+
+const escapeHtml = (value: string) => value
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
+
+function transport() {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD } = process.env;
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) return null;
+  const port = Number(SMTP_PORT || 587);
+  return nodemailer.createTransport({
+    host: SMTP_HOST,
+    port,
+    secure: port === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASSWORD },
+  });
+}
+
+export async function sendEmail(mail: Mail) {
+  const t = transport();
+  if (!t) return false;
+  try {
+    await t.sendMail({ ...mail, from: process.env.SMTP_FROM || process.env.SMTP_USER });
+    return true;
+  } catch (error) {
+    console.error('email notification failed', error);
+    return false;
+  }
+}
+
+export async function notifyCustomer(to: string, orderNumber: string, status: string, extra = '') {
+  const safeOrderNumber = escapeHtml(orderNumber);
+  const safeStatus = escapeHtml(status.replaceAll('_', ' '));
+  const safeExtra = escapeHtml(extra);
+  const subject = `Zenvora order ${orderNumber} — ${status.replaceAll('_', ' ')}`;
+  const text = `Your Zenvora order ${orderNumber} is now ${status.replaceAll('_', ' ')}. ${extra}`.trim();
+  const html = `<div style="font-family:Arial,sans-serif;max-width:600px"><h2>Zenvora order update</h2><p>Order <b>${safeOrderNumber}</b> is now <b>${safeStatus}</b>.</p>${safeExtra ? `<p>${safeExtra}</p>` : ''}<p>You can use the Zenvora order tracking page to check the latest status.</p></div>`;
+  return sendEmail({ to, subject, text, html });
+}
