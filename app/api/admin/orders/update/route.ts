@@ -5,7 +5,7 @@ import { Prisma, type OrderStatus } from '@prisma/client';
 import { canTransition } from '../../../../../lib/orders/status';
 import { notifyCustomer } from '../../../../../lib/email';
 
-const statuses = new Set<OrderStatus>(['CONFIRMED','ORDERED_FROM_SOURCE','SHIPPED','DELIVERED','CANCELLED','RTO','RETURN_REQUESTED','REFUNDED']);
+const statuses = new Set<OrderStatus>(['ORDERED_FROM_SOURCE','SHIPPED','DELIVERED','CANCELLED','RTO','RETURN_REQUESTED','REFUNDED']);
 const text = (v: unknown, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : '';
 const statusMessage: Partial<Record<OrderStatus,string>> = { ORDERED_FROM_SOURCE:'Your order has been placed with the source supplier and is being prepared.', SHIPPED:'Your order has been shipped.', DELIVERED:'Your order has been marked as delivered.', CANCELLED:'Your order has been cancelled.', RTO:'Your order has been marked as returned to origin.', RETURN_REQUESTED:'Your return request has been recorded and is under review.', REFUNDED:'Your refund has been processed.' };
 
@@ -40,9 +40,10 @@ export async function POST(request: Request) {
       if (target === 'REFUNDED' && !refundAmount) refundAmount = order.totalAmount;
       if (target === 'REFUNDED' && !refundMethod) throw new Error('REFUND_METHOD_REQUIRED');
       if (target === 'REFUNDED' && !refundReference) throw new Error('REFUND_REFERENCE_REQUIRED');
+      if (target === 'RTO' && !note) throw new Error('RTO_REASON_REQUIRED');
 
       const shouldRestore = target === 'CANCELLED' && order.status === 'CONFIRMED';
-      const shouldRestockRto = target === 'RTO' && ['SHIPPED'].includes(order.status);
+      const shouldRestockRto = target === 'RTO' && order.status === 'SHIPPED';
       if (shouldRestore || shouldRestockRto) {
         for (const item of order.items) {
           await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
     if (message === 'INVALID_REFUND') return NextResponse.json({ error: 'Refund amount must be between ₹0 and the order total.' }, { status: 400 });
     if (message === 'REFUND_METHOD_REQUIRED') return NextResponse.json({ error: 'Refund method is required.' }, { status: 400 });
     if (message === 'REFUND_REFERENCE_REQUIRED') return NextResponse.json({ error: 'Refund reference is required.' }, { status: 400 });
+    if (message === 'RTO_REASON_REQUIRED') return NextResponse.json({ error: 'RTO reason is required.' }, { status: 400 });
     console.error('admin order update failed', error);
     return NextResponse.json({ error: 'Unable to update order.' }, { status: 500 });
   }
