@@ -1,0 +1,20 @@
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function PaymentActions({ orderNumber }: { orderNumber: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const router = useRouter();
+  async function action(url: string, body: object) {
+    setBusy(true); setError('');
+    try { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const data = await r.json(); if (!r.ok) throw new Error(data.error || 'Action failed'); router.refresh(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Action failed'); }
+    finally { setBusy(false); }
+  }
+  return <div className="mt-5 flex flex-wrap gap-3">
+    <button disabled={busy} onClick={() => { const note = window.prompt('Verification note (optional):') ?? ''; if (window.confirm('Verify payment and deduct stock now?')) void action('/api/admin/orders/verify-payment', { orderNumber, note }); }} className="rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white disabled:opacity-50">Verify & deduct stock</button>
+    <button disabled={busy} onClick={() => { const reason = window.prompt('Rejection reason:')?.trim() || ''; if (reason) void action('/api/admin/orders/reject-payment', { orderNumber, reason }); }} className="rounded-xl bg-red-600 px-5 py-3 font-bold text-white disabled:opacity-50">Reject payment</button>
+    {error && <p className="basis-full rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+  </div>;
+}
