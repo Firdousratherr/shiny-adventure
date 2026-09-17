@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { db } from '../../../lib/db';
+import AddToCart from '../../../components/add-to-cart';
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const p = await db.product.findUnique({ where: { slug: params.slug }, select: { name: true, description: true, images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } } } });
@@ -16,7 +17,7 @@ export default async function Product({ params }: { params: { slug: string } }) 
     <div className="flex items-center justify-between"><Link href="/products" className="font-semibold">← Back to shop</Link><Link href="/cart" className="font-semibold">Cart</Link></div>
     <div className="mt-8 grid gap-10 md:grid-cols-2">
       <div className="rounded-3xl bg-white p-3">{p.images.length ? <div className="grid gap-3">{p.images.map((image) => <img key={image.url} src={image.url} alt={image.altText || p.name} className="aspect-square w-full rounded-2xl object-cover" />)}</div> : <div className="flex aspect-square items-center justify-center bg-slate-100 text-8xl">🛍️</div>}</div>
-      <div><p className="text-sm font-bold uppercase tracking-widest text-slate-500">Zenvora</p><h1 className="mt-2 text-4xl font-black">{p.name}</h1><p className="mt-4 text-3xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p><p className="mt-3 font-semibold text-slate-600">{p.stock > 0 ? `${p.stock} available` : 'Out of stock'}</p><p className="mt-6 whitespace-pre-wrap leading-7 text-slate-600">{p.description}</p><Link href="/cart" className="mt-8 inline-block w-full rounded-xl bg-slate-900 px-6 py-4 text-center font-bold text-white">Add to cart</Link></div>
+      <div><p className="text-sm font-bold uppercase tracking-widest text-slate-500">Zenvora</p><h1 className="mt-2 text-4xl font-black">{p.name}</h1><p className="mt-4 text-3xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p><p className="mt-3 font-semibold text-slate-600">{p.stock > 0 ? `${p.stock} available` : 'Out of stock'}</p><p className="mt-6 whitespace-pre-wrap leading-7 text-slate-600">{p.description}</p><AddToCart product={{ id: p.id, name: p.name, price: Number(p.sellingPrice), image: p.images[0]?.url, stock: p.stock }} /></div>
     </div>
   </main>;
 }
