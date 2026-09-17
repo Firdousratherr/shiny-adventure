@@ -17,6 +17,13 @@ function safeExt(type: string) {
   return 'webp';
 }
 
+function matchesMagicBytes(type: string, bytes: Uint8Array) {
+  if (type === 'image/jpeg') return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (type === 'image/png') return bytes.length >= 8 && bytes.slice(0, 8).every((b, i) => b === [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][i]);
+  if (type === 'image/webp') return bytes.length >= 12 && new TextDecoder().decode(bytes.slice(0, 4)) === 'RIFF' && new TextDecoder().decode(bytes.slice(8, 12)) === 'WEBP';
+  return false;
+}
+
 export async function POST(request: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
@@ -26,16 +33,23 @@ export async function POST(request: Request) {
     const altText = String(form.get('altText') || '').trim().slice(0, 160);
     if (!productId || !(file instanceof File)) return NextResponse.json({ error: 'Product and image are required.' }, { status: 400 });
     if (!ALLOWED.has(file.type) || file.size <= 0 || file.size > MAX_BYTES) return NextResponse.json({ error: 'Only JPG, PNG or WebP images up to 5 MB are allowed.' }, { status: 400 });
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (!matchesMagicBytes(file.type, bytes)) return NextResponse.json({ error: 'The uploaded file is not a valid image.' }, { status: 400 });
     const product = await db.product.findUnique({ where: { id: productId }, select: { id: true } });
     if (!product) return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
 
     const ext = safeExt(file.type);
     const key = `products/${productId}/${crypto.randomUUID()}.${ext}`;
-    const blob = await put(key, file, { access: 'public', addRandomSuffix: false });
-    const last = await db.productImage.aggregate({ where: { productId }, _max: { sortOrder: true } });
-    const sortOrder = (last._max.sortOrder ?? -1) + 1;
-    const image = await db.productImage.create({ data: { productId, url: blob.url, altText: altText || null, sortOrder } });
-    return NextResponse.json({ image }, { status: 201 });
+    const blob = await put(key, new Blob([bytes], { type: file.type }), { access: 'public', addRandomSuffix: false });
+    try {
+      const last = await db.productImage.aggregate({ where: { productId }, _max: { sortOrder: true } });
+      const sortOrder = (last._max.sortOrder ?? -1) + 1;
+      const image = await db.productImage.create({ data: { productId, url: blob.url, altText: altText || null, sortOrder } });
+      return NextResponse.json({ image }, { status: 201 });
+    } catch (error) {
+      try { await del(blob.url); } catch (cleanupError) { console.error('product image cleanup failed', cleanupError); }
+      throw error;
+    }
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Unable to upload image.' }, { status: 500 });
