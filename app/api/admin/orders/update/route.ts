@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.formData();
-    const orderNumber = text(body.get('orderNumber'), 50);
+    const orderNumber = text(body.get('orderNumber'), 50).toUpperCase();
     const target = text(body.get('status'), 30) as OrderStatus;
     const note = text(body.get('note'));
     const sourceOrderId = text(body.get('sourceOrderId'), 100);
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const refundMethod = text(body.get('refundMethod'), 80);
     const refundReference = text(body.get('refundReference'), 150);
     const refundRaw = text(body.get('refundAmount'), 30);
-    if (!orderNumber || !statuses.has(target)) return NextResponse.json({ error: 'Invalid order update.' }, { status: 400 });
+    if (!/^ORD-\d{4}-\d{4,}$/.test(orderNumber) || !statuses.has(target)) return NextResponse.json({ error: 'Invalid order update.' }, { status: 400 });
     if (trackingUrl && !/^https:\/\//i.test(trackingUrl)) return NextResponse.json({ error: 'Tracking URL must use HTTPS.' }, { status: 400 });
 
     const result = await db.$transaction(async tx => {
@@ -39,13 +39,14 @@ export async function POST(request: Request) {
       }
       if (target === 'REFUNDED' && !refundAmount) refundAmount = order.totalAmount;
       if (target === 'REFUNDED' && !refundMethod) throw new Error('REFUND_METHOD_REQUIRED');
+      if (target === 'REFUNDED' && !refundReference) throw new Error('REFUND_REFERENCE_REQUIRED');
 
-      // Stock is deducted exactly once, at payment confirmation. Restore it only when
-      // a paid order is cancelled before source fulfillment. Later RTO/return stock
-      // handling is deliberately manual because the physical item may not be back.
-      if (target === 'CANCELLED' && ['CONFIRMED'].includes(order.status)) {
+      const shouldRestore = target === 'CANCELLED' && order.status === 'CONFIRMED';
+      const shouldRestockRto = target === 'RTO' && ['SHIPPED'].includes(order.status);
+      if (shouldRestore || shouldRestockRto) {
         for (const item of order.items) {
           await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+          await tx.inventoryMovement.create({ data: { productId: item.productId, orderId: order.id, quantity: item.quantity, reason: shouldRestockRto ? 'RTO_RESTOCK' : 'CANCELLED_RESTOCK' } });
         }
       }
 
@@ -69,9 +70,7 @@ export async function POST(request: Request) {
       return updated;
     });
 
-    if (result.email && statusMessage[target]) {
-      void notifyCustomer(result.email, result.orderNumber, target, `${statusMessage[target]}${note ? ` Note: ${note}` : ''}`);
-    }
+    if (result.email && statusMessage[target]) void notifyCustomer(result.email, result.orderNumber, target, `${statusMessage[target]}${note ? ` Note: ${note}` : ''}`);
     return NextResponse.json({ orderNumber: result.orderNumber, status: result.status });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
@@ -79,6 +78,7 @@ export async function POST(request: Request) {
     if (message === 'INVALID_TRANSITION') return NextResponse.json({ error: 'That status change is not allowed.' }, { status: 409 });
     if (message === 'INVALID_REFUND') return NextResponse.json({ error: 'Refund amount must be between ₹0 and the order total.' }, { status: 400 });
     if (message === 'REFUND_METHOD_REQUIRED') return NextResponse.json({ error: 'Refund method is required.' }, { status: 400 });
+    if (message === 'REFUND_REFERENCE_REQUIRED') return NextResponse.json({ error: 'Refund reference is required.' }, { status: 400 });
     console.error('admin order update failed', error);
     return NextResponse.json({ error: 'Unable to update order.' }, { status: 500 });
   }
