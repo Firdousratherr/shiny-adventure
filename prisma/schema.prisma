@@ -61,7 +61,6 @@ model Product {
   updatedAt    DateTime      @updatedAt
   images       ProductImage[]
   orderItems   OrderItem[]
-  movements    InventoryMovement[]
 
   @@index([categoryId])
   @@index([status])
@@ -114,45 +113,45 @@ model InventoryMovement {
 }
 
 model Order {
-  id                       String              @id @default(uuid())
-  orderNumber              String              @unique
-  customerName             String
-  email                    String?
-  phone                    String
-  addressLine1             String
-  addressLine2             String?
-  landmark                 String?
-  city                     String
-  district                 String
-  pinCode                  String
-  state                    String
-  totalAmount              Decimal             @db.Decimal(12, 2)
-  deliveryCharge           Decimal             @db.Decimal(12, 2)
-  status                   OrderStatus         @default(PAYMENT_PENDING)
-  paymentMethod            String              @default("UPI_MANUAL")
-  razorpayOrderId          String?             @unique
-  razorpayPaymentId        String?             @unique
-  razorpaySignature        String?
-  upiTransactionId         String?             @unique
-  paymentScreenshotUrl     String?
-  paymentVerifiedAt        DateTime?
-  paymentVerifiedBy        String?
-  paymentVerificationNote  String?
-  paymentRejectionReason   String?
-  sourceOrderId            String?
-  courierName              String?
-  trackingNumber           String?
-  trackingUrl              String?
-  cancellationReason       String?
-  refundAmount             Decimal?
-  refundMethod             String?
-  refundReference          String?
-  refundProcessedAt        DateTime?
-  createdAt                DateTime            @default(now())
-  updatedAt                DateTime            @updatedAt
-  items                    OrderItem[]
-  history                  OrderStatusHistory[]
-  inventoryMovements       InventoryMovement[]
+  id                      String               @id @default(uuid())
+  orderNumber             String               @unique
+  customerName            String
+  email                   String?
+  phone                   String
+  addressLine1            String
+  addressLine2            String?
+  landmark                String?
+  city                    String
+  district                String
+  pinCode                 String
+  state                   String
+  totalAmount             Decimal              @db.Decimal(12, 2)
+  deliveryCharge          Decimal              @db.Decimal(12, 2)
+  status                  OrderStatus          @default(PAYMENT_PENDING)
+  paymentMethod           String               @default("UPI_MANUAL")
+  razorpayOrderId         String?              @unique
+  razorpayPaymentId       String?              @unique
+  razorpaySignature       String?
+  upiTransactionId        String?              @unique
+  paymentScreenshotUrl    String?
+  paymentVerifiedAt       DateTime?
+  paymentVerifiedBy       String?
+  paymentVerificationNote String?
+  paymentRejectionReason  String?
+  sourceOrderId           String?
+  courierName             String?
+  trackingNumber          String?
+  trackingUrl             String?
+  cancellationReason      String?
+  refundAmount            Decimal?
+  refundMethod            String?
+  refundReference         String?
+  refundProcessedAt       DateTime?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  items                   OrderItem[]
+  history                 OrderStatusHistory[]
+  inventoryMovements      InventoryMovement[]
 
   @@index([status])
   @@index([phone])
@@ -162,15 +161,15 @@ model Order {
 }
 
 model OrderItem {
-  id         String  @id @default(cuid())
+  id         String   @id @default(cuid())
   orderId    String
   productId  String
   productName String
   quantity   Int
-  unitPrice  Decimal @db.Decimal(12, 2)
+  unitPrice  Decimal  @db.Decimal(12, 2)
   sourceCost Decimal? @db.Decimal(12, 2)
-  order      Order   @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  product    Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
   @@index([productId])
