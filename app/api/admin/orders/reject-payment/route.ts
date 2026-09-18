@@ -4,7 +4,7 @@ import { db } from '../../../../../lib/db';
 
 export async function POST(request: Request) {
   const session = await auth();
-  const adminEmail = session?.user?.email;
+  const adminEmail = session?.user?.role === 'admin' ? session.user.email : null;
   if (!adminEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.json();
