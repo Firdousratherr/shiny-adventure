@@ -8,7 +8,7 @@ const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 async function requireAdmin() {
   const session = await auth();
-  return session?.user?.email ? session.user.email : null;
+  return session?.user?.role === 'admin' ? session.user.email : null;
 }
 function safeExt(type: string) { if (type === 'image/jpeg') return 'jpg'; if (type === 'image/png') return 'png'; return 'webp'; }
 function matchesMagicBytes(type: string, bytes: Uint8Array) {
