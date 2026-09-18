@@ -26,7 +26,8 @@ export default async function PaymentPage({
   const settings = await db.settings.findMany({ where: { key: { in: ['upiId', 'upiDisplayName', 'razorpayEnabled', 'razorpayKeyId'] } } });
   const s = Object.fromEntries(settings.map(x => [x.key, x.value]));
   const upiId = s.upiId || '';
-  const razorpayEnabled = s.razorpayEnabled === 'true' && !!s.razorpayKeyId;
+  const razorpayKeyId = s.razorpayKeyId || '';
+  const razorpayEnabled = s.razorpayEnabled === 'true' && !!razorpayKeyId;
   const intent = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&am=${encodeURIComponent(order.totalAmount.toFixed(2))}&cu=INR` : '';
   const qr = upiId ? await QRCode.toDataURL(intent, { width: 320, margin: 2 }) : '';
   const expiresAt = order.reservationExpiresAt ? order.reservationExpiresAt.getTime() : 0;
@@ -49,7 +50,7 @@ export default async function PaymentPage({
             {order.reservationExpiresAt && (
               <p className="mt-2 text-xs text-slate-500">Inventory reserved until {order.reservationExpiresAt.toLocaleString('en-IN')}.</p>
             )}
-            {razorpayEnabled && <RazorpayButton orderNumber={order.orderNumber} paymentToken={token} keyId={s.razorpayKeyId} />}
+            {razorpayEnabled && <RazorpayButton orderNumber={order.orderNumber} paymentToken={token} keyId={razorpayKeyId} />}
             {upiId && (
               <>
                 <div className="my-7 flex items-center gap-3 text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200"/><span>OR PAY BY UPI</span><span className="h-px flex-1 bg-slate-200"/></div>
