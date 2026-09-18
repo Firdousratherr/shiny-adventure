@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import AdminNav from '../../../components/admin-nav';
 import { redirect } from 'next/navigation';
 import { auth } from '../../../auth';
 import { db } from '../../../lib/db';
@@ -17,7 +18,7 @@ export default async function AdminOrders({ searchParams }: { searchParams?: { s
     orderBy: { createdAt: 'desc' }, take: 100,
     include: { items: true, history: { orderBy: { createdAt: 'desc' }, take: 10 } },
   });
-  return <main className="min-h-screen bg-slate-100"><div className="container py-8">
+  return <main className="min-h-screen bg-slate-100"><AdminNav active="orders"/><div className="container py-8">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm text-slate-500">Zenvora Admin</p><h1 className="text-3xl font-black">Order management</h1></div><Link href="/admin/dashboard" className="font-semibold">← Dashboard</Link></div>
     <form className="mt-6 flex flex-wrap gap-2"><input name="q" defaultValue={q} placeholder="Search order, customer or phone" className="min-w-[260px] flex-1 rounded-xl border bg-white px-4 py-3"/><select name="status" defaultValue={status || ''} className="rounded-xl border bg-white px-4 py-3"><option value="">All statuses</option>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="rounded-xl bg-slate-900 px-5 py-3 font-bold text-white">Filter</button></form>
     <div className="mt-6 space-y-5">{!orders.length&&<div className="rounded-2xl bg-white p-8 text-center text-slate-500">No orders found.</div>}{orders.map(order=><section key={order.id} className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
