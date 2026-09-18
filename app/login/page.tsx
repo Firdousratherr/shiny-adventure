@@ -27,7 +27,7 @@ export default function CustomerLogin() {
           {error&&<div role="alert" className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300">{error}</div>}
           <button disabled={loading} className="h-14 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 font-black text-white shadow-lg shadow-violet-900/20 transition hover:-translate-y-0.5 disabled:opacity-60">{loading?'Signing in…':'Sign In →'}</button>
         </form>
-        <p className="mt-7 text-center text-sm text-slate-400">Don&apos;t have an account? <Link href="/signup" className="font-bold text-fuchsia-400 hover:text-fuchsia-300">Create one</Link></p>
+        <div className="mt-7 flex items-center justify-between text-sm"><Link href="/forgot-password" className="font-bold text-fuchsia-400 hover:text-fuchsia-300">Forgot password?</Link><span className="text-slate-500">Need an account? <Link href="/signup" className="font-bold text-fuchsia-400 hover:text-fuchsia-300">Create one</Link></span></div>
         <Link href="/admin/login" className="mt-6 block text-center text-xs text-slate-600 hover:text-slate-400">Administrator login</Link>
       </div></section>
     </div>
