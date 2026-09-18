@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { randomInt } from 'crypto';
 import { db } from '../../../../lib/db';
 import { rateLimit } from '../../../../lib/rate-limit';
+import { sendSignupOtp } from '../../../../lib/email';
 
 export async function POST(request: Request) {
   try {
@@ -18,15 +20,33 @@ export async function POST(request: Request) {
     if (existing) return NextResponse.json({ error: 'An account with this email already exists. Please sign in.' }, { status: 409 });
 
     const limited = await rateLimit('signup:' + email, 5, 600);
-    if (process.env.NODE_ENV === 'production' && !limited.configured) return NextResponse.json({ error: 'Signup is temporarily unavailable.' }, { status: 503 });
-    if (limited.limited) return NextResponse.json({ error: 'Too many signup attempts. Please wait 10 minutes.' }, { status: 429 });
+    if (process.env.NODE_ENV === 'production' && !limited.configured) {
+      return NextResponse.json({ error: 'Signup is temporarily unavailable.' }, { status: 503 });
+    }
+    if (limited.limited) {
+      return NextResponse.json({ error: 'Too many signup attempts. Please wait 10 minutes.' }, { status: 429 });
+    }
 
+    const otp = String(randomInt(100000, 1000000));
+    const otpHash = await bcrypt.hash(otp, 10);
     const passwordHash = await bcrypt.hash(password, 12);
-    const customer = await db.customerUser.create({ data: { name, email, passwordHash } });
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    return NextResponse.json({ ok: true, customer: { id: customer.id, name: customer.name, email: customer.email } }, { status: 201 });
+    await db.signupOtp.upsert({
+      where: { email },
+      update: { name, passwordHash, otpHash, expiresAt, attempts: 0 },
+      create: { email, name, passwordHash, otpHash, expiresAt },
+    });
+
+    const sent = await sendSignupOtp(email, otp);
+    if (!sent) {
+      await db.signupOtp.deleteMany({ where: { email } });
+      return NextResponse.json({ error: 'We could not send the verification code. Please check the email service configuration and try again.' }, { status: 503 });
+    }
+
+    return NextResponse.json({ ok: true, requiresVerification: true, message: 'Verification code sent to your email.' });
   } catch (error) {
-    console.error('signup failed', error);
-    return NextResponse.json({ error: 'Unable to create your account right now.' }, { status: 500 });
+    console.error('signup otp failed', error);
+    return NextResponse.json({ error: 'Unable to start signup right now.' }, { status: 500 });
   }
 }
