@@ -122,7 +122,7 @@ export default function Checkout() {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Checkout failed');
       clear();
-      router.push(`/payment/${encodeURIComponent(data.orderNumber)}`);
+      router.push(`/payment/${encodeURIComponent(data.orderNumber)}?token=${encodeURIComponent(data.paymentToken)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create order.');
     } finally {
