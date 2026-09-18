@@ -35,6 +35,15 @@ model AdminUser {
   updatedAt    DateTime @updatedAt
 }
 
+model CustomerUser {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Category {
   id        String    @id @default(cuid())
   name      String
@@ -148,8 +157,6 @@ model Order {
   refundMethod            String?
   refundReference         String?
   refundProcessedAt       DateTime?
-  createdAt               DateTime             @default(now())
-  updatedAt               DateTime             @updatedAt
   items                   OrderItem[]
   history                 OrderStatusHistory[]
   inventoryMovements      InventoryMovement[]
@@ -170,7 +177,7 @@ model OrderItem {
   unitPrice   Decimal  @db.Decimal(12, 2)
   sourceCost  Decimal? @db.Decimal(12, 2)
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product     Product  @relation(fields: [productId], references: [id])
 
   @@index([orderId])
   @@index([productId])
