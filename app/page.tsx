@@ -2,38 +2,12 @@ import Link from 'next/link';
 import { db } from '../lib/db';
 
 export default async function Home() {
-  const products = await db.product.findMany({
-    where: { status: 'ACTIVE' },
-    orderBy: { createdAt: 'desc' },
-    take: 8,
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      sellingPrice: true,
-      images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true, altText: true } },
-    },
-  });
-
-  return (
-    <main>
-      <header className="sticky top-0 z-20 border-b bg-white/95 backdrop-blur">
-        <div className="container flex h-16 items-center justify-between">
-          <Link href="/" className="text-2xl font-black">Zenvora</Link>
-          <nav className="hidden gap-6 md:flex"><Link href="/products">Shop</Link><Link href="/track">Track Order</Link></nav>
-          <Link href="/cart" className="rounded-full bg-slate-900 px-4 py-2 font-semibold text-white">Cart</Link>
-        </div>
-      </header>
-      <section className="bg-slate-900 text-white"><div className="container py-20">
-        <p className="text-sm font-bold uppercase tracking-widest text-slate-300">Zenvora · Everyday shopping</p>
-        <h1 className="mt-3 max-w-3xl text-4xl font-black md:text-6xl">Useful products, simple prices, delivered to your door.</h1>
-        <p className="mt-5 max-w-2xl text-lg text-slate-300">Discover products selected for Indian shoppers.</p>
-        <Link href="/products" className="mt-8 inline-block rounded-xl bg-white px-6 py-3 font-bold text-slate-900">Shop now</Link>
-      </div></section>
-      <section className="container py-12"><div className="flex items-end justify-between"><h2 className="text-2xl font-bold">Featured products</h2><Link href="/products" className="font-semibold">View all →</Link></div>
-        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{products.map((p) => <Link key={p.id} href={`/product/${p.slug}`} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100"><div className="flex h-48 items-center justify-center bg-slate-100">{p.images[0] ? <img src={p.images[0].url} alt={p.images[0].altText || p.name} className="h-full w-full object-cover" /> : <span className="text-6xl">🛍️</span>}</div><div className="p-5"><h3 className="font-bold">{p.name}</h3><p className="mt-2 text-xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p></div></Link>)}</div>
-      </section>
-      <footer className="border-t bg-white"><div className="container py-8 text-sm text-slate-500">© 2026 Zenvora · <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link></div></footer>
-    </main>
-  );
+ const products=await db.product.findMany({where:{status:'ACTIVE'},orderBy:{createdAt:'desc'},take:8,select:{id:true,name:true,slug:true,sellingPrice:true,images:{orderBy:{sortOrder:'asc'},take:1,select:{url:true,altText:true}}}});
+ return <main className="min-h-screen bg-slate-50">
+  <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur"><div className="container flex h-16 items-center justify-between"><Link href="/" className="text-2xl font-black tracking-tight">zenvora<span className="text-indigo-600">.</span></Link><nav className="hidden items-center gap-7 text-sm font-semibold text-slate-600 md:flex"><Link href="/products">Shop</Link><Link href="/track">Track order</Link></nav><div className="flex items-center gap-2"><Link href="/admin/login" className="hidden rounded-xl px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 sm:inline-flex">Admin login</Link><Link href="/cart" className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white">Cart</Link></div></div></header>
+  <section className="relative overflow-hidden bg-slate-950 text-white"><div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(99,102,241,.35),transparent_35%)]"/><div className="container relative py-20 md:py-28"><span className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[.18em] text-slate-300">Zenvora · Everyday shopping</span><h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight md:text-6xl">Good finds. Clear prices. Delivered simply.</h1><p className="mt-5 max-w-2xl text-base leading-7 text-slate-300 md:text-lg">Discover useful products selected for Indian shoppers, with straightforward checkout and order tracking.</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/products" className="rounded-xl bg-white px-6 py-3 font-bold text-slate-950">Shop products →</Link><Link href="/track" className="rounded-xl border border-white/20 px-6 py-3 font-bold text-white">Track an order</Link></div></div></section>
+  <section className="container py-12 md:py-16"><div className="grid gap-4 sm:grid-cols-3">{[['01','Curated products','Useful everyday picks'],['02','Simple checkout','Clear pricing and secure payment'],['03','Order tracking','Follow your order after checkout']].map(([n,t,d])=><div key={n} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><span className="text-xs font-black text-indigo-600">{n}</span><h2 className="mt-2 font-bold">{t}</h2><p className="mt-1 text-sm text-slate-500">{d}</p></div>)}</div></section>
+  <section className="container pb-16"><div className="flex items-end justify-between"><div><p className="text-sm font-bold uppercase tracking-widest text-indigo-600">Fresh picks</p><h2 className="mt-1 text-2xl font-black md:text-3xl">Featured products</h2></div><Link href="/products" className="text-sm font-bold text-slate-600">View all →</Link></div><div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{products.map(p=><Link key={p.id} href={`/product/${p.slug}`} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className="flex h-52 items-center justify-center overflow-hidden bg-slate-100">{p.images[0]?<img src={p.images[0].url} alt={p.images[0].altText||p.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105"/>:<span className="text-5xl">🛍️</span>}</div><div className="p-5"><h3 className="line-clamp-2 min-h-12 font-bold">{p.name}</h3><p className="mt-3 text-xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN',{minimumFractionDigits:2})}</p></div></Link>)}{!products.length&&<div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">Products will appear here once they are published.</div>}</div></section>
+  <footer className="border-t border-slate-200 bg-white"><div className="container flex flex-col gap-3 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between"><span>© 2026 Zenvora</span><div className="flex gap-5"><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/admin/login">Admin login</Link></div></div></footer>
+ </main>;
 }
