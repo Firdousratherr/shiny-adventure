@@ -47,7 +47,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return { id: customer.id, email: customer.email, name: customer.name, role: 'customer' };
       },
     }),
-    Google,
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
   ],
   pages: { signIn: '/login' },
   callbacks: {
