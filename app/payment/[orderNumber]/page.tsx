@@ -30,7 +30,7 @@ export default async function PaymentPage({
   const intent = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&am=${encodeURIComponent(order.totalAmount.toFixed(2))}&cu=INR` : '';
   const qr = upiId ? await QRCode.toDataURL(intent, { width: 320, margin: 2 }) : '';
   const expiresAt = order.reservationExpiresAt ? order.reservationExpiresAt.getTime() : 0;
-  const paymentWindowExpired = order.status === 'PAYMENT_PENDING' && (!expiresAt || expiresAt <= Date.now()) || order.cancellationReason === 'Payment reservation expired.';
+  const paymentWindowExpired = (order.status === 'PAYMENT_PENDING' && (!expiresAt || expiresAt <= Date.now())) || order.cancellationReason === 'Payment reservation expired.';
 
   return (
     <main className="container max-w-2xl py-10">
@@ -46,8 +46,8 @@ export default async function PaymentPage({
         ) : (
           <>
             <p className="mt-6 font-semibold">Choose your payment method</p>
-            {reservationExpiresAt(order.reservationExpiresAt) && (
-              <p className="mt-2 text-xs text-slate-500">Inventory reserved until {reservationExpiresAt(order.reservationExpiresAt).toLocaleString('en-IN')}.</p>
+            {order.reservationExpiresAt && (
+              <p className="mt-2 text-xs text-slate-500">Inventory reserved until {order.reservationExpiresAt.toLocaleString('en-IN')}.</p>
             )}
             {razorpayEnabled && <RazorpayButton orderNumber={order.orderNumber} paymentToken={token} keyId={s.razorpayKeyId} />}
             {upiId && (
@@ -74,8 +74,4 @@ export default async function PaymentPage({
       </div>
     </main>
   );
-}
-
-function reservationExpiresAt(value: Date | null) {
-  return value;
 }
