@@ -157,6 +157,8 @@ model Order {
   refundMethod            String?
   refundReference         String?
   refundProcessedAt       DateTime?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
   items                   OrderItem[]
   history                 OrderStatusHistory[]
   inventoryMovements      InventoryMovement[]
