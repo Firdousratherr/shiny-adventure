@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { auth } from '../../../../auth';
 import { db } from '../../../../lib/db';
 
-async function admin() { const s = await auth(); return s?.user?.email || null; }
+async function admin() { const s = await auth(); return s?.user?.role === 'admin' ? s.user.email : null; }
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
 const price = (v: unknown) => { if (typeof v !== 'string' && typeof v !== 'number') return null; try { const d = new Prisma.Decimal(String(v)); return d.isFinite() && !d.isNegative() ? d : null; } catch { return null; } };
 const validStatus = (v: unknown): v is 'DRAFT'|'ACTIVE'|'HIDDEN'|'OUT_OF_STOCK' => typeof v === 'string' && ['DRAFT','ACTIVE','HIDDEN','OUT_OF_STOCK'].includes(v);
