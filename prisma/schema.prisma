@@ -44,6 +44,28 @@ model CustomerUser {
   updatedAt    DateTime @updatedAt
 }
 
+model CustomerAddress {
+  id           String       @id @default(cuid())
+  customerId   String
+  customer     CustomerUser @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label        String       @default("Home")
+  fullName     String
+  phone        String
+  addressLine1 String
+  addressLine2 String?
+  landmark     String?
+  city         String
+  district     String
+  state        String
+  pinCode      String
+  isDefault    Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([customerId])
+  @@index([customerId, isDefault])
+}
+
 model SignupOtp {
   id           String   @id @default(cuid())
   email        String   @unique
