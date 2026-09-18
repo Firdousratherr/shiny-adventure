@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { db } from './lib/db';
 import { rateLimit } from './lib/rate-limit';
 
+type UserRole = 'admin' | 'customer';
 const DUMMY_PASSWORD_HASH = '$2b$12$C6UzMDM.H6dfI/f/IKcEe.OYx2g8qQ6QxQyV9hV4vR8kV5m3Q5mK2';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -13,7 +14,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async authorize(c, request) {
       const email = String(c?.email || '').toLowerCase().trim();
       const password = String(c?.password || '');
-      const role = String(c?.role || 'customer');
+      const role: UserRole = c?.role === 'admin' ? 'admin' : 'customer';
       if (!email || !password) return null;
 
       const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
@@ -39,11 +40,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: { signIn: '/login' },
   callbacks: {
     jwt({ token, user }) {
-      if (user) token.role = (user as { role?: string }).role;
+      if (user) token.role = (user as { role?: UserRole }).role;
       return token;
     },
     session({ session, token }) {
-      if (session.user) (session.user as { role?: string }).role = token.role as string | undefined;
+      if (session.user) (session.user as { role?: UserRole }).role = token.role;
       return session;
     },
   },
