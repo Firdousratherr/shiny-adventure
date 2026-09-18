@@ -7,7 +7,7 @@ const money=(v:unknown)=>{const s=text(v,30);if(!/^\d+(\.\d{1,2})?$/.test(s))ret
 const phone=(v:unknown)=>{const s=text(v,20);return !s||/^[0-9+()\-\s]{7,20}$/.test(s)?s:null};
 
 export async function POST(request:Request){
- const session=await auth();if(!session?.user?.email)return NextResponse.json({error:'Unauthorized'},{status:401});
+ const session=await auth();if(session?.user?.role!=='admin')return NextResponse.json({error:'Unauthorized'},{status:401});
  try{const b=await request.json();const storeName=text(b.storeName,100),storeDescription=text(b.storeDescription,300),upiId=text(b.upiId,100),upiDisplayName=text(b.upiDisplayName,100),freeShippingThreshold=money(b.freeShippingThreshold),flatDeliveryCharge=money(b.flatDeliveryCharge),supportEmail=text(b.supportEmail,160),supportPhone=phone(b.supportPhone),whatsappNumber=phone(b.whatsappNumber),razorpayKeyId=text(b.razorpayKeyId,100),razorpayEnabled=b.razorpayEnabled===true;
   if(!storeName)return NextResponse.json({error:'Store name is required.'},{status:400});
   if(freeShippingThreshold===null||flatDeliveryCharge===null)return NextResponse.json({error:'Shipping values must be valid non-negative amounts.'},{status:400});
