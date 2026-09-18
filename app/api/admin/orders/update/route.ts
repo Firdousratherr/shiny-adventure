@@ -43,12 +43,13 @@ export async function POST(request: Request) {
       if (target === 'REFUNDED' && !refundReference) throw new Error('REFUND_REFERENCE_REQUIRED');
       if (target === 'RTO' && !note) throw new Error('RTO_REASON_REQUIRED');
 
+      const shouldReleaseReservation = target === 'CANCELLED' && order.status === 'PAYMENT_PENDING';
       const shouldRestore = target === 'CANCELLED' && order.status === 'CONFIRMED';
       const shouldRestockRto = target === 'RTO' && order.status === 'SHIPPED';
-      if (shouldRestore || shouldRestockRto) {
+      if (shouldReleaseReservation || shouldRestore || shouldRestockRto) {
         for (const item of order.items) {
           await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
-          await tx.inventoryMovement.create({ data: { productId: item.productId, orderId: order.id, quantity: item.quantity, reason: shouldRestockRto ? 'RTO_RESTOCK' : 'CANCELLED_RESTOCK' } });
+          await tx.inventoryMovement.create({ data: { productId: item.productId, orderId: order.id, quantity: item.quantity, reason: shouldReleaseReservation ? 'PAYMENT_RESERVATION_RELEASE' : shouldRestockRto ? 'RTO_RESTOCK' : 'CANCELLED_RESTOCK' } });
         }
       }
 
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
           refundMethod: refundMethod || order.refundMethod,
           refundReference: refundReference || order.refundReference,
           refundProcessedAt: target === 'REFUNDED' ? new Date() : order.refundProcessedAt,
+          reservationExpiresAt: shouldReleaseReservation ? null : order.reservationExpiresAt,
         },
         select: { orderNumber: true, status: true, email: true },
       });
