@@ -43,7 +43,6 @@ export async function notifyCustomer(to: string, orderNumber: string, status: st
   return sendEmail({ to, subject, text, html });
 }
 
-
 export async function sendSignupOtp(to: string, otp: string) {
   const safeOtp = escapeHtml(otp);
   return sendEmail({
@@ -51,5 +50,15 @@ export async function sendSignupOtp(to: string, otp: string) {
     subject: 'Your Zenvora verification code',
     text: `Your Zenvora verification code is ${otp}. It expires in 10 minutes.`,
     html: `<div style="font-family:Arial,sans-serif;max-width:600px"><h2>Zenvora email verification</h2><p>Your verification code is:</p><p style="font-size:32px;font-weight:800;letter-spacing:8px">${safeOtp}</p><p>This code expires in 10 minutes. If you did not request this, you can ignore this email.</p></div>`,
+  });
+}
+
+export async function sendPasswordResetOtp(to: string, otp: string) {
+  const safeOtp = escapeHtml(otp);
+  return sendEmail({
+    to,
+    subject: 'Your Zenvora password reset code',
+    text: `Your Zenvora password reset code is ${otp}. It expires in 10 minutes.`,
+    html: `<div style="font-family:Arial,sans-serif;max-width:600px"><h2>Zenvora password reset</h2><p>Your password reset code is:</p><p style="font-size:32px;font-weight:800;letter-spacing:8px">${safeOtp}</p><p>This code expires in 10 minutes. If you did not request a password reset, you can ignore this email.</p></div>`,
   });
 }
