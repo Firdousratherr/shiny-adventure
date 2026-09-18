@@ -23,7 +23,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (limited.limited) return null;
 
       if (role === 'admin') {
+        const configuredEmail = String(process.env.ADMIN_EMAIL || '').toLowerCase().trim();
+        const configuredPassword = process.env.ADMIN_PASSWORD || '';
         const admin = await db.adminUser.findUnique({ where: { email } });
+
+        // Keep the Vercel ADMIN_* credentials usable even if the database
+        // still contains an older admin password. On a successful env login,
+        // synchronize the database hash for subsequent logins.
+        if (configuredEmail && configuredPassword && email === configuredEmail && password === configuredPassword) {
+          const passwordHash = await bcrypt.hash(configuredPassword, 12);
+          const synced = await db.adminUser.upsert({
+            where: { email: configuredEmail },
+            update: { passwordHash },
+            create: { email: configuredEmail, passwordHash },
+          });
+          return { id: synced.id, email: synced.email, name: 'Administrator', role: 'admin' };
+        }
+
         const passwordHash = admin?.passwordHash || DUMMY_PASSWORD_HASH;
         const valid = await bcrypt.compare(password, passwordHash);
         if (!admin || !valid) return null;
