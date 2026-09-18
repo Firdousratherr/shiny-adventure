@@ -19,7 +19,7 @@ export default async function PaymentPage({
   const token = typeof searchParams.token === 'string' ? searchParams.token : '';
   const order = await db.order.findUnique({
     where: { orderNumber },
-    select: { orderNumber: true, totalAmount: true, status: true, reservationExpiresAt: true, paymentAccessTokenHash: true },
+    select: { orderNumber: true, totalAmount: true, status: true, reservationExpiresAt: true, cancellationReason: true, paymentAccessTokenHash: true },
   });
   if (!order || !verifyPaymentAccessToken(token, order.paymentAccessTokenHash)) notFound();
 
@@ -30,7 +30,7 @@ export default async function PaymentPage({
   const intent = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&am=${encodeURIComponent(order.totalAmount.toFixed(2))}&cu=INR` : '';
   const qr = upiId ? await QRCode.toDataURL(intent, { width: 320, margin: 2 }) : '';
   const expiresAt = order.reservationExpiresAt ? order.reservationExpiresAt.getTime() : 0;
-  const paymentWindowExpired = order.status === 'PAYMENT_PENDING' && (!expiresAt || expiresAt <= Date.now());
+  const paymentWindowExpired = order.status === 'PAYMENT_PENDING' && (!expiresAt || expiresAt <= Date.now()) || order.cancellationReason === 'Payment reservation expired.';
 
   return (
     <main className="container max-w-2xl py-10">
