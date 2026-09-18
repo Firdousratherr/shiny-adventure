@@ -41,7 +41,8 @@ model CustomerUser {
   email        String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt  addresses    CustomerAddress[]
+  updatedAt    DateTime @updatedAt
+  addresses    CustomerAddress[]
 }
 
 model CustomerAddress {
