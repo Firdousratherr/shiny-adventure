@@ -10,7 +10,7 @@ const money = (v: unknown) => `₹${Number(v).toLocaleString('en-IN', { minimumF
 
 export default async function AdminOrders({ searchParams }: { searchParams?: { status?: string; q?: string } }) {
   const session = await auth();
-  if (!session?.user?.email) redirect('/admin/login');
+  if (session?.user?.role !== 'admin') redirect('/admin/login');
   const status = statuses.includes(searchParams?.status as typeof statuses[number]) ? searchParams?.status : undefined;
   const q = (searchParams?.q || '').trim();
   const orders = await db.order.findMany({
