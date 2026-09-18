@@ -12,6 +12,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "node prisma/seed.js",
+    "db:init-admin": "node prisma/create-admin.js",
     "test": "vitest run"
   },
   "dependencies": {
