@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 type Values = {
   storeName:string; storeDescription:string; upiId:string; upiDisplayName:string;
@@ -22,7 +21,7 @@ export default function StoreSettings({ initial, razorpayEnabled, razorpayKeyId 
     try{
       const r=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...v,razorpayEnabled:rpOn,razorpayKeyId:rpKey})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error||'Unable to save settings.');
-      setMessage('Settings saved successfully.');useRouter;
+      setMessage('Settings saved successfully.');
     }catch(e){setError(e instanceof Error?e.message:'Unable to save settings.')}finally{setBusy(false)}
   }
   const input=(key:keyof Values,label:string,placeholder='')=><label className="block text-sm font-semibold text-slate-700">{label}<input value={v[key]} onChange={e=>set(key,e.target.value)} placeholder={placeholder} className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"/></label>;
