@@ -20,6 +20,7 @@ export default function Login() {
       const r = await signIn('credentials', {
         email: email.trim(),
         password,
+        role: 'admin',
         redirect: false,
         callbackUrl: '/admin/dashboard',
       });
