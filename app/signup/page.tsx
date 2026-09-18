@@ -6,7 +6,7 @@ import { signIn } from 'next-auth/react';
 
 export default function Signup() {
   const [name,setName]=useState(''); const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [confirm,setConfirm]=useState('');
-  const [otp,setOtp]=useState(''); const [step,setStep]=useState<'details'|'otp'>('details'); const [error,setError]=useState(''); const [loading,setLoading]=useState(false); const [resending,setResending]=useState(false); const [show,setShow]=useState(false); const [cooldown,setCooldown]=useState(0);
+  const [error,setError]=useState(''); const [loading,setLoading]=useState(false); const [show,setShow]=useState(false);
 
   async function submit(e:FormEvent) {
     e.preventDefault(); setError('');
@@ -30,7 +30,9 @@ export default function Signup() {
         <div className="mb-8 flex items-center justify-between md:hidden"><Link href="/" className="text-xl font-black">🛍️ Zenvora<span className="text-fuchsia-400">.</span></Link><span className="rounded-full bg-fuchsia-500/15 px-3 py-1 text-xs font-bold text-fuchsia-200">Customer</span></div>
         <Link href="/" className="text-sm font-semibold text-slate-400 hover:text-white">← Back to store</Link>
         <p className="mt-8 text-sm font-black uppercase tracking-[.2em] text-fuchsia-400">New customer</p><h1 className="mt-2 text-4xl font-black tracking-tight">Create account</h1><p className="mt-3 text-sm leading-6 text-slate-400">Create your account with your name, email and password.</p>
-          <form onSubmit={submit} className="mt-8 space-y-4">
+          <button type="button" onClick={()=>signIn('google',{callbackUrl:'/account'})} className="mt-8 h-14 w-full rounded-2xl border border-white/10 bg-white/5 font-black text-white transition hover:bg-white/10">Continue with Google</button>
+          <div className="my-5 flex items-center gap-3 text-xs font-semibold text-slate-500"><span className="h-px flex-1 bg-white/10"/><span>OR</span><span className="h-px flex-1 bg-white/10"/></div>
+          <form onSubmit={submit} className="space-y-4">
             <label className="block text-sm font-bold text-slate-200">Full name<input required minLength={2} value={name} onChange={e=>setName(e.target.value)} autoComplete="name" placeholder="Your full name" className="mt-2 h-13 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 text-white outline-none placeholder:text-slate-500 focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"/></label>
             <label className="block text-sm font-bold text-slate-200">Email address<input required type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" className="mt-2 h-13 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 text-white outline-none placeholder:text-slate-500 focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"/></label>
             <label className="block text-sm font-bold text-slate-200">Password<div className="relative mt-2"><input required minLength={12} type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" placeholder="At least 12 characters" className="h-13 w-full rounded-2xl border border-white/10 bg-white/5 px-4 pr-20 py-3.5 text-white outline-none placeholder:text-slate-500 focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"/><button type="button" onClick={()=>setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl px-3 py-2 text-xs font-bold text-slate-400 hover:bg-white/10">{show?'Hide':'Show'}</button></div></label>
