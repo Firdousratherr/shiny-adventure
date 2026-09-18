@@ -45,15 +45,27 @@ model CustomerUser {
 }
 
 model SignupOtp {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
   passwordHash String
-  otpHash   String
-  expiresAt DateTime
-  attempts  Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  otpHash      String
+  expiresAt    DateTime
+  attempts     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+model PasswordResetOtp {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  otpHash      String
+  expiresAt    DateTime
+  attempts     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([expiresAt])
 }
@@ -110,7 +122,7 @@ model OrderCounter {
 
 model RazorpayWebhookEvent {
   id              String    @id @default(cuid())
-  eventId         String    @unique
+  eventId         String   @unique
   event           String
   payload         Json
   receivedAt      DateTime  @default(now())
@@ -158,8 +170,8 @@ model Order {
   razorpaySignature       String?
   upiTransactionId        String?              @unique
   paymentScreenshotUrl    String?
-  paymentVerifiedAt       DateTime?
-  paymentVerifiedBy       String?
+  paymentVerifiedAt      DateTime?
+  paymentVerifiedBy      String?
   paymentVerificationNote String?
   paymentRejectionReason  String?
   sourceOrderId           String?
