@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/db';
 import { getRazorpay, verifyWebhookSignature } from '../../../../lib/razorpay';
 import { notifyCustomer } from '../../../../lib/email';
-import { releaseExpiredPaymentReservations } from '../../../../lib/inventory-reservations';
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -43,8 +42,6 @@ export async function POST(request: Request) {
     }
 
     const result = await db.$transaction(async tx => {
-      await releaseExpiredPaymentReservations(tx);
-
       const lockedEvent = await tx.$queryRaw<Array<{ processedAt: Date | null }>>`SELECT "processedAt" FROM "RazorpayWebhookEvent" WHERE "eventId" = ${eventId} FOR UPDATE`;
       if (!lockedEvent[0]) throw new Error('WEBHOOK_EVENT_NOT_FOUND');
       if (lockedEvent[0].processedAt) return null;
@@ -71,6 +68,12 @@ export async function POST(request: Request) {
             note: 'Captured payment arrived after the inventory reservation expired. Payment requires manual refund/review.',
           },
         });
+        for (const item of order.items) {
+          await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+          await tx.inventoryMovement.create({
+            data: { productId: item.productId, orderId: order.id, quantity: item.quantity, reason: 'PAYMENT_RESERVATION_RELEASE' },
+          });
+        }
         await tx.razorpayWebhookEvent.update({
           where: { eventId },
           data: { processedAt: new Date(), processingError: 'PAYMENT_AFTER_RESERVATION_EXPIRED' },
