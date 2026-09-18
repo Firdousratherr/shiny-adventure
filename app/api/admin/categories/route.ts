@@ -4,7 +4,10 @@ import { auth } from '../../../../auth';
 import { db } from '../../../../lib/db';
 
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
-const requireAdmin = async () => (await auth())?.user?.email || null;
+const requireAdmin = async () => {
+  const session = await auth();
+  return session?.user?.role === 'admin' ? session.user.email || null : null;
+};
 
 export async function POST(request: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
