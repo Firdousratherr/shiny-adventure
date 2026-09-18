@@ -42,3 +42,14 @@ export async function notifyCustomer(to: string, orderNumber: string, status: st
   const html = `<div style="font-family:Arial,sans-serif;max-width:600px"><h2>Zenvora order update</h2><p>Order <b>${safeOrderNumber}</b> is now <b>${safeStatus}</b>.</p>${safeExtra ? `<p>${safeExtra}</p>` : ''}<p>You can use the Zenvora order tracking page to check the latest status.</p></div>`;
   return sendEmail({ to, subject, text, html });
 }
+
+
+export async function sendSignupOtp(to: string, otp: string) {
+  const safeOtp = escapeHtml(otp);
+  return sendEmail({
+    to,
+    subject: 'Your Zenvora verification code',
+    text: `Your Zenvora verification code is ${otp}. It expires in 10 minutes.`,
+    html: `<div style="font-family:Arial,sans-serif;max-width:600px"><h2>Zenvora email verification</h2><p>Your verification code is:</p><p style="font-size:32px;font-weight:800;letter-spacing:8px">${safeOtp}</p><p>This code expires in 10 minutes. If you did not request this, you can ignore this email.</p></div>`,
+  });
+}
