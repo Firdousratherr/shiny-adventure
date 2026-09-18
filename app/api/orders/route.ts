@@ -125,7 +125,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     if (message.startsWith('INSUFFICIENT_STOCK:')) {
-      return NextResponse.json({ error: `${message.slice(19)} is no longer available in the requested quantity.` }, { status: 409);
+      return NextResponse.json({ error: `${message.slice(19)} is no longer available in the requested quantity.` }}, { status: 409 });
     }
     console.error('order creation failed', error);
     return NextResponse.json({ error: 'Unable to create your order right now.' }, { status: 500 });
