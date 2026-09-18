@@ -3,6 +3,8 @@ import { put, del } from '@vercel/blob';
 import { db } from '../../../../lib/db';
 import { paymentSchema } from '../../../../lib/validation';
 import { rateLimit } from '../../../../lib/rate-limit';
+import { verifyPaymentAccessToken } from '../../../../lib/payment-access';
+import { releaseExpiredPaymentReservations } from '../../../../lib/inventory-reservations';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -21,23 +23,32 @@ export async function POST(request: Request) {
 
     const fd = await request.formData();
     const parsed = paymentSchema.safeParse({ orderNumber: String(fd.get('orderNumber') || ''), upiTransactionId: String(fd.get('upiTransactionId') || '') });
+    const paymentToken = String(fd.get('paymentToken') || '');
     if (!parsed.success) return NextResponse.json({ error: 'Invalid payment details.' }, { status: 400 });
     const file = fd.get('screenshot');
     if (!(file instanceof File) || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size < 1 || file.size > MAX_BYTES) return NextResponse.json({ error: 'Invalid screenshot. Use JPG, PNG or WebP up to 5 MB.' }, { status: 400 });
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (!matchesMagicBytes(file.type, bytes)) return NextResponse.json({ error: 'The uploaded file is not a valid image.' }, { status: 400 });
 
-    const order = await db.order.findUnique({ where: { orderNumber: parsed.data.orderNumber }, select: { id: true, status: true } });
+    await db.$transaction(async tx => { await releaseExpiredPaymentReservations(tx); });
+    const order = await db.order.findUnique({ where: { orderNumber: parsed.data.orderNumber }, select: { id: true, status: true, reservationExpiresAt: true, paymentAccessTokenHash: true } });
     if (!order) return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
+    if (!verifyPaymentAccessToken(paymentToken, order.paymentAccessTokenHash)) return NextResponse.json({ error: 'Invalid payment access token.' }, { status: 403 });
     if (order.status !== 'PAYMENT_PENDING') return NextResponse.json({ error: 'This order is not awaiting payment.' }, { status: 409 });
+    if (!order.reservationExpiresAt || order.reservationExpiresAt <= new Date()) return NextResponse.json({ error: 'This payment session has expired. Please place a new order.' }, { status: 409 });
     const duplicate = await db.order.findUnique({ where: { upiTransactionId: parsed.data.upiTransactionId }, select: { id: true } });
     if (duplicate) return NextResponse.json({ error: 'This UTR has already been submitted.' }, { status: 409 });
 
     const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
     const blob = await put(`payments/${order.id}-${crypto.randomUUID()}.${ext}`, new Blob([bytes], { type: file.type }), { access: 'private', contentType: file.type });
     try {
-      await db.order.update({ where: { id: order.id }, data: { upiTransactionId: parsed.data.upiTransactionId, paymentScreenshotUrl: blob.url } });
+      const saved = await db.order.updateMany({ where: { id: order.id, status: 'PAYMENT_PENDING', paymentAccessTokenHash: order.paymentAccessTokenHash, reservationExpiresAt: { gt: new Date() } }, data: { upiTransactionId: parsed.data.upiTransactionId, paymentScreenshotUrl: blob.url } });
+      if (saved.count !== 1) throw new Error('PAYMENT_SESSION_EXPIRED');
     } catch (error) {
+      if (error instanceof Error && error.message === 'PAYMENT_SESSION_EXPIRED') {
+        try { await del(blob.url); } catch (cleanupError) { console.error('payment proof cleanup failed', cleanupError); }
+        return NextResponse.json({ error: 'This payment session has expired. Please place a new order.' }, { status: 409 });
+      }
       console.error('payment proof database update failed', error);
       try { await del(blob.url); } catch (cleanupError) { console.error('payment proof cleanup failed', cleanupError); }
       return NextResponse.json({ error: 'Unable to save payment details right now.' }, { status: 500 });
