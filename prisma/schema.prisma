@@ -44,6 +44,20 @@ model CustomerUser {
   updatedAt    DateTime @updatedAt
 }
 
+model SignupOtp {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  passwordHash String
+  otpHash   String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
 model Category {
   id        String    @id @default(cuid())
   name      String
