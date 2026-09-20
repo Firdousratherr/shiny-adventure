@@ -63,7 +63,6 @@ export async function PATCH(request: Request) {
       data.syncIntervalMinutes = minutes;
     }
 
-    const current = await db.marketplaceIntegration.findUnique({ where: { provider } });
     const integration = await db.marketplaceIntegration.upsert({
       where: { provider },
       update: data,
