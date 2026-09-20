@@ -13,3 +13,9 @@ img{max-width:100%}
 .container{max-width:1240px;margin:auto;padding-left:20px;padding-right:20px}
 @media (min-width:640px){.container{padding-left:28px;padding-right:28px}}
 a{transition:color .18s ease,background-color .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease}
+@media (max-width:639px){
+  .container{padding-left:12px;padding-right:12px}
+  main{padding-bottom:76px}
+  input,select,textarea{font-size:16px!important}
+  button,a{touch-action:manipulation}
+}
