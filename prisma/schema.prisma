@@ -249,6 +249,7 @@ model Order {
   items                   OrderItem[]
   history                 OrderStatusHistory[]
   inventoryMovements      InventoryMovement[]
+  marketplaceOrders       MarketplaceOrder[]
 
   @@index([status])
   @@index([phone])
