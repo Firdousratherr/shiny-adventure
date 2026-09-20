@@ -93,7 +93,7 @@ export default function MarketplacesPage(){
           {i.lastError&&<div className="mt-2 rounded-lg bg-red-50 p-2 text-[11px] font-semibold text-red-700">{i.lastError}</div>}
         </section>
       })}</div>}
-      <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Important:</b> Zenvora will use official seller APIs only. It will not scrape marketplace websites. Amazon's official SP-API supports programmatic seller operations, but credentials and provider-specific authorization are required.</div>
+      <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Important:</b> Zenvora will use official seller APIs only. It will not scrape marketplace websites. Amazon&apos;s official SP-API supports programmatic seller operations, but credentials and provider-specific authorization are required.</div>
     </div>
   </main>
 }
