@@ -211,7 +211,7 @@ export default function MarketplacesPage() {
   };
 
   const filtered = useMemo(() => items.filter(i => filter === 'ALL' || (filter === 'CONNECTED' ? i.credentialsConfigured : filter === 'ON' ? i.enabled : i.healthStatus === 'ERROR')), [items, filter]);
-  const selectedItem = items.find(i => i.provider === selected);
+
 
   if (forbidden) return <main className="min-h-screen bg-slate-950 p-6 text-white"><div className="mx-auto mt-20 max-w-xl rounded-3xl bg-slate-900 p-8 text-center"><h1 className="text-2xl font-black">Marketplace permission required</h1><p className="mt-3 text-sm text-slate-400">Ask the Super Admin to grant the Marketplaces permission.</p><Link href="/admin/dashboard" className="mt-6 inline-block rounded-xl bg-white px-5 py-3 text-sm font-black text-slate-950">Back to dashboard</Link></div></main>;
 
@@ -302,7 +302,6 @@ export default function MarketplacesPage() {
 
                   <div className="mt-5">
                     <h3 className="text-sm font-black">Sync & pricing controls</h3>
-                  <h3 className="text-sm font-black">Sync & pricing controls</h3>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Markup %<input type="number" step="0.1" value={s.markupPercent ?? 0} onChange={e => update(i.provider, { settings: { ...s, markupPercent: Number(e.target.value) } })} className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-sm text-white" /></label>
                     <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Fixed amount<input type="number" step="1" value={s.fixedAmount ?? 0} onChange={e => update(i.provider, { settings: { ...s, fixedAmount: Number(e.target.value) } })} className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-sm text-white" /></label>
