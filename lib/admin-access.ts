@@ -11,6 +11,7 @@ export const ADMIN_PERMISSIONS = [
   { key: 'payments', label: 'Payments', description: 'Verify or reject payments' },
   { key: 'customers', label: 'Customers', description: 'View customer information' },
   { key: 'settings', label: 'Settings', description: 'Change store settings' },
+  { key: 'marketplaces', label: 'Marketplaces', description: 'Manage Amazon, Flipkart and Meesho integrations' },
 ] as const;
 
 export type AdminPermission = typeof ADMIN_PERMISSIONS[number]['key'];
