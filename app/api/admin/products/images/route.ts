@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+../../../../../auth../../../../../lib/admin-accessport { NextResponse } from 'next/server';
 import { auth } from '../../../../auth';
 import { put, del } from '@vercel/blob';
 import { requireAdminPermission } from '../../../../lib/admin-access';
