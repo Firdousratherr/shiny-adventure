@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { auth } from '../../../../auth';
 import { Prisma } from '@prisma/client';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { db } from '../../../../lib/db';
