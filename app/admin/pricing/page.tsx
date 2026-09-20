@@ -11,7 +11,7 @@ export default async function PricingPage(){
  const [rules,categories,products]=await Promise.all([
   db.pricingRule.findMany({orderBy:[{priority:'desc'},{createdAt:'asc'}],include:{category:true}}),
   db.category.findMany({orderBy:{name:'asc'},select:{id:true,name:true}}),
-  db.product.findMany({orderBy:{updatedAt:'desc'},take:500,include:{category:true},select:{id:true,name:true,sourceUrl:true,sourceCost:true,sellingPrice:true,priceLocked:true,priceLockValue:true,category:true}})
+  db.product.findMany({orderBy:{updatedAt:'desc'},take:500,select:{id:true,name:true,sourceUrl:true,sourceCost:true,sellingPrice:true,priceLocked:true,priceLockValue:true,category:true}})
  ]);
  return <main className="min-h-screen bg-slate-100"><AdminNav active="pricing"/><div className="container py-8">
   <div className="flex flex-wrap justify-between gap-3"><div><p className="text-sm text-slate-500">Zenvora Admin</p><h1 className="text-3xl font-black">Pricing Manager</h1></div><Link href="/admin/products" className="font-semibold">← Products</Link></div>
