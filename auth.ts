@@ -9,6 +9,19 @@ import { rateLimit } from './lib/rate-limit';
 type UserRole = 'admin' | 'customer';
 const DUMMY_PASSWORD_HASH = '$2b$12$C6UzMDM.H6dfI/f/IKcEe.OYx2g8qQ6QxQyV9hV4vR8kV5m3Q5mK2';
 
+const googleClientId =
+  process.env.AUTH_GOOGLE_ID ||
+  process.env.AUTH_GOOGLE_CLIENT_ID ||
+  process.env.GOOGLE_CLIENT_ID ||
+  process.env.GOOGLE_ID ||
+  '';
+const googleClientSecret =
+  process.env.AUTH_GOOGLE_SECRET ||
+  process.env.AUTH_GOOGLE_CLIENT_SECRET ||
+  process.env.GOOGLE_CLIENT_SECRET ||
+  process.env.GOOGLE_SECRET ||
+  '';
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   session: { strategy: 'jwt', maxAge: 8 * 60 * 60 },
   providers: [
@@ -48,8 +61,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
     Google({
-      clientId: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || '',
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
     }),
   ],
   pages: { signIn: '/login' },
@@ -59,11 +72,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const email = String(user.email || '').toLowerCase().trim();
       const name = String(user.name || 'Zenvora Customer').trim().slice(0, 80) || 'Zenvora Customer';
       if (!email) return false;
-
-      // Only accept Google's verified email claim for customer authentication.
       if (profile && 'email_verified' in profile && profile.email_verified !== true) return false;
 
-      // Never let Google create a customer account using an existing admin email.
       const admin = await db.adminUser.findUnique({ where: { email } });
       if (admin) return false;
 
