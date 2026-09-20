@@ -7,6 +7,7 @@ import { useCart } from './cart-provider';
 export default function MobileNav() {
   const pathname = usePathname();
   const { count } = useCart();
+  if (pathname.startsWith('/admin')) return null;
   const items = [
     ['/', '⌂', 'Home'],
     ['/products', '⌕', 'Shop'],
