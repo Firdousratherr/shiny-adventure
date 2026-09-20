@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 
-export default function AdminNav({ active }: { active: 'dashboard'|'products'|'orders'|'settings'|'staff'|'approvals' }) {
+export default function AdminNav({ active }: { active: 'dashboard'|'products'|'orders'|'settings'|'staff'|'approvals'|'audit'|'marketplaces' }) {
   const items = [
     ['dashboard','Dashboard','/admin/dashboard'],
     ['products','Products','/admin/products'],
@@ -11,6 +11,7 @@ export default function AdminNav({ active }: { active: 'dashboard'|'products'|'o
     ['settings','Settings','/admin/settings'],
     ['staff','Staff & Access','/admin/staff'],
     ['approvals','Approvals','/admin/approvals'],
+    ['marketplaces','Marketplaces','/admin/marketplaces'],
     ['audit','Activity Log','/admin/audit'],
   ] as const;
   return <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
