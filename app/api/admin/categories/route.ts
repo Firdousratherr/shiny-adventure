@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
-import { auth } from '../../../../auth';
+import { requireAdminPermission } from '../../../../lib/admin-access';
 import { db } from '../../../../lib/db';
 
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
