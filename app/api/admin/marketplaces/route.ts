@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/db';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../lib/admin-audit';
-import { credentialStatus, marketplaceCredentials, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
-import { encryptMarketplaceCredentials, encryptionConfigured } from '../../../../lib/marketplace-crypto';
+import { credentialStatus, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
+import { encryptionConfigured } from '../../../../lib/marketplace-crypto';
 
 const PROVIDERS = [
   { key: 'AMAZON', name: 'Amazon', description: 'Amazon Selling Partner API', setup: 'SP-API developer + seller authorization' },
