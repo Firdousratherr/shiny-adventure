@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { put, del } from '@vercel/blob';
-import { auth } from '../../../../../auth';
+import { requireAdminPermission } from '../../../../../lib/admin-access';
 import { db } from '../../../../../lib/db';
 
 const MAX_BYTES = 5 * 1024 * 1024;
