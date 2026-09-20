@@ -49,6 +49,104 @@ export default function MarketplacesPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [forbidden, setForbidden] = useState(false);
+  const [credentials, setCredentials] = useState<Record<string, string>>({});
+  const [credentialFields, setCredentialFields] = useState<Record<string, boolean>>({});
+  const [credentialBusy, setCredentialBusy] = useState(false);
+
+  const credentialConfig: Record<string, { key: string; label: string; secret?: boolean; placeholder?: string }[]> = {
+    AMAZON: [
+      { key: 'clientId', label: 'Client ID', secret: true },
+      { key: 'clientSecret', label: 'Client Secret', secret: true },
+      { key: 'refreshToken', label: 'Refresh Token', secret: true },
+      { key: 'region', label: 'Region', placeholder: 'eu' },
+      { key: 'marketplaceId', label: 'Marketplace ID', placeholder: 'A21TJRUUN4KGV' },
+    ],
+    FLIPKART: [{ key: 'apiKey', label: 'API Key', secret: true }, { key: 'apiSecret', label: 'API Secret', secret: true }],
+    MEESHO: [{ key: 'apiKey', label: 'Partner API Key', secret: true }, { key: 'apiSecret', label: 'Partner API Secret', secret: true }],
+    EBAY: [
+      { key: 'clientId', label: 'Client ID', secret: true },
+      { key: 'clientSecret', label: 'Client Secret', secret: true },
+      { key: 'environment', label: 'Environment', placeholder: 'production' },
+      { key: 'marketplaceId', label: 'Marketplace ID', placeholder: 'EBAY-US' },
+    ],
+    ETSY: [
+      { key: 'apiKeyString', label: 'API Keystring', secret: true },
+      { key: 'sharedSecret', label: 'Shared Secret', secret: true },
+      { key: 'accessToken', label: 'Access Token', secret: true },
+      { key: 'shopId', label: 'Shop ID' },
+    ],
+    SHOPIFY: [
+      { key: 'storeDomain', label: 'Store Domain', placeholder: 'your-store.myshopify.com' },
+      { key: 'accessToken', label: 'Admin API Access Token', secret: true },
+    ],
+  };
+
+  const loadCredentialStatus = async (provider: string) => {
+    try {
+      const r = await fetch(`/api/admin/marketplaces/credentials?provider=${encodeURIComponent(provider)}`, { cache: 'no-store' });
+      const j = await r.json();
+      if (r.ok) setCredentialFields(j.fields || {});
+    } catch { /* main marketplace state remains usable */ }
+  };
+
+  useEffect(() => {
+    if (selected) {
+      setCredentials({});
+      setCredentialFields({});
+      void loadCredentialStatus(selected);
+    }
+  }, [selected]);
+
+  const saveCredentials = async (provider: string) => {
+    setCredentialBusy(true); setError(''); setMessage('');
+    try {
+      const r = await fetch('/api/admin/marketplaces/credentials', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, credentials }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Unable to save credentials.');
+      setCredentials({});
+      setCredentialFields(j.fields || {});
+      setMessage(`${meta[provider]?.name || provider}: credentials saved securely.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to save credentials.');
+    } finally { setCredentialBusy(false); }
+  };
+
+  const testCredentials = async (provider: string) => {
+    setCredentialBusy(true); setError(''); setMessage('');
+    try {
+      const r = await fetch('/api/admin/marketplaces/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Connection test failed.');
+      setMessage(`${meta[provider]?.name || provider}: ${j.detail}`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Connection test failed.');
+    } finally { setCredentialBusy(false); }
+  };
+
+  const removeCredentials = async (provider: string) => {
+    if (!window.confirm(`Remove saved ${meta[provider]?.name || provider} credentials and turn this integration OFF?`)) return;
+    setCredentialBusy(true); setError(''); setMessage('');
+    try {
+      const r = await fetch(`/api/admin/marketplaces/credentials?provider=${encodeURIComponent(provider)}`, { method: 'DELETE' });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Unable to remove credentials.');
+      setCredentialFields({}); setCredentials({});
+      setMessage(`${meta[provider]?.name || provider}: saved credentials removed.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to remove credentials.');
+    } finally { setCredentialBusy(false); }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -174,6 +272,36 @@ export default function MarketplacesPage() {
                 </div>
 
                 {selected === i.provider && <div className="border-t border-white/10 bg-black/20 p-5">
+                  <div className="rounded-2xl border border-indigo-400/20 bg-indigo-500/5 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div><h3 className="text-sm font-black">API credentials</h3><p className="mt-1 text-[10px] leading-5 text-slate-500">Enter credentials here. They are encrypted on the server and are never sent back to this page.</p></div>
+                      <span className={i.credentialsConfigured ? 'rounded-full bg-emerald-500/10 px-2.5 py-1 text-[9px] font-black text-emerald-400' : 'rounded-full bg-amber-500/10 px-2.5 py-1 text-[9px] font-black text-amber-400'}>{i.credentialsConfigured ? 'CONNECTED' : 'NOT SET'}</span>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {(credentialConfig[i.provider] || []).map(field => (
+                        <label key={field.key} className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                          {field.label} {credentialFields[field.key] && <span className="text-emerald-400">• saved</span>}
+                          <input
+                            type={field.secret ? 'password' : 'text'}
+                            autoComplete="off"
+                            value={credentials[field.key] ?? ''}
+                            onChange={e => setCredentials(x => ({ ...x, [field.key]: e.target.value }))}
+                            placeholder={credentialFields[field.key] ? 'Saved — enter only to replace' : field.placeholder || ''}
+                            className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-sm normal-case tracking-normal text-white outline-none focus:border-indigo-400/50"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button disabled={credentialBusy} onClick={() => saveCredentials(i.provider)} className="rounded-xl bg-indigo-500 px-4 py-2.5 text-[10px] font-black text-white disabled:opacity-40">{credentialBusy ? 'Working…' : 'Save securely'}</button>
+                      <button disabled={credentialBusy || !i.credentialsConfigured} onClick={() => testCredentials(i.provider)} className="rounded-xl border border-white/10 px-4 py-2.5 text-[10px] font-black text-slate-200 disabled:opacity-30">Test connection</button>
+                      <button disabled={credentialBusy || !i.credentialsConfigured} onClick={() => removeCredentials(i.provider)} className="rounded-xl border border-red-400/20 px-4 py-2.5 text-[10px] font-black text-red-300 disabled:opacity-30">Remove credentials</button>
+                    </div>
+                    <p className="mt-3 text-[9px] leading-4 text-slate-600">Never paste credentials into GitHub, source code, screenshots, or chat.</p>
+                  </div>
+
+                  <div className="mt-5">
+                    <h3 className="text-sm font-black">Sync & pricing controls</h3>
                   <h3 className="text-sm font-black">Sync & pricing controls</h3>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Markup %<input type="number" step="0.1" value={s.markupPercent ?? 0} onChange={e => update(i.provider, { settings: { ...s, markupPercent: Number(e.target.value) } })} className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-sm text-white" /></label>
