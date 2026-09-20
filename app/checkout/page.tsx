@@ -138,14 +138,14 @@ export default function Checkout() {
   );
 
   return (
-    <main className="container py-8">
+    <main className="container py-5 sm:py-8">
       <Link href="/cart" className="font-semibold">← Back to cart</Link>
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
-        <form ref={formRef} onSubmit={submit} className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_340px]">
+        <form ref={formRef} onSubmit={submit} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-violet-600">Secure checkout</p>
-              <h1 className="text-3xl font-black">Delivery details</h1>
+              <h1 className="text-2xl font-black sm:text-3xl">Delivery details</h1>
             </div>
             {loadingAccount && <span className="text-xs text-slate-400">Checking saved details…</span>}
           </div>
@@ -181,8 +181,8 @@ export default function Checkout() {
             </section>
           )}
 
-          <div className="mt-7 grid gap-4 sm:grid-cols-2">
-            <label className="sm:col-span-2 text-sm font-semibold">Full name<input name="customerName" required minLength={2} maxLength={100} className="mt-2 w-full rounded-xl border p-3"/></label>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <label className="sm:col-span-2 text-sm font-semibold">Full name<input name="customerName" required minLength={2} maxLength={100} className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"/></label>
             <label className="text-sm font-semibold">Mobile number<input name="phone" required inputMode="numeric" pattern="[6-9][0-9]{9}" maxLength={10} className="mt-2 w-full rounded-xl border p-3" placeholder="10-digit mobile"/></label>
             <label className="text-sm font-semibold">Email (optional)<input name="email" type="email" className="mt-2 w-full rounded-xl border p-3"/></label>
             <label className="sm:col-span-2 text-sm font-semibold">Address<input name="addressLine1" required minLength={5} maxLength={200} className="mt-2 w-full rounded-xl border p-3"/></label>
@@ -195,12 +195,12 @@ export default function Checkout() {
           </div>
 
           {error && <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <button disabled={loading} className="mt-7 w-full rounded-xl bg-slate-900 px-6 py-4 font-bold text-white disabled:opacity-50">
+          <button disabled={loading} className="mt-5 w-full rounded-xl bg-slate-900 px-5 py-3.5 text-sm font-bold text-white disabled:opacity-50">
             {loading ? 'Creating order…' : 'Continue to payment'}
           </button>
         </form>
 
-        <aside className="h-fit rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+        <aside className="h-fit rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 lg:sticky lg:top-20">
           <h2 className="font-bold">Order summary</h2>
           {items.map(i => <div key={i.productId} className="mt-3 flex justify-between gap-3 text-sm"><span>{i.name} × {i.quantity}</span><span>₹{(i.price*i.quantity).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>)}
           <div className="mt-5 flex justify-between border-t pt-4"><span>Subtotal</span><strong>₹{subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>
