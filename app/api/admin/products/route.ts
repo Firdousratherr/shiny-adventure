@@ -40,9 +40,6 @@ export async function PATCH(request: Request) {
     const b = await request.json();
     const adminAccess = await requireAdminPermission('products');
     if (!adminAccess) return NextResponse.json({ error: 'Products permission required.' }, { status: 403 });
-    const priceChangeRequested = b.sellingPrice !== undefined || b.sourceCost !== undefined;
-    if (priceChangeRequested) { const pricing = await requireAdminPermission('pricing'); if (!pricing) return NextResponse.json({ error: 'Pricing permission required.' }, { status: 403 }); }
-    const isStaffPriceChange = priceChangeRequested && !adminAccess.isSuperAdmin;
     if (b.stock !== undefined) { const inventory = await requireAdminPermission('inventory'); if (!inventory) return NextResponse.json({ error: 'Inventory permission required.' }, { status: 403 }); }
     const id = typeof b.id === 'string' ? b.id : '';
     if (!id) return NextResponse.json({ error: 'Product ID is required.' }, { status: 400 });
@@ -60,6 +57,14 @@ export async function PATCH(request: Request) {
     const current = currentProduct;
 
     if (!current) return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
+    const actualPriceChange =
+      (data.sellingPrice !== undefined && String(data.sellingPrice) !== current.sellingPrice.toString()) ||
+      (data.sourceCost !== undefined && (data.sourceCost === null ? current.sourceCost !== null : String(data.sourceCost) !== (current.sourceCost?.toString() ?? '')));
+    if (actualPriceChange) {
+      const pricing = await requireAdminPermission('pricing');
+      if (!pricing) return NextResponse.json({ error: 'Pricing permission required.' }, { status: 403 });
+    }
+    const isStaffPriceChange = actualPriceChange && !adminAccess.isSuperAdmin;
     if (isStaffPriceChange) {
       const approval = await db.adminApproval.create({
         data: {
