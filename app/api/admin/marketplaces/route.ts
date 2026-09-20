@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+../../../../../lib/ad../../../../../lib/admin-auditin-accessmport { NextResponse } from 'next/server';
 import { db } from '../../../../lib/db';
 import { requireAdminPermission } from '../../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../../lib/admin-audit';
