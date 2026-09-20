@@ -11,6 +11,7 @@ export default function AdminNav({ active }: { active: 'dashboard'|'products'|'o
     ['settings','Settings','/admin/settings'],
     ['staff','Staff & Access','/admin/staff'],
     ['approvals','Approvals','/admin/approvals'],
+    ['audit','Activity Log','/admin/audit'],
   ] as const;
   return <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
     <div className="container flex min-h-16 flex-wrap items-center justify-between gap-3 py-2">
