@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../auth';
+import { auth } from '../../../../../auth';
 import { put, del } from '@vercel/blob';
-import { db } from '../../../../lib/db';
+import { db } from '../../../../../lib/db';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -35,7 +35,7 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json(); const productId = typeof body.productId === 'string' ? body.productId : ''; const imageIds: string[] = Array.isArray(body.imageIds) ? body.imageIds.filter((x: unknown): x is string => typeof x === 'string') : [];
     if (!productId || !imageIds.length) return NextResponse.json({ error: 'Product and image order are required.' }, { status: 400 });
-    const images = await db.productImage.findMany({ where: { productId }, select: { id: true } }); if (images.length !== imageIds.length || !images.every(i => imageIds.includes(i.id))) return NextResponse.json({ error: 'Invalid image list.' }, { status: 400 });
+    const images = await db.productImage.findMany({ where: { productId }, select: { id: true } }); if (images.length !== imageIds.length || !images.every((i: { id: string }) => imageIds.includes(i.id))) return NextResponse.json({ error: 'Invalid image list.' }, { status: 400 });
     await db.$transaction(imageIds.map((id: string, index: number) => db.productImage.update({ where: { id }, data: { sortOrder: index } }))); return NextResponse.json({ ok: true });
   } catch (error) { console.error(error); return NextResponse.json({ error: 'Unable to reorder images.' }, { status: 500 }); }
 }
