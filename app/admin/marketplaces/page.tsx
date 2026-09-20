@@ -89,11 +89,11 @@ export default function MarketplacesPage(){
           <label className="mt-4 flex items-center justify-between rounded-xl border p-3"><span><b className="block text-sm">Automatic sync</b><span className="text-[11px] text-slate-500">Runs when an official adapter is connected</span></span><input type="checkbox" checked={i.autoSync} disabled={disabled||!i.enabled} onChange={e=>update(i.provider,{autoSync:e.target.checked})}/></label>
           <label className="mt-2 block text-xs font-bold text-slate-500">Sync interval<select value={i.syncIntervalMinutes} disabled={disabled||!i.autoSync} onChange={e=>update(i.provider,{syncIntervalMinutes:Number(e.target.value)})} className="mt-1.5 h-10 w-full rounded-xl border bg-white px-3 text-sm text-slate-900"><option value="15">Every 15 minutes</option><option value="30">Every 30 minutes</option><option value="60">Every hour</option><option value="180">Every 3 hours</option><option value="360">Every 6 hours</option><option value="720">Every 12 hours</option><option value="1440">Daily</option></select></label>
           <button disabled={disabled||!i.enabled} onClick={()=>sync(i.provider)} className="mt-4 h-11 w-full rounded-xl bg-slate-900 text-sm font-black text-white disabled:opacity-40">{disabled?'Working…':'Sync now'}</button>
-          <div className="mt-3 text-[11px] text-slate-400">{i.lastSuccessAt?`Last success: ${new Date(i.lastSuccessAt).toLocaleString('en-IN')`:'Never successfully synced'}</div>
+          <div className="mt-3 text-[11px] text-slate-400">{i.lastSuccessAt ? 'Last success: ' + new Date(i.lastSuccessAt).toLocaleString('en-IN') : 'Never successfully synced'}</div>
           {i.lastError&&<div className="mt-2 rounded-lg bg-red-50 p-2 text-[11px] font-semibold text-red-700">{i.lastError}</div>}
         </section>
       })}</div>}
-      <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Important:</b> Zenvora will use official seller APIs only. It will not scrape marketplace websites. Amazon's official SP-API supports programmatic seller operations, but credentials and provider-specific authorization are required. citeturn0search0turn0search1</div>
+      <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Important:</b> Zenvora will use official seller APIs only. It will not scrape marketplace websites. Amazon's official SP-API supports programmatic seller operations, but credentials and provider-specific authorization are required.</div>
     </div>
   </main>
 }
