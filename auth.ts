@@ -42,6 +42,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const configuredEmail = String(process.env.ADMIN_EMAIL || '').toLowerCase().trim();
           const configuredPassword = process.env.ADMIN_PASSWORD || '';
           const admin = await db.adminUser.findUnique({ where: { email } });
+          if (admin && !admin.isActive) return null;
           if (configuredEmail && configuredPassword && email === configuredEmail && password === configuredPassword) {
             const passwordHash = await bcrypt.hash(configuredPassword, 12);
             const synced = await db.adminUser.upsert({ where: { email: configuredEmail }, update: { passwordHash }, create: { email: configuredEmail, passwordHash } });
