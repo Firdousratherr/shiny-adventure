@@ -5,6 +5,7 @@ on:
     branches: ["build/admin-order-management-final4", "build/dropshipping-store"]
   pull_request:
     branches: ["build/dropshipping-store", "build/admin-order-management-final4"]
+  workflow_dispatch:
 
 jobs:
   validate:
