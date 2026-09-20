@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 
-export default function AdminNav({ active }: { active: 'dashboard'|'products'|'orders'|'settings'|'staff' }) {
+export default function AdminNav({ active }: { active: 'dashboard'|'products'|'orders'|'settings'|'staff'|'approvals' }) {
   const items = [
     ['dashboard','Dashboard','/admin/dashboard'],
     ['products','Products','/admin/products'],
     ['orders','Orders','/admin/orders'],
     ['settings','Settings','/admin/settings'],
     ['staff','Staff & Access','/admin/staff'],
+    ['approvals','Approvals','/admin/approvals'],
   ] as const;
   return <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
     <div className="container flex min-h-16 flex-wrap items-center justify-between gap-3 py-2">
