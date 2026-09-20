@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { signIn } from 'next-auth/react';
 
+type SignInResult = { error?: string; url?: string } | undefined;
+
 export default function Signup() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -19,9 +21,8 @@ export default function Signup() {
     setError('');
     setLoading(true);
     try {
-      const r = await signIn('google', { callbackUrl: '/account' });
-      const result = r as { error?: string; url?: string } | undefined;
-      if (result?.error) {
+      const r = (await signIn('google', { callbackUrl: '/account' })) as SignInResult;
+      if (r?.error) {
         setError('Google sign-in is not configured correctly yet.');
         setLoading(false);
       }
@@ -38,20 +39,52 @@ export default function Signup() {
     setLoading(true);
 
     try {
+      let signInResult: SignInResult;
+
       if (verification) {
-        const res = await fetch('/api/auth/signup/verify-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp }) });
+        const res = await fetch('/api/auth/signup/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, otp }),
+        });
         const result = await res.json();
-        if (!res.ok) { setError(result.error || 'Invalid verification code.'); setLoading(false); return; }
+        if (!res.ok) {
+          setError(result.error || 'Invalid verification code.');
+          setLoading(false);
+          return;
+        }
       } else {
-        const res = await fetch('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) });
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password }),
+        });
         const result = await res.json();
-        if (!res.ok) { setError(result.error || 'Unable to send verification code.'); setLoading(false); return; }
-        setVerification(true); setLoading(false); return;
+        if (!res.ok) {
+          setError(result.error || 'Unable to send verification code.');
+          setLoading(false);
+          return;
+        }
+        setVerification(true);
+        setLoading(false);
+        return;
       }
 
-      const r = await signIn('credentials', { email: email.trim(), password, role: 'customer', redirect: false, callbackUrl: '/account' });
-      if (r?.error) { setError('Account created, but automatic sign-in failed. Please sign in manually.'); setLoading(false); return; }
-      window.location.href = result?.url || '/account';
+      signInResult = (await signIn('credentials', {
+        email: email.trim(),
+        password,
+        role: 'customer',
+        redirect: false,
+        callbackUrl: '/account',
+      })) as SignInResult;
+
+      if (signInResult?.error) {
+        setError('Account created, but automatic sign-in failed. Please sign in manually.');
+        setLoading(false);
+        return;
+      }
+
+      window.location.href = signInResult?.url || '/account';
     } catch {
       setError('Unable to create your account right now.');
       setLoading(false);
@@ -94,7 +127,7 @@ export default function Signup() {
                 <label className="block text-xs font-bold text-slate-200">Confirm password<input required minLength={12} type={show ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} autoComplete="new-password" placeholder="Repeat your password" className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10" /></label>
               </>}
 
-              {verification && <label className="block text-xs font-bold text-slate-200">Verification code<input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/D/g, ''))} autoComplete="one-time-code" placeholder="123456" className="mt-1.5 h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-center text-xl font-black tracking-[.5em] text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10" /></label>}
+              {verification && <label className="block text-xs font-bold text-slate-200">Verification code<input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} autoComplete="one-time-code" placeholder="123456" className="mt-1.5 h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-center text-xl font-black tracking-[.5em] text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10" /></label>}
 
               {error && <div role="alert" className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2.5 text-xs font-semibold text-red-300">{error}</div>}
 
