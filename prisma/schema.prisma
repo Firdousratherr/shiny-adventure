@@ -136,6 +136,7 @@ model Category {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   products  Product[]
+  pricingRules PricingRule[]
 }
 
 model Product {
@@ -156,10 +157,52 @@ model Product {
   images              ProductImage[]
   orderItems          OrderItem[]
   inventoryMovements  InventoryMovement[]
+  priceHistory        ProductPriceHistory[]
+  priceLocked         Boolean              @default(false)
+  priceLockValue      Decimal?             @db.Decimal(12, 2)
 
   @@index([categoryId])
   @@index([status])
   @@index([featured])
+}
+
+
+model PricingRule {
+  id             String   @id @default(cuid())
+  name           String
+  scope          String   @default("GLOBAL")
+  provider       String?
+  categoryId     String?
+  category       Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  markupPercent  Decimal  @db.Decimal(7, 2)
+  fixedAmount    Decimal  @default(0) @db.Decimal(12, 2)
+  minPrice       Decimal? @db.Decimal(12, 2)
+  maxPrice       Decimal? @db.Decimal(12, 2)
+  roundingMode   String   @default("NONE")
+  roundingValue  Decimal? @db.Decimal(12, 2)
+  enabled        Boolean  @default(true)
+  priority       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([scope, enabled, priority])
+  @@index([provider, enabled])
+  @@index([categoryId, enabled])
+}
+
+model ProductPriceHistory {
+  id             String   @id @default(cuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sourceCost     Decimal? @db.Decimal(12, 2)
+  oldSellingPrice Decimal @db.Decimal(12, 2)
+  newSellingPrice Decimal @db.Decimal(12, 2)
+  markupPercent  Decimal? @db.Decimal(7, 2)
+  reason         String
+  changedBy      String
+  createdAt      DateTime @default(now())
+
+  @@index([productId, createdAt])
 }
 
 model ProductImage {
