@@ -41,6 +41,7 @@ export default function CustomerLogin() {
     setLoading(true);
     try {
       const r = await signIn('google', { callbackUrl: '/account' });
+      const result = r as { error?: string; url?: string } | undefined;
       if (result?.error) {
         setError('Google sign-in is not configured correctly yet.');
         setLoading(false);
