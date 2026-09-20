@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { db } from '../../../../lib/db';
+import { recordAdminAudit } from '../../../../lib/admin-audit';
 
 async function admin() { return requireAdminPermission('products'); }
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
@@ -9,7 +10,8 @@ const price = (v: unknown) => { if (typeof v !== 'string' && typeof v !== 'numbe
 const validStatus = (v: unknown): v is 'DRAFT'|'ACTIVE'|'HIDDEN'|'OUT_OF_STOCK' => typeof v === 'string' && ['DRAFT','ACTIVE','HIDDEN','OUT_OF_STOCK'].includes(v);
 
 export async function POST(request: Request) {
-  if (!(await admin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const adminAccess = await admin();
+  if (!adminAccess) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const b = await request.json();
     const name = typeof b.name === 'string' ? b.name.trim().slice(0, 200) : '';
@@ -22,7 +24,12 @@ export async function POST(request: Request) {
     if (!Number.isSafeInteger(stock) || stock < 0) return NextResponse.json({ error: 'Stock must be a non-negative integer.' }, { status: 400 });
     const status = validStatus(b.status) ? b.status : 'DRAFT';
     if (status === 'ACTIVE' && stock === 0) return NextResponse.json({ error: 'An active product must have stock greater than zero.' }, { status: 400 });
+    if (!adminAccess.isSuperAdmin) {
+      if (!(await requireAdminPermission('pricing'))) return NextResponse.json({ error: 'Pricing permission required.' }, { status: 403 });
+      if (!(await requireAdminPermission('inventory'))) return NextResponse.json({ error: 'Inventory permission required.' }, { status: 403 });
+    }
     const product = await db.product.create({ data: { name, slug, description, sellingPrice, sourceCost, stock, categoryId: typeof b.categoryId === 'string' && b.categoryId ? b.categoryId : null, featured: b.featured === true, status } });
+    await recordAdminAudit({ adminId: adminAccess.id, adminEmail: adminAccess.email, action: 'PRODUCT_CREATED', entityType: 'PRODUCT', entityId: product.id, details: { name: product.name, sellingPrice: product.sellingPrice.toString(), stock: product.stock } });
     return NextResponse.json({ product }, { status: 201 });
   } catch (e) { if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return NextResponse.json({ error: 'A product with this slug already exists.' }, { status: 409 }); console.error(e); return NextResponse.json({ error: 'Unable to create product.' }, { status: 500 }); }
 }
@@ -33,7 +40,9 @@ export async function PATCH(request: Request) {
     const b = await request.json();
     const adminAccess = await requireAdminPermission('products');
     if (!adminAccess) return NextResponse.json({ error: 'Products permission required.' }, { status: 403 });
-    if (b.sellingPrice !== undefined || b.sourceCost !== undefined) { const pricing = await requireAdminPermission('pricing'); if (!pricing) return NextResponse.json({ error: 'Pricing permission required.' }, { status: 403 }); }
+    const priceChangeRequested = b.sellingPrice !== undefined || b.sourceCost !== undefined;
+    if (priceChangeRequested) { const pricing = await requireAdminPermission('pricing'); if (!pricing) return NextResponse.json({ error: 'Pricing permission required.' }, { status: 403 }); }
+    const isStaffPriceChange = priceChangeRequested && !adminAccess.isSuperAdmin;
     if (b.stock !== undefined) { const inventory = await requireAdminPermission('inventory'); if (!inventory) return NextResponse.json({ error: 'Inventory permission required.' }, { status: 403 }); }
     const id = typeof b.id === 'string' ? b.id : '';
     if (!id) return NextResponse.json({ error: 'Product ID is required.' }, { status: 400 });
@@ -47,12 +56,43 @@ export async function PATCH(request: Request) {
     if (b.stock !== undefined) { const n = Number(b.stock); if (!Number.isSafeInteger(n) || n < 0) return NextResponse.json({ error: 'Invalid stock.' }, { status: 400 }); data.stock = n; }
     if (b.featured !== undefined) { if (typeof b.featured !== 'boolean') return NextResponse.json({ error: 'Invalid featured value.' }, { status: 400 }); data.featured = b.featured; }
     if (b.status !== undefined) { if (!validStatus(b.status)) return NextResponse.json({ error: 'Invalid product status.' }, { status: 400 }); data.status = b.status; }
-    const current = await db.product.findUnique({ where: { id }, select: { stock: true, status: true } });
+    const currentProduct = await db.product.findUnique({ where: { id }, select: { stock: true, status: true, sellingPrice: true, sourceCost: true, name: true } });
+    const current = currentProduct;
+
     if (!current) return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
+    if (isStaffPriceChange) {
+      const approval = await db.adminApproval.create({
+        data: {
+          requestedById: adminAccess.id,
+          requestedBy: adminAccess.email,
+          action: 'PRICE_CHANGE',
+          entityType: 'PRODUCT',
+          entityId: id,
+          payload: {
+            sellingPrice: data.sellingPrice ? String(data.sellingPrice) : undefined,
+            sourceCost: data.sourceCost === null ? null : data.sourceCost ? String(data.sourceCost) : undefined,
+          },
+        },
+      });
+      await recordAdminAudit({ adminId: adminAccess.id, adminEmail: adminAccess.email, action: 'PRICE_CHANGE_REQUESTED', entityType: 'PRODUCT', entityId: id, details: { approvalId: approval.id, productName: current.name } });
+      return NextResponse.json({ pendingApproval: true, approvalId: approval.id, message: 'Price change submitted for Super Admin approval.' }, { status: 202 });
+    }
     const nextStock = typeof data.stock === 'number' ? data.stock : current.stock;
     const nextStatus = typeof data.status === 'string' ? data.status : current.status;
     if (nextStatus === 'ACTIVE' && nextStock === 0) return NextResponse.json({ error: 'An active product must have stock greater than zero.' }, { status: 400 });
     const product = await db.product.update({ where: { id }, data });
+    await recordAdminAudit({
+      adminId: adminAccess.id,
+      adminEmail: adminAccess.email,
+      action: 'PRODUCT_UPDATED',
+      entityType: 'PRODUCT',
+      entityId: product.id,
+      details: {
+        changedFields: Object.keys(data),
+        before: { sellingPrice: current.sellingPrice.toString(), sourceCost: current.sourceCost?.toString() ?? null, stock: current.stock },
+        after: { sellingPrice: product.sellingPrice.toString(), sourceCost: product.sourceCost?.toString() ?? null, stock: product.stock },
+      },
+    });
     return NextResponse.json({ product });
   } catch (e) { if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return NextResponse.json({ error: 'Slug already exists.' }, { status: 409 }); console.error(e); return NextResponse.json({ error: 'Unable to update product.' }, { status: 500 }); }
 }
