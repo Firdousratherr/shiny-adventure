@@ -314,6 +314,7 @@ export default function MarketplacesPage() {
                   {(i.provider === 'AMAZON' || i.provider === 'EBAY' || i.provider === 'SHOPIFY') && <label className="mt-4 block text-[10px] font-black uppercase tracking-wider text-slate-500">Import search / keyword (optional)<input value={s.query ?? ''} onChange={e => update(i.provider, { settings: { ...s, query: e.target.value } })} placeholder={i.provider === 'EBAY' ? 'e.g. wireless earbuds' : 'Optional keyword'} className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-sm text-white" /></label>}
                   <label className="mt-4 flex items-center justify-between rounded-xl border border-white/10 px-3 py-3 text-xs"><span><b className="block">Automatic sync</b><span className="text-[10px] text-slate-500">Vercel cron checks enabled integrations every 15 minutes.</span></span><input type="checkbox" checked={i.autoSync} disabled={!i.enabled} onChange={e => update(i.provider, { autoSync: e.target.checked })} /></label>
                   <p className="mt-4 text-[10px] leading-5 text-slate-500">{i.capabilities.note}. {i.credentialsConfigured ? 'Credentials detected.' : 'Required credentials are not configured yet.'}</p>
+                  </div>
                 </div>}
               </article>;
             })}
