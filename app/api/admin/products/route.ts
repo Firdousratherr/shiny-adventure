@@ -31,6 +31,10 @@ export async function PATCH(request: Request) {
   if (!(await admin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const b = await request.json();
+    const adminAccess = await requireAdminPermission('products');
+    if (!adminAccess) return NextResponse.json({ error: 'Products permission required.' }, { status: 403 });
+    if (b.sellingPrice !== undefined || b.sourceCost !== undefined) { const pricing = await requireAdminPermission('pricing'); if (!pricing) return NextResponse.json({ error: 'Pricing permission required.' }, { status: 403 }); }
+    if (b.stock !== undefined) { const inventory = await requireAdminPermission('inventory'); if (!inventory) return NextResponse.json({ error: 'Inventory permission required.' }, { status: 403 }); }
     const id = typeof b.id === 'string' ? b.id : '';
     if (!id) return NextResponse.json({ error: 'Product ID is required.' }, { status: 400 });
     const data: Prisma.ProductUpdateInput = {};
