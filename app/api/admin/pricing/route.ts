@@ -65,7 +65,7 @@ export async function GET() {
   const [rules, categories, products] = await Promise.all([
     db.pricingRule.findMany({ orderBy: [{priority:'desc'},{createdAt:'asc'}], include: { category: true } }),
     db.category.findMany({ orderBy: { name: 'asc' } }),
-    db.product.findMany({ orderBy: { updatedAt: 'desc' }, take: 500, include: { category: true }, select: { id:true,name:true,sourceUrl:true,sourceCost:true,sellingPrice:true,priceLocked:true,priceLockValue:true,category:true,updatedAt:true } }),
+    db.product.findMany({ orderBy: { updatedAt: 'desc' }, take: 500, select: { id:true,name:true,sourceUrl:true,sourceCost:true,sellingPrice:true,priceLocked:true,priceLockValue:true,category:true,updatedAt:true } }),
   ]);
   return NextResponse.json({ rules, categories, products });
 }
