@@ -1,7 +1,7 @@
-../../../../../lib/ad../../../../../lib/admin-auditin-accessmport { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/db';
-import { requireAdminPermission } from '../../../../../lib/admin-access';
-import { recordAdminAudit } from '../../../../../lib/admin-audit';
+import { requireAdminPermission } from '../../../../lib/admin-access';
+import { recordAdminAudit } from '../../../../lib/admin-audit';
 
 const PROVIDERS = [
   { key: 'AMAZON', name: 'Amazon', description: 'Amazon Seller / Selling Partner API' },
