@@ -23,12 +23,13 @@ export default function CustomerLogin() {
         redirect: false,
         callbackUrl: '/account',
       });
-      if (r?.error) {
+      const result = r as { error?: string; url?: string } | undefined;
+      if (result?.error) {
         setError('Invalid email or password.');
         setLoading(false);
         return;
       }
-      window.location.href = r?.url || '/account';
+      window.location.href = result?.url || '/account';
     } catch {
       setError('Unable to sign in right now. Please try again.');
       setLoading(false);
@@ -40,7 +41,7 @@ export default function CustomerLogin() {
     setLoading(true);
     try {
       const r = await signIn('google', { callbackUrl: '/account' });
-      if (r?.error) {
+      if (result?.error) {
         setError('Google sign-in is not configured correctly yet.');
         setLoading(false);
       }
