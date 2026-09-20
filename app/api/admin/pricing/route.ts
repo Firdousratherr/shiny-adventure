@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     }
     if (b.action === 'apply') {
       const ids = Array.isArray(b.productIds) ? b.productIds.map(String).slice(0,500) : [];
-      const products = await db.product.findMany({ where: ids.length ? {id:{in:ids}} : {}, take:500, select:{id:name, name:true, sourceUrl:true, sourceCost:true, sellingPrice:true, priceLocked:true, priceLockValue:true, categoryId:true} }).catch(async()=>db.product.findMany({ where: ids.length ? {id:{in:ids}} : {}, take:500, select:{id:true,name:true,sourceUrl:true,sourceCost:true,sellingPrice:true,priceLocked:true,priceLockValue:true,categoryId:true} }));
+      const products = await db.product.findMany({ where: ids.length ? {id:{in:ids}} : {}, take:500, select:{id:true, name:true, sourceUrl:true, sourceCost:true, sellingPrice:true, priceLocked:true, priceLockValue:true, categoryId:true} }).catch(async()=>db.product.findMany({ where: ids.length ? {id:{in:ids}} : {}, take:500, select:{id:true,name:true,sourceUrl:true,sourceCost:true,sellingPrice:true,priceLocked:true,priceLockValue:true,categoryId:true} }));
       const rules = await db.pricingRule.findMany({ where:{enabled:true}, orderBy:[{priority:'desc'},{createdAt:'asc'}] });
       let updatedCount=0, skippedLocked=0, skippedNoSource=0;
       for (const p of products) {
