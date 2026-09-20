@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../auth';
 import { db } from '../../../../lib/db';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../lib/admin-audit';
