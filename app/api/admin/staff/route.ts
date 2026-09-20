@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     if (email === admin.email.toLowerCase()) return NextResponse.json({ error: 'Use your existing super-admin account.' }, { status: 400 });
     const passwordHash = await bcrypt.hash(password, 12);
     const staff = await db.adminUser.create({ data: { email, passwordHash, accessRole: 'STAFF', permissions, isActive: true }, select: { id: true, email: true, accessRole: true, permissions: true, isActive: true } });
+    await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'STAFF_CREATED', entityType: 'ADMIN_USER', entityId: staff.id, details: { email: staff.email, permissions } });
     return NextResponse.json({ staff }, { status: 201 });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return NextResponse.json({ error: 'An admin account with this email already exists.' }, { status: 409 });
@@ -51,6 +52,7 @@ export async function PATCH(request: Request) {
     const target = await db.adminUser.findUnique({ where: { id }, select: { id: true, accessRole: true } });
     if (!target || target.accessRole === 'SUPER_ADMIN') return NextResponse.json({ error: 'Only staff accounts can be managed here.' }, { status: 400 });
     const staff = await db.adminUser.update({ where: { id }, data, select: { id: true, email: true, accessRole: true, permissions: true, isActive: true } });
+    await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'STAFF_UPDATED', entityType: 'ADMIN_USER', entityId: staff.id, details: { changed: Object.keys(data) } });
     return NextResponse.json({ staff });
   } catch (e) { console.error(e); return NextResponse.json({ error: 'Unable to update staff account.' }, { status: 500 }); }
 }
