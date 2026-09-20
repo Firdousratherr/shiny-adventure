@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/db';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../lib/admin-audit';
-import { credentialStatus, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
+import { credentialStatus, marketplaceCredentials, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
+import { encryptMarketplaceCredentials, encryptionConfigured } from '../../../../lib/marketplace-crypto';
 
 const PROVIDERS = [
   { key: 'AMAZON', name: 'Amazon', description: 'Amazon Selling Partner API', setup: 'SP-API developer + seller authorization' },
@@ -29,7 +30,7 @@ export async function GET() {
       providers: PROVIDERS,
       integrations: integrations.map(i => ({
         ...i,
-        credentialsConfigured: credentialStatus(i.provider),
+        credentialsConfigured: await credentialStatus(i.provider),
         capabilities: providerCapabilities(i.provider),
       })),
     });
@@ -80,7 +81,7 @@ export async function PATCH(request: Request) {
       action: 'MARKETPLACE_SETTINGS_UPDATED',
       entityType: 'MARKETPLACE',
       entityId: integration.id,
-      details: { provider, changes: data, credentialsConfigured: credentialStatus(provider) },
+      details: { provider, changes: data, credentialsConfigured: await credentialStatus(provider) },
     });
 
     return NextResponse.json({ integration, credentialsConfigured: credentialStatus(provider), capabilities: providerCapabilities(provider) });
