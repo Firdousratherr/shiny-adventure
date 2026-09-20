@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { db } from '../../../../lib/db';
+import { recordAdminAudit } from '../../../../lib/admin-audit';
 import { ADMIN_PERMISSIONS, requireSuperAdmin } from '../../../../lib/admin-access';
 
 export async function GET() {
