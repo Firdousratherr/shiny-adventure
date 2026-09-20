@@ -20,7 +20,8 @@ export default function Signup() {
     setLoading(true);
     try {
       const r = await signIn('google', { callbackUrl: '/account' });
-      if (r?.error) {
+      const result = r as { error?: string; url?: string } | undefined;
+      if (result?.error) {
         setError('Google sign-in is not configured correctly yet.');
         setLoading(false);
       }
@@ -50,7 +51,7 @@ export default function Signup() {
 
       const r = await signIn('credentials', { email: email.trim(), password, role: 'customer', redirect: false, callbackUrl: '/account' });
       if (r?.error) { setError('Account created, but automatic sign-in failed. Please sign in manually.'); setLoading(false); return; }
-      window.location.href = r?.url || '/account';
+      window.location.href = result?.url || '/account';
     } catch {
       setError('Unable to create your account right now.');
       setLoading(false);
