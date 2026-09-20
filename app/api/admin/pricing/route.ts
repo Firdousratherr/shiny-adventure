@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       const id = String(b.productId || '');
       const product = await db.product.findUnique({ where: { id }, select: { id:true,name:true,sellingPrice:true } });
       if (!product) return NextResponse.json({ error:'Product not found.' }, { status:404 });
-      const lockedPrice = b.price === '' || b.price == null ? product.sellingPrice : num(b.price, NaN);
+      const lockedPrice = b.price === '' || b.price == null ? Number(product.sellingPrice) : num(b.price, NaN);
       if (!Number.isFinite(lockedPrice) || lockedPrice < 0) return NextResponse.json({ error:'Invalid locked price.' }, {status:400});
       const updated = await db.product.update({ where:{id}, data:{priceLocked:true,priceLockValue:new Prisma.Decimal(lockedPrice)} });
       await recordAdminAudit({adminId:admin.id,adminEmail:admin.email,action:'PRICE_LOCKED',entityType:'PRODUCT',entityId:id,details:{price:lockedPrice}});
