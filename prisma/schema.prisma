@@ -160,6 +160,7 @@ model Product {
   priceHistory        ProductPriceHistory[]
   priceLocked         Boolean              @default(false)
   priceLockValue      Decimal?             @db.Decimal(12, 2)
+  marketplaceProducts MarketplaceProduct[]
 
   @@index([categoryId])
   @@index([status])
