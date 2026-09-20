@@ -1,4 +1,5 @@
 import { db } from './db';
+import { decryptMarketplaceCredentials } from './marketplace-crypto';
 
 export type SyncItem = {
   externalId: string;
@@ -28,9 +29,17 @@ const PROVIDER_ENV: Record<string, string[]> = {
   SHOPIFY: ['SHOPIFY_STORE_DOMAIN', 'SHOPIFY_ACCESS_TOKEN'],
 };
 
-export function credentialStatus(provider: string) {
+export async function marketplaceCredentials(provider: string) {
+  const integration = await db.marketplaceIntegration.findUnique({ where: { provider }, select: { credentialsEncrypted: true } });
+  let stored: Record<string, unknown> = {};
+  if (integration?.credentialsEncrypted) stored = decryptMarketplaceCredentials(integration.credentialsEncrypted);
+  return { ...stored };
+}
+
+export async function credentialStatus(provider: string) {
+  const stored = await marketplaceCredentials(provider);
   const vars = PROVIDER_ENV[provider] ?? [];
-  return vars.length > 0 && vars.every(name => Boolean(process.env[name]));
+  return vars.length > 0 && vars.every(name => Boolean(stored[name] ?? process.env[name]));
 }
 
 export function providerCapabilities(provider: string) {
@@ -120,19 +129,19 @@ async function importItems(integrationId: string, provider: string, items: SyncI
   return imported;
 }
 
-async function amazonItems(settings: Settings): Promise<SyncItem[]> {
+async function amazonItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
   const mod: any = await import('amazon-sp-api');
   const SellingPartner = mod.SellingPartner ?? mod.default;
   const client = new SellingPartner({
-    region: process.env.AMAZON_SP_API_REGION || 'eu',
-    refresh_token: process.env.AMAZON_SP_API_REFRESH_TOKEN,
+    region: String(credentials.region ?? process.env.AMAZON_SP_API_REGION ?? 'eu'),
+    refresh_token: String(credentials.refreshToken ?? process.env.AMAZON_SP_API_REFRESH_TOKEN ?? ''),
     credentials: {
-      SELLING_PARTNER_APP_CLIENT_ID: process.env.AMAZON_SP_API_CLIENT_ID,
-      SELLING_PARTNER_APP_CLIENT_SECRET: process.env.AMAZON_SP_API_CLIENT_SECRET,
+      SELLING_PARTNER_APP_CLIENT_ID: String(credentials.clientId ?? process.env.AMAZON_SP_API_CLIENT_ID ?? ''),
+      SELLING_PARTNER_APP_CLIENT_SECRET: String(credentials.clientSecret ?? process.env.AMAZON_SP_API_CLIENT_SECRET ?? ''),
     },
   });
   const keywords = settings.query || process.env.AMAZON_SP_API_IMPORT_KEYWORDS || 'electronics';
-  const marketplaceId = process.env.AMAZON_SP_API_MARKETPLACE_ID || 'A21TJRUUN4KGV';
+  const marketplaceId = String(credentials.marketplaceId ?? process.env.AMAZON_SP_API_MARKETPLACE_ID ?? 'A21TJRUUN4KGV');
   const response = await client.callAPI({
     operation: 'searchCatalogItems',
     endpoint: 'catalogItems',
@@ -149,9 +158,9 @@ async function amazonItems(settings: Settings): Promise<SyncItem[]> {
   })).filter((x: SyncItem) => x.externalId);
 }
 
-async function flipkartItems(settings: Settings): Promise<SyncItem[]> {
+async function flipkartItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
   const tokenResponse = await fetch('https://api.flipkart.net/oauth-service/oauth/token?grant_type=client_credentials&scope=Seller_Api,Default', {
-    headers: { Authorization: `Basic ${Buffer.from(`${process.env.FLIPKART_SELLER_API_KEY}:${process.env.FLIPKART_SELLER_API_SECRET}`).toString('base64')}` },
+    headers: { Authorization: `Basic ${Buffer.from(`${credentials.apiKey ?? process.env.FLIPKART_SELLER_API_KEY ?? ''}:${credentials.apiSecret ?? process.env.FLIPKART_SELLER_API_SECRET ?? ''}`).toString('base64')}` },
     cache: 'no-store',
   });
   if (!tokenResponse.ok) throw new Error(`Flipkart token request failed (${tokenResponse.status})`);
@@ -175,12 +184,12 @@ async function flipkartItems(settings: Settings): Promise<SyncItem[]> {
   })).filter((x: SyncItem) => x.externalId);
 }
 
-async function shopifyItems(settings: Settings): Promise<SyncItem[]> {
-  const domain = process.env.SHOPIFY_STORE_DOMAIN!.replace(/^https?:\\/\\//, '').replace(/\\/$/, '');
+async function shopifyItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
+  const domain = String(credentials.storeDomain ?? process.env.SHOPIFY_STORE_DOMAIN ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '');
   const query = `query { products(first: 100) { nodes { id title descriptionHtml onlineStoreUrl totalInventory images(first: 1) { nodes { url } } variants(first: 1) { nodes { price } } } } }`;
   const response = await fetch(`https://${domain}/admin/api/2026-07/graphql.json`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN! },
+    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': String(credentials.accessToken ?? process.env.SHOPIFY_ACCESS_TOKEN ?? '') },
     body: JSON.stringify({ query }),
     cache: 'no-store',
   });
@@ -197,11 +206,11 @@ async function shopifyItems(settings: Settings): Promise<SyncItem[]> {
   }));
 }
 
-async function etsyItems(): Promise<SyncItem[]> {
-  const response = await fetch(`https://api.etsy.com/v3/application/shops/${process.env.ETSY_SHOP_ID}/listings/active?limit=100&includes=Images`, {
+async function etsyItems(credentials: Record<string, unknown>): Promise<SyncItem[]> {
+  const response = await fetch(`https://api.etsy.com/v3/application/shops/${String(credentials.shopId ?? process.env.ETSY_SHOP_ID ?? '')}/listings/active?limit=100&includes=Images`, {
     headers: {
-      'x-api-key': `${process.env.ETSY_API_KEYSTRING}:${process.env.ETSY_API_SHARED_SECRET}`,
-      Authorization: `Bearer ${process.env.ETSY_ACCESS_TOKEN}`,
+      'x-api-key': `${credentials.apiKeyString ?? process.env.ETSY_API_KEYSTRING ?? ''}:${credentials.sharedSecret ?? process.env.ETSY_API_SHARED_SECRET ?? ''}`,
+      Authorization: `Bearer ${String(credentials.accessToken ?? process.env.ETSY_ACCESS_TOKEN ?? '')}`,
     },
     cache: 'no-store',
   });
@@ -217,13 +226,13 @@ async function etsyItems(): Promise<SyncItem[]> {
   }));
 }
 
-async function ebayItems(settings: Settings): Promise<SyncItem[]> {
-  const production = process.env.EBAY_ENV !== 'sandbox';
+async function ebayItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
+  const production = String(credentials.environment ?? process.env.EBAY_ENV ?? 'production') !== 'sandbox';
   const base = production ? 'https://api.ebay.com' : 'https://api.sandbox.ebay.com';
   const auth = await fetch(`${base}/identity/v1/oauth2/token`, {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${Buffer.from(`${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`).toString('base64')}`,
+      Authorization: `Basic ${Buffer.from(`${credentials.clientId ?? process.env.EBAY_CLIENT_ID ?? ''}:${credentials.clientSecret ?? process.env.EBAY_CLIENT_SECRET ?? ''}`).toString('base64')}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope',
@@ -233,7 +242,7 @@ async function ebayItems(settings: Settings): Promise<SyncItem[]> {
   const token = (await auth.json()).access_token;
   const query = settings.query || process.env.EBAY_IMPORT_QUERY || 'electronics';
   const response = await fetch(`${base}/buy/browse/v1/item_summary/search?q=${encodeURIComponent(query)}&limit=100`, {
-    headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': process.env.EBAY_MARKETPLACE_ID || 'EBAY-US' },
+    headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': String(credentials.marketplaceId ?? process.env.EBAY_MARKETPLACE_ID ?? 'EBAY-US') },
     cache: 'no-store',
   });
   if (!response.ok) throw new Error(`eBay Browse request failed (${response.status})`);
@@ -250,16 +259,17 @@ async function ebayItems(settings: Settings): Promise<SyncItem[]> {
 
 export async function syncMarketplace(integrationId: string, provider: string, rawSettings: unknown) {
   const settings = settingsOf(rawSettings);
-  if (!credentialStatus(provider)) throw new Error('Required official API credentials are not configured.');
+  const credentials = await marketplaceCredentials(provider);
+  if (!(await credentialStatus(provider))) throw new Error('Required official API credentials are not configured.');
   if (!providerCapabilities(provider).products) throw new Error(providerCapabilities(provider).note);
 
   let items: SyncItem[] = [];
   switch (provider) {
-    case 'AMAZON': items = await amazonItems(settings); break;
-    case 'FLIPKART': items = await flipkartItems(settings); break;
-    case 'SHOPIFY': items = await shopifyItems(settings); break;
-    case 'ETSY': items = await etsyItems(); break;
-    case 'EBAY': items = await ebayItems(settings); break;
+    case 'AMAZON': items = await amazonItems(settings, credentials); break;
+    case 'FLIPKART': items = await flipkartItems(settings, credentials); break;
+    case 'SHOPIFY': items = await shopifyItems(settings, credentials); break;
+    case 'ETSY': items = await etsyItems(credentials); break;
+    case 'EBAY': items = await ebayItems(settings, credentials); break;
     case 'MEESHO': throw new Error('Meesho official partner API access is required; scraping is intentionally disabled.');
     default: throw new Error('Unsupported marketplace provider.');
   }
