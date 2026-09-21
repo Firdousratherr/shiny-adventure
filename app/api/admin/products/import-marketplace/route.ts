@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { put } from '@vercel/blob';
+import { productImageUrl } from '@/lib/product-image-url';
 import { getAdminAccess } from '@/lib/admin-access';
 import { db } from '@/lib/db';
 import { parseMarketplaceSourceUrl, scrapeMarketplaceProduct } from '@/lib/marketplace-scraper';
@@ -32,7 +33,7 @@ async function importImage(productId: string, imageUrl: string, index: number) {
       if (!extension) return null;
       const buffer = await response.arrayBuffer();
       if (!buffer.byteLength || buffer.byteLength > 5 * 1024 * 1024) return null;
-      const blob = await put(`products/${productId}/marketplace-${index}-${crypto.randomUUID()}.${extension}`, new Blob([buffer], { type }), { access: 'public', addRandomSuffix: false });
+      const blob = await put(`products/${productId}/marketplace-${index}-${crypto.randomUUID()}.${extension}`, new Blob([buffer], { type }), { access: 'private', addRandomSuffix: false });
       return blob.url;
     } finally { clearTimeout(timer); }
   } catch { return null; }
