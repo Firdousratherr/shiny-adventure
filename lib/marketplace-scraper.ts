@@ -114,8 +114,10 @@ function providerFromUrl(sourceUrl: string) {
   }
 
   if (host === 'meesho.com') {
-    if (!/\/p\//i.test(url.pathname)) throw new Error('Use a direct Meesho product URL containing /p/.');
-    const id = url.pathname.match(/\/p\/([^/?#]+)/i)?.[1] || url.pathname;
+    const directPath = url.pathname.match(/\/p\/([^/?#]+)/i)?.[1];
+    const sharedPath = url.pathname.match(/\/s\/p\/([^/?#]+)/i)?.[1];
+    const id = directPath || sharedPath;
+    if (!id) throw new Error('Use a direct Meesho product URL containing /p/ or /s/p/.');
     return { provider: 'MEESHO' as const, id, url: url.toString() };
   }
 
