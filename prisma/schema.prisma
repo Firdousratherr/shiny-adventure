@@ -491,3 +491,30 @@ model StoreBanner {
 
   @@index([enabled, sortOrder])
 }
+
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  user      CustomerUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId, createdAt])
+}
+
+model RecentlyViewed {
+  id        String   @id @default(cuid())
+  userId    String?
+  sessionId String?
+  productId String
+  viewedAt  DateTime @default(now())
+  user      CustomerUser? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId, viewedAt])
+  @@index([sessionId, viewedAt])
+  @@index([productId, viewedAt])
+}
