@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { put } from '@vercel/blob';
-import { productImageUrl } from '@/lib/product-image-url';
 import { getAdminAccess } from '@/lib/admin-access';
 import { db } from '@/lib/db';
 import { parseMarketplaceSourceUrl, scrapeMarketplaceProduct } from '@/lib/marketplace-scraper';
