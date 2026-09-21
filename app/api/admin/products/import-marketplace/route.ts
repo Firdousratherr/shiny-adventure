@@ -1,130 +1,165 @@
-import {NextResponse} from 'next/server';
-import {getAdminAccess} from '@/lib/admin-access';
-import {db} from '@/lib/db';
+import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
+import { put } from '@vercel/blob';
+import { getAdminAccess } from '@/lib/admin-access';
+import { db } from '@/lib/db';
+import { parseMarketplaceSourceUrl, scrapeMarketplaceProduct } from '@/lib/marketplace-scraper';
 
-export const runtime='nodejs';
-export const dynamic='force-dynamic';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-type Marketplace='AMAZON'|'FLIPKART';
-
-function parseMarketplaceUrl(sourceUrl:string):{provider:Marketplace;id:string;url:string}|null{
-  let u:URL;
-  try{u=new URL(sourceUrl)}catch{return null}
-  const host=u.hostname.toLowerCase().replace(/^www\./,'');
-  if(host==='amazon.in'||host==='amazon.com'||host==='amazon.co.uk'){
-    const m=u.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
-    if(m)return {provider:'AMAZON',id:m[1].toUpperCase(),url:u.toString()};
-  }
-  if(host==='flipkart.com'){
-    const pid=u.searchParams.get('pid');
-    if(pid)return {provider:'FLIPKART',id:pid,url:u.toString()};
-  }
-  return null;
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 70) || 'imported-product';
 }
 
-function slugify(v:string){return v.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,70)||'imported-product'}
-function sellingPrice(cost:number,markup:number){return Math.round((cost*(1+markup/100))*100)/100}
+function sellingPrice(cost: number, markup: number) {
+  return Math.round(cost * (1 + markup / 100) * 100) / 100;
+}
 
-export async function POST(req:Request){
-  try{
-    const access=await getAdminAccess();
-    if(!access||(!access.isSuperAdmin&&(!access.permissions.includes('products')||!access.permissions.includes('marketplaces'))))return NextResponse.json({error:'Marketplace import permission required.'},{status:403});
+async function importImage(productId: string, imageUrl: string, index: number) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const response = await fetch(imageUrl, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ZenvoraProductImporter/1.0)', Accept: 'image/avif,image/webp,image/jpeg,image/png,*/*' },
+        cache: 'no-store',
+      });
+      if (!response.ok) return null;
+      const type = (response.headers.get('content-type') || '').split(';')[0].toLowerCase();
+      const extension = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : type === 'image/jpeg' ? 'jpg' : null;
+      if (!extension) return null;
+      const buffer = await response.arrayBuffer();
+      if (!buffer.byteLength || buffer.byteLength > 5 * 1024 * 1024) return null;
+      const blob = await put(`products/${productId}/marketplace-${index}-${crypto.randomUUID()}.${extension}`, new Blob([buffer], { type }), { access: 'public', addRandomSuffix: false });
+      return blob.url;
+    } finally { clearTimeout(timer); }
+  } catch { return null; }
+}
 
-    const body=await req.json();
-    const action=body.action==='import'?'import':'preview';
-    const sourceUrl=String(body.sourceUrl||'').trim();
-    const name=String(body.name||'').trim();
-    const description=String(body.description||'').trim();
-    const markup=Number(body.markupPercent);
-    const sourceCost=Number(body.sourceCost);
+export async function POST(request: Request) {
+  const access = await getAdminAccess();
+  if (!access || (!access.isSuperAdmin && (!access.permissions.includes('products') || !access.permissions.includes('marketplaces')))) {
+    return NextResponse.json({ error: 'Marketplace import permission required.' }, { status: 403 });
+  }
 
-    if(!sourceUrl)return NextResponse.json({error:'Product URL is required.'},{status:400});
-    if(!Number.isFinite(markup)||markup<0||markup>500)return NextResponse.json({error:'Markup must be between 0% and 500%.'},{status:400});
-    if(!name)return NextResponse.json({error:'Product name is required. Copy the product title from Amazon or Flipkart.'},{status:400});
-    if(!Number.isFinite(sourceCost)||sourceCost<=0)return NextResponse.json({error:'Enter the current source product price.'},{status:400});
+  try {
+    const body = await request.json();
+    const action = body.action === 'import' ? 'import' : 'preview';
+    const sourceUrl = String(body.sourceUrl || '').trim();
+    const markup = Number(body.markupPercent ?? 30);
+    if (!sourceUrl) return NextResponse.json({ error: 'Product URL is required.' }, { status: 400 });
+    if (!Number.isFinite(markup) || markup < 0 || markup > 500) return NextResponse.json({ error: 'Markup must be between 0% and 500%.' }, { status: 400 });
 
-    const parsed=parseMarketplaceUrl(sourceUrl);
-    if(!parsed)return NextResponse.json({error:'Use a public Amazon.in/Amazon.com/Amazon.co.uk product URL or a Flipkart product URL containing its pid.'},{status:400});
+    const parsedUrl = parseMarketplaceSourceUrl(sourceUrl);
+    let scraped: Awaited<ReturnType<typeof scrapeMarketplaceProduct>> | null = null;
+    let scrapeError = '';
+    try { scraped = await scrapeMarketplaceProduct(parsedUrl.url); }
+    catch (error) { scrapeError = error instanceof Error ? error.message : 'Automatic product reading failed.'; }
 
-    const imageUrls=Array.isArray(body.imageUrls)
-      ? body.imageUrls.map((v:unknown)=>String(v).trim()).filter(Boolean).slice(0,8)
-      : [];
+    const manualName = String(body.name || '').trim();
+    const manualDescription = String(body.description || '').trim();
+    const manualCost = Number(body.sourceCost);
+    const manualImages = Array.isArray(body.imageUrls) ? body.imageUrls.map((v: unknown) => String(v).trim()).filter(Boolean).slice(0, 8) : [];
 
-    const product={
-      provider:parsed.provider,
-      externalId:parsed.id,
-      title:name,
-      description:description||undefined,
+    const name = scraped?.name || manualName;
+    const description = scraped?.description || manualDescription;
+    const sourceCost = scraped?.sourceCost || (Number.isFinite(manualCost) && manualCost > 0 ? manualCost : 0);
+    const images = scraped?.images?.length ? scraped.images : manualImages;
+
+    if (!name) return NextResponse.json({ error: scrapeError || 'Product title could not be read. Enter the title manually.' }, { status: 422 });
+    if (!sourceCost) return NextResponse.json({ error: scrapeError || 'Product price could not be read. Enter the current source price manually.' }, { status: 422 });
+
+    const preview = {
+      provider: parsedUrl.provider,
+      externalId: parsedUrl.id,
+      title: name,
+      description,
       sourceCost,
-      images:imageUrls,
-      sourceUrl:parsed.url,
+      images,
+      sourceUrl: parsedUrl.url,
+      sellingPrice: sellingPrice(sourceCost, markup),
+      markupPercent: markup,
+      automatic: Boolean(scraped),
+      scrapeWarning: scraped ? undefined : scrapeError,
     };
-    const preview={...product,sellingPrice:sellingPrice(sourceCost,markup),markupPercent:markup};
 
-    if(action==='preview')return NextResponse.json({product:preview});
+    if (action === 'preview') return NextResponse.json({ product: preview });
 
-    if(!access.isSuperAdmin&&!access.permissions.includes('pricing'))return NextResponse.json({error:'Pricing permission required to import products.'},{status:403});
+    if (!access.isSuperAdmin && !access.permissions.includes('pricing')) {
+      return NextResponse.json({ error: 'Pricing permission required to import products.' }, { status: 403 });
+    }
 
-    const provider=parsed.provider==='AMAZON'?'AMAZON_MANUAL':'FLIPKART_MANUAL';
-    const integration=await db.marketplaceIntegration.upsert({
-      where:{provider},
-      update:{enabled:true,lastError:null},
-      create:{provider,enabled:true},
+    const provider = parsedUrl.provider === 'AMAZON' ? 'AMAZON_MANUAL' : parsedUrl.provider === 'FLIPKART' ? 'FLIPKART_MANUAL' : 'MEESHO_URL_IMPORT';
+    const integration = await db.marketplaceIntegration.upsert({
+      where: { provider },
+      update: { enabled: true, lastError: null },
+      create: { provider, enabled: true, autoSync: false, healthStatus: 'MANUAL_IMPORT' },
     });
 
-    const existing=await db.marketplaceProduct.findUnique({
-      where:{integrationId_externalId:{integrationId:integration.id,externalId:product.externalId}},
-      include:{product:true},
+    const existing = await db.marketplaceProduct.findUnique({
+      where: { integrationId_externalId: { integrationId: integration.id, externalId: parsedUrl.id } },
+      select: { productId: true },
     });
-    if(existing?.productId)return NextResponse.json({error:'This product is already imported into Zenvora.',productId:existing.productId},{status:409});
+    if (existing?.productId) return NextResponse.json({ error: 'This product is already imported into Zenvora.', productId: existing.productId }, { status: 409 });
 
-    let slug=slugify(product.title);
-    let n=1;
-    while(await db.product.findUnique({where:{slug}})){slug=slugify(product.title)+'-'+n++}
+    const baseSlug = slugify(name);
+    let slug = baseSlug;
+    for (let n = 2; ; n++) {
+      const clash = await db.product.findUnique({ where: { slug }, select: { id: true } });
+      if (!clash) break;
+      slug = `${baseSlug}-${n}`;
+    }
 
-    const categoryName=product.title.split(/[-|:]/)[0].trim().slice(0,60)||'Imported';
-    const category=await db.category.upsert({
-      where:{slug:slugify(categoryName)},
-      update:{},
-      create:{name:categoryName,slug:slugify(categoryName)},
+    const categoryName = name.split(/[-|:]/)[0].trim().slice(0, 60) || 'Imported';
+    const category = await db.category.upsert({
+      where: { slug: slugify(categoryName) },
+      update: {},
+      create: { name: categoryName, slug: slugify(categoryName) },
     });
 
-    const created=await db.product.create({
-      data:{
-        name:product.title,
+    const product = await db.product.create({
+      data: {
+        name,
         slug,
-        description:product.description||null,
-        sourceUrl:product.sourceUrl,
-        sourceCost:product.sourceCost,
-        sellingPrice:preview.sellingPrice,
-        stock:0,
-        status:'DRAFT',
-        categoryId:category.id,
+        description: description || null,
+        sourceUrl: parsedUrl.url,
+        sourceCost: new Prisma.Decimal(sourceCost),
+        sellingPrice: new Prisma.Decimal(preview.sellingPrice),
+        stock: 0,
+        status: 'DRAFT',
+        categoryId: category.id,
       },
     });
 
+    let importedImages = 0;
+    for (let i = 0; i < images.length; i++) {
+      const imageUrl = await importImage(product.id, images[i], i);
+      if (!imageUrl) continue;
+      await db.productImage.create({ data: { productId: product.id, url: imageUrl, altText: name, sortOrder: importedImages } });
+      importedImages++;
+    }
+
     await db.marketplaceProduct.create({
-      data:{
-        integrationId:integration.id,
-        externalId:product.externalId,
-        productId:created.id,
-        title:product.title,
-        sourceUrl:product.sourceUrl,
-        rawData:product,
+      data: {
+        integrationId: integration.id,
+        externalId: parsedUrl.id,
+        productId: product.id,
+        title: name,
+        sourceUrl: parsedUrl.url,
+        rawData: { provider: parsedUrl.provider, sourceCost, markupPercent: markup, imageCount: importedImages, automatic: Boolean(scraped) },
       },
     });
 
     await db.marketplaceIntegration.update({
-      where:{id:integration.id},
-      data:{importedProducts:{increment:1},lastSuccessAt:new Date(),healthStatus:'HEALTHY'},
+      where: { id: integration.id },
+      data: { importedProducts: { increment: 1 }, lastSuccessAt: new Date(), lastSyncAt: new Date(), healthStatus: 'HEALTHY', lastError: null },
     });
 
-    return NextResponse.json({
-      productId:created.id,
-      importedImages:0,
-      message:'Product imported as DRAFT. Add permitted product images from the admin product editor.',
-    });
-  }catch(e){
-    return NextResponse.json({error:e instanceof Error?e.message:'Marketplace import failed.'},{status:500});
+    return NextResponse.json({ ok: true, productId: product.id, importedImages, sellingPrice: preview.sellingPrice, automatic: Boolean(scraped) });
+  } catch (error) {
+    console.error('Marketplace product import failed:', error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Marketplace import failed.' }, { status: 500 });
   }
 }
