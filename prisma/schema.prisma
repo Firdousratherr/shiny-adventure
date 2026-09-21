@@ -307,6 +307,7 @@ model Order {
   history                 OrderStatusHistory[]
   inventoryMovements      InventoryMovement[]
   marketplaceOrders       MarketplaceOrder[]
+  supportTickets          SupportTicket[]
 
   @@index([status])
   @@index([phone])
