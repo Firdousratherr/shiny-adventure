@@ -148,9 +148,9 @@ export async function POST(request: Request) {
         productId: product.id,
         title: name,
         sourceUrl: parsedUrl.url,
-        rawData: { provider: parsedUrl.provider, sourceCost, markupPercent: markup, imageCount: importedImages, automatic: Boolean(scraped) },
+        rawData: { provider: parsedUrl.provider, sourceCost, markupPercent: markup, imageCount: importedImages, automatic: Boolean(scraped), availability: scraped?.availability || 'UNKNOWN' },
         lastSourceCost: new Prisma.Decimal(sourceCost),
-        sourceAvailability: 'UNKNOWN',
+        sourceAvailability: scraped?.availability || 'UNKNOWN',
       },
     });
 
