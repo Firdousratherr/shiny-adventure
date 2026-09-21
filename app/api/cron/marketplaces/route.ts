@@ -11,7 +11,9 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
-  const integrations = await db.marketplaceIntegration.findMany({ where: { enabled: true, autoSync: true } });
+  const integrations = await db.marketplaceIntegration.findMany({
+    where: { provider: 'SHOPIFY', enabled: true, autoSync: true },
+  });
   const results: Array<Record<string, unknown>> = [];
 
   for (const integration of integrations) {
