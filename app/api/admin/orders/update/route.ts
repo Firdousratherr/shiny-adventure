@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { Prisma, type OrderStatus } from '@prisma/client';
-import { auth } from '../../../../../auth';
 import { db } from '../../../../../lib/db';
 import { canTransition } from '../../../../../lib/orders/status';
 import { notifyCustomer } from '../../../../../lib/email';
