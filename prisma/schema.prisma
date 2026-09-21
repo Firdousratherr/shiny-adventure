@@ -168,6 +168,8 @@ model Product {
   priceLocked         Boolean              @default(false)
   priceLockValue      Decimal?             @db.Decimal(12, 2)
   marketplaceProducts MarketplaceProduct[]
+  reviews             ProductReview[]
+  versions            ProductVersion[]
   stockAlerts StockAlert[]
   wishlists           Wishlist[]
   recentlyViewed      RecentlyViewed[]
@@ -577,4 +579,122 @@ model StockAlert {
 
   @@unique([productId, email])
   @@index([productId, notifiedAt])
+}
+
+
+model Supplier {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  website      String?
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  notes        String?
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  products     Product[]
+
+  @@index([status, name])
+}
+
+model ProductVersion {
+  id             String   @id @default(cuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  snapshot       Json
+  changedBy      String
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@index([productId, createdAt])
+}
+
+model ProductReview {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customerId   String?
+  customerName String?
+  customerEmail String?
+  orderId      String?
+  rating       Int
+  title        String?
+  body         String?
+  status       String   @default("PENDING")
+  verified    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([productId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model CheckoutSession {
+  id            String   @id @default(cuid())
+  sessionKey    String   @unique
+  customerId    String?
+  email         String?
+  cartValue     Decimal? @db.Decimal(12, 2)
+  itemCount     Int      @default(0)
+  status        String   @default("STARTED")
+  recoveredAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+}
+
+model AutomationRule {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  event       String
+  conditions  Json?
+  actions     Json
+  enabled     Boolean  @default(true)
+  lastRunAt   DateTime?
+  lastError   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([enabled, event])
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  description String?
+  enabled     Boolean  @default(false)
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BusinessGoal {
+  id          String   @id @default(cuid())
+  name        String
+  metric      String
+  target      Decimal  @db.Decimal(14, 2)
+  periodStart DateTime
+  periodEnd   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([metric, periodStart, periodEnd])
+}
+
+model IntegrationEvent {
+  id          String   @id @default(cuid())
+  provider    String
+  eventType   String
+  status      String
+  message     String?
+  payload     Json?
+  durationMs  Int?
+  createdAt   DateTime @default(now())
+
+  @@index([provider, createdAt])
+  @@index([status, createdAt])
 }
