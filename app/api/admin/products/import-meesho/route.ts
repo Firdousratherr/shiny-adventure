@@ -24,7 +24,7 @@ function decodeHtml(value: string) {
 }
 
 function meta(html: string, name: string) {
-  const m = html.match(new RegExp('<meta[^>]+(?:property|name)=["\\']' + name + '["\\'][^>]+content=["\\']([^"\\']+)["\\'][^>]*>', 'i'));
+  const m = html.match(new RegExp("<meta[^>]+(?:property|name)=[\"']" + name + "[\"'][^>]+content=[\"']([^\"']+)[\"'][^>]*>", 'i'));
   return m ? decodeHtml(m[1]) : '';
 }
 
