@@ -210,6 +210,7 @@ export default function Checkout() {
           <p className="mt-2 text-xs text-slate-500">Final delivery and total are calculated again on the server.</p>
         </aside>
       </div>
+      </div>
     </main>
   );
 }
