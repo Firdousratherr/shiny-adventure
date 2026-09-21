@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 
-export default function AdminNav({ active }: { active: 'dashboard'|'products'|'pricing'|'orders'|'settings'|'staff'|'approvals'|'audit'|'marketplaces'|'customers'|'inventory'|'analytics' }) {
+export default function AdminNav({ active }: { active: 'dashboard'|'products'|'pricing'|'orders'|'settings'|'staff'|'approvals'|'audit'|'marketplaces'|'customers'|'inventory'|'analytics'|'coupons'|'banners' }) {
   const items = [
     ['dashboard','Dashboard','/admin/dashboard'],
     ['products','Products','/admin/products'],
     ['inventory','Inventory','/admin/inventory'],
     ['analytics','Analytics','/admin/analytics'],
     ['pricing','Pricing','/admin/pricing'],
+    ['coupons','Coupons','/admin/coupons'],
+    ['banners','Banners','/admin/banners'],
     ['orders','Orders','/admin/orders'],
     ['customers','Customers','/admin/customers'],
     ['settings','Settings','/admin/settings'],
