@@ -49,11 +49,7 @@ export async function POST() {
             sourceAvailability: scraped.availability,
             lastCheckedAt: new Date(),
             lastCheckError: null,
-            rawData: {
-              ...(item.rawData && typeof item.rawData === 'object' && !Array.isArray(item.rawData) ? item.rawData as Record<string, unknown> : {}),
-              lastCheckedAvailability: scraped.availability,
-              lastCheckedSourceCost: scraped.sourceCost,
-            },
+
           },
         });
 
