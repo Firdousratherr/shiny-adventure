@@ -1,0 +1,17 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import AdminNav from '../../../components/admin-nav';
+import { requireAdminPermission } from '../../../lib/admin-access';
+import { db } from '../../../lib/db';
+export default async function AnalyticsPage(){
+ const admin=await requireAdminPermission('orders'); if(!admin)redirect('/admin/login');
+ const since=new Date(Date.now()-30*24*60*60*1000);
+ const [orders,revenue,refunded,top]=await Promise.all([
+  db.order.count({where:{createdAt:{gte:since},deletedAt:null}}),
+  db.order.aggregate({where:{createdAt:{gte:since},deletedAt:null,status:{in:['CONFIRMED','ORDERED_FROM_SOURCE','SHIPPED','DELIVERED']}},_sum:{totalAmount:true}}),
+  db.order.aggregate({where:{createdAt:{gte:since},deletedAt:null,status:'REFUNDED'},_sum:{refundAmount:true}}),
+  db.orderItem.groupBy({by:['productName'],where:{order:{createdAt:{gte:since},deletedAt:null,status:{in:['CONFIRMED','ORDERED_FROM_SOURCE','SHIPPED','DELIVERED']}}},_sum:{quantity:true},orderBy:{_sum:{quantity:'desc'}},take:10})
+ ]);
+ const gross=Number(revenue._sum.totalAmount||0), refund=Number(refunded._sum.refundAmount||0);
+ return <main className="min-h-screen bg-slate-100"><AdminNav active="dashboard"/><div className="container py-8"><div className="flex items-center justify-between gap-3"><div><p className="text-sm text-indigo-600 font-bold">Business intelligence</p><h1 className="text-3xl font-black">Analytics</h1><p className="mt-2 text-sm text-slate-500">Last 30 days · confirmed and fulfilled orders are counted in revenue.</p></div><Link href="/admin/dashboard" className="font-semibold">← Dashboard</Link></div><div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Orders</p><p className="mt-2 text-3xl font-black">{orders}</p></div><div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Gross revenue</p><p className="mt-2 text-3xl font-black">₹{gross.toLocaleString('en-IN',{minimumFractionDigits:2})}</p></div><div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Refunded</p><p className="mt-2 text-3xl font-black">₹{refund.toLocaleString('en-IN',{minimumFractionDigits:2})}</p></div><div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Net after refunds</p><p className="mt-2 text-3xl font-black">₹{(gross-refund).toLocaleString('en-IN',{minimumFractionDigits:2})}</p></div></div><section className="mt-6 rounded-2xl bg-white p-5 shadow-sm"><h2 className="text-xl font-black">Top products</h2><div className="mt-4 divide-y">{!top.length&&<p className="py-6 text-slate-500">No sales in this period.</p>}{top.map((p,i)=><div key={p.productName} className="flex justify-between gap-4 py-3"><span><b>{i+1}.</b> {p.productName}</span><b>{p._sum.quantity||0} units</b></div>)}</div></section></div></main>;
+}
