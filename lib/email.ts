@@ -9,6 +9,43 @@ const escapeHtml = (value: string) => value
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#39;');
 
+async function sendViaBrevo(mail: Mail) {
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  const senderEmail = (process.env.BREVO_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
+  if (!apiKey || !senderEmail) return false;
+
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          email: senderEmail,
+          name: process.env.BREVO_FROM_NAME || 'Zenvora',
+        },
+        to: [{ email: mail.to }],
+        subject: mail.subject,
+        textContent: mail.text,
+        htmlContent: mail.html,
+      }),
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      console.error('Brevo email delivery failed', response.status, body.slice(0, 300));
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Brevo email request failed', error);
+    return false;
+  }
+}
+
 function transport() {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD } = process.env;
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) return null;
@@ -22,6 +59,13 @@ function transport() {
 }
 
 export async function sendEmail(mail: Mail) {
+  // Prefer Brevo's HTTPS API when configured. This avoids SMTP authentication/IP
+  // restrictions and works well in serverless environments such as Vercel.
+  if (process.env.BREVO_API_KEY?.trim()) {
+    const sent = await sendViaBrevo(mail);
+    if (sent) return true;
+  }
+
   const t = transport();
   if (!t) return false;
   try {
