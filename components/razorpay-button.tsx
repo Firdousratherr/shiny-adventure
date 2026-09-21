@@ -62,6 +62,46 @@ export default function RazorpayButton({ orderNumber, paymentToken, keyId, prefi
           zenvora_order_number: orderNumber,
         },
         theme: { color: '#4f46e5' },
+        handler: async (response: {
+          razorpay_payment_id?: string;
+          razorpay_order_id?: string;
+          razorpay_signature?: string;
+        }) => {
+          try {
+            if (
+              !response.razorpay_payment_id ||
+              !response.razorpay_order_id ||
+              !response.razorpay_signature
+            ) {
+              throw new Error('Razorpay returned an incomplete payment response.');
+            }
+
+            const verify = await fetch('/api/orders/razorpay/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                orderNumber,
+                paymentToken,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            const result = await verify.json().catch(() => ({}));
+            if (!verify.ok) {
+              throw new Error(result.error || 'Payment was received but could not be verified.');
+            }
+
+            router.replace(
+              `/payment/${encodeURIComponent(orderNumber)}/success?token=${encodeURIComponent(paymentToken)}`,
+            );
+            router.refresh();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : 'Unable to verify Razorpay payment.');
+            setBusy(false);
+          }
+        },
         modal: {
           ondismiss: () => setBusy(false),
           confirm_close: true,
