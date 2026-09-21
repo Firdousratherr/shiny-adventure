@@ -400,6 +400,40 @@ model MarketplaceOrder {
   @@index([orderId])
 }
 
+model MarketplacePriceChange {
+  id                 String              @id @default(cuid())
+  marketplaceProductId String
+  marketplaceProduct MarketplaceProduct @relation(fields: [marketplaceProductId], references: [id], onDelete: Cascade)
+  previousCost       Decimal             @db.Decimal(12, 2)
+  currentCost        Decimal             @db.Decimal(12, 2)
+  acknowledged       Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+
+  @@index([marketplaceProductId, createdAt])
+  @@index([acknowledged, createdAt])
+}
+
+model MarketplaceImportLog {
+  id             String                 @id @default(cuid())
+  integrationId  String
+  integration    MarketplaceIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  productId      String?
+  externalId     String
+  sourceUrl      String?
+  title          String?
+  status         String
+  automatic      Boolean                @default(false)
+  sourceCost     Decimal?               @db.Decimal(12, 2)
+  sellingPrice   Decimal?               @db.Decimal(12, 2)
+  importedImages Int                    @default(0)
+  error          String?
+  createdAt      DateTime               @default(now())
+
+  @@index([integrationId, createdAt])
+  @@index([status, createdAt])
+  @@index([productId])
+}
+
 model MarketplaceSyncRun {
   id             String                 @id @default(cuid())
   integrationId String
