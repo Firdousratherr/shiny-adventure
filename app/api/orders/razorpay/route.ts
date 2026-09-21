@@ -17,7 +17,10 @@ export async function POST(request: Request) {
     if (limited.limited) return NextResponse.json({ error: 'Too many payment attempts. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
 
     const enabled = (await getSetting('razorpayEnabled')) === 'true';
-    const configuredKeyId = await getSetting('razorpayKeyId');
+    // The public Key ID must always match the Key Secret used by getRazorpay().
+    // Prefer the Vercel environment variable so a stale admin setting cannot pair
+    // one key ID with a different secret.
+    const configuredKeyId = process.env.RAZORPAY_KEY_ID || await getSetting('razorpayKeyId');
     if (!enabled || !configuredKeyId) return NextResponse.json({ error: 'Razorpay payments are currently disabled.' }, { status: 403 });
 
     const body = await request.json();
@@ -51,7 +54,7 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ razorpayOrderId: rpOrder.id, amount: rpOrder.amount, currency: rpOrder.currency, keyId: configuredKeyId });
   } catch (error) {
-    if (error instanceof Error && error.message === 'RAZORPAY_NOT_CONFIGURED') return NextResponse.json({ error: 'Razorpay is not configured.' }, { status: 503 });
+    if (error instanceof Error && error.message === 'RAZORPAY_NOT_CONFIGURED') return NextResponse.json({ error: 'Razorpay is not configured. Check RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Vercel.' }, { status: 503 });
     console.error('razorpay order creation failed', error);
     return NextResponse.json({ error: 'Unable to start Razorpay payment.' }, { status: 500 });
   }
