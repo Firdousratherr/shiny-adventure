@@ -5,9 +5,10 @@ export async function POST(request: Request) {
   const admin = await requireAdminPermission('orders');
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
-    const b = await request.json();
-    if (typeof b.orderNumber !== 'string') return NextResponse.json({ error: 'Order number is required.' }, { status: 400 });
-    const order = await db.order.update({ where: { orderNumber: b.orderNumber.trim().toUpperCase() }, data: { deletedAt: null }, select: { orderNumber: true } });
+    const contentType = request.headers.get('content-type') || '';
+    const orderNumber = contentType.includes('application/json') ? String((await request.json()).orderNumber || '') : String((await request.formData()).get('orderNumber') || '');
+    if (!orderNumber) return NextResponse.json({ error: 'Order number is required.' }, { status: 400 });
+    const order = await db.order.update({ where: { orderNumber: orderNumber.trim().toUpperCase() }, data: { deletedAt: null }, select: { orderNumber: true } });
     return NextResponse.json({ ok: true, orderNumber: order.orderNumber });
   } catch { return NextResponse.json({ error: 'Archived order not found.' }, { status: 404 }); }
 }
