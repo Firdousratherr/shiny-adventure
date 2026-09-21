@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server';
 import {getAdminAccess} from '@/lib/admin-access';
-import {prisma} from '@/lib/prisma';
+import {db} from '@/lib/db';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -71,7 +71,7 @@ function sellingPrice(cost:number,markup:number){return Math.round((cost*(1+mark
 export async function POST(req:Request){
   try{
     const access=await getAdminAccess();
-    if(!access.allowed||!access.permissions.includes('products')||!access.permissions.includes('marketplaces'))return NextResponse.json({error:'Marketplace import permission required.'},{status:403});
+    if(!access||(!access.isSuperAdmin&&(!access.permissions.includes('products')||!access.permissions.includes('marketplaces'))))return NextResponse.json({error:'Marketplace import permission required.'},{status:403});
     const body=await req.json(); const action=body.action==='import'?'import':'preview'; const sourceUrl=String(body.sourceUrl||'').trim(); const markup=Number(body.markupPercent);
     if(!sourceUrl)return NextResponse.json({error:'Product URL is required.'},{status:400});
     if(!Number.isFinite(markup)||markup<0||markup>500)return NextResponse.json({error:'Markup must be between 0% and 500%.'},{status:400});
@@ -79,7 +79,7 @@ export async function POST(req:Request){
     const product=parsed.provider==='AMAZON'?await fetchAmazon(parsed.id,parsed.url):await fetchFlipkart(parsed.id,parsed.url);
     const preview={...product,sellingPrice:sellingPrice(product.sourceCost,markup),markupPercent:markup};
     if(action==='preview')return NextResponse.json({product:preview});
-    if(!access.permissions.includes('pricing'))return NextResponse.json({error:'Pricing permission required to import products.'},{status:403});
+    if(!access.isSuperAdmin&&!access.permissions.includes('pricing'))return NextResponse.json({error:'Pricing permission required to import products.'},{status:403});
     const provider=parsed.provider==='AMAZON'?'AMAZON_CREATORS_API':'FLIPKART_AFFILIATE_API';
     const integration=await prisma.marketplaceIntegration.upsert({where:{provider},update:{enabled:true},create:{provider,enabled:true}});
     const existing=await prisma.marketplaceProduct.findUnique({where:{integrationId_externalId:{integrationId:integration.id,externalId:product.externalId}},include:{product:true}});
