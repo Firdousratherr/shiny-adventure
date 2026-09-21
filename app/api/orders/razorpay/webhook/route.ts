@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { db } from '../../../../../lib/db';
 import { verifyWebhookSignature } from '../../../../../lib/razorpay';
 import { releasePaymentReservation } from '../../../../../lib/inventory-reservations';
