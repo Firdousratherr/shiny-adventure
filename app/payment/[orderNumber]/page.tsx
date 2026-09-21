@@ -26,7 +26,9 @@ export default async function PaymentPage({
   const settings = await db.settings.findMany({ where: { key: { in: ['upiId', 'upiDisplayName', 'razorpayEnabled', 'razorpayKeyId'] } } });
   const s = Object.fromEntries(settings.map(x => [x.key, x.value]));
   const upiId = s.upiId || '';
-  const razorpayKeyId = s.razorpayKeyId || '';
+  // Keep the browser key paired with the server secret. Vercel's environment
+  // variable is canonical; the database value is only a fallback for older setups.
+  const razorpayKeyId = process.env.RAZORPAY_KEY_ID || s.razorpayKeyId || '';
   const razorpayEnabled = s.razorpayEnabled === 'true' && !!razorpayKeyId;
   const intent = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&am=${encodeURIComponent(order.totalAmount.toFixed(2))}&cu=INR` : '';
   const qr = upiId ? await QRCode.toDataURL(intent, { width: 320, margin: 2 }) : '';
