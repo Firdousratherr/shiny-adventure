@@ -361,6 +361,7 @@ model MarketplaceIntegration {
   products              MarketplaceProduct[]
   orders                MarketplaceOrder[]
   syncRuns              MarketplaceSyncRun[]
+  importLogs            MarketplaceImportLog[]
   settings              Json?
   credentialsEncrypted  String?
   healthStatus          String   @default("UNKNOWN")
