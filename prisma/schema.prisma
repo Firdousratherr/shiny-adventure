@@ -1,14 +1,410 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql" url = env("DATABASE_URL") directUrl = env("DIRECT_URL") }
-enum ProductStatus { DRAFT ACTIVE HIDDEN OUT_OF_STOCK }
-enum OrderStatus { PAYMENT_PENDING CONFIRMED ORDERED_FROM_SOURCE SHIPPED DELIVERED CANCELLED RTO RETURN_REQUESTED REFUNDED }
-model AdminUser { id String @id @default(cuid()); email String @unique; passwordHash String; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt }
-model Category { id String @id @default(cuid()); name String; slug String @unique; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; products Product[] }
-model Product { id String @id @default(cuid()); name String; slug String @unique; description String?; sourceUrl String?; sourceCost Decimal? @db.Decimal(12,2); sellingPrice Decimal @db.Decimal(12,2); stock Int @default(0); categoryId String?; category Category? @relation(fields:[categoryId],references:[id]); featured Boolean @default(false); status ProductStatus @default(DRAFT); createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; images ProductImage[]; orderItems OrderItem[]; @@index([categoryId]); @@index([status]); @@index([featured]) }
-model ProductImage { id String @id @default(cuid()); productId String; product Product @relation(fields:[productId],references:[id],onDelete:Restrict); url String; altText String?; sortOrder Int @default(0); createdAt DateTime @default(now()); @@index([productId]) }
-model OrderCounter { id Int @id @default(1); value Int @default(0) }
-model RazorpayWebhookEvent { id String @id @default(cuid()); eventId String @unique; event String; payload Json; receivedAt DateTime @default(now()); processedAt DateTime?; processingError String?; @@index([event]); @@index([receivedAt]) }
-model Order { id String @id @default(uuid()); orderNumber String @unique; customerName String; email String?; phone String; addressLine1 String; addressLine2 String?; landmark String?; city String; district String; pinCode String; state String; totalAmount Decimal @db.Decimal(12,2); deliveryCharge Decimal @db.Decimal(12,2); status OrderStatus @default(PAYMENT_PENDING); paymentMethod String @default("UPI_MANUAL"); razorpayOrderId String? @unique; razorpayPaymentId String? @unique; razorpaySignature String?; upiTransactionId String? @unique; paymentScreenshotUrl String?; paymentVerifiedAt DateTime?; paymentVerifiedBy String?; paymentVerificationNote String?; paymentRejectionReason String?; sourceOrderId String?; courierName String?; trackingNumber String?; trackingUrl String?; cancellationReason String?; refundAmount Decimal? @db.Decimal(12,2); refundMethod String?; refundReference String?; refundProcessedAt DateTime?; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; items OrderItem[]; history OrderStatusHistory[]; @@index([status]); @@index([phone]); @@index([createdAt]); @@index([status,createdAt]); @@index([paymentMethod]) }
-model OrderItem { id String @id @default(cuid()); orderId String; productId String; productName String; quantity Int; unitPrice Decimal @db.Decimal(12,2); sourceCost Decimal? @db.Decimal(12,2); order Order @relation(fields:[orderId],references:[id],onDelete:Restrict); product Product @relation(fields:[productId],references:[id],onDelete:Restrict); @@index([orderId]); @@index([productId]) }
-model OrderStatusHistory { id String @id @default(cuid()); orderId String; oldStatus OrderStatus?; newStatus OrderStatus; changedBy String; note String?; createdAt DateTime @default(now()); order Order @relation(fields:[orderId],references:[id],onDelete:Restrict); @@index([orderId]) }
-model Settings { id String @id @default(cuid()); key String @unique; value String; updatedAt DateTime @updatedAt }
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  HIDDEN
+  OUT_OF_STOCK
+}
+
+enum OrderStatus {
+  PAYMENT_PENDING
+  CONFIRMED
+  ORDERED_FROM_SOURCE
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RTO
+  RETURN_REQUESTED
+  REFUNDED
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  accessRole  String   @default("STAFF")
+  permissions Json?
+  isActive    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  adminId     String?
+  adminEmail  String
+  action      String
+  entityType  String
+  entityId    String?
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([adminEmail, createdAt])
+  @@index([entityType, entityId])
+}
+
+model AdminApproval {
+  id             String   @id @default(cuid())
+  requestedById  String
+  requestedBy    String
+  action         String
+  entityType     String
+  entityId       String?
+  payload        Json
+  status         String   @default("PENDING")
+  reviewedBy     String?
+  reviewNote     String?
+  createdAt      DateTime @default(now())
+  reviewedAt     DateTime?
+
+  @@index([status, createdAt])
+  @@index([requestedBy, createdAt])
+}
+
+model CustomerUser {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  addresses    CustomerAddress[]
+}
+
+model CustomerAddress {
+  id           String       @id @default(cuid())
+  customerId   String
+  customer     CustomerUser @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label        String       @default("Home")
+  fullName     String
+  phone        String
+  addressLine1 String
+  addressLine2 String?
+  landmark     String?
+  city         String
+  district     String
+  state        String
+  pinCode      String
+  isDefault    Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([customerId])
+  @@index([customerId, isDefault])
+}
+
+model SignupOtp {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  otpHash      String
+  expiresAt    DateTime
+  attempts     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+model PasswordResetOtp {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  otpHash      String
+  expiresAt    DateTime
+  attempts     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+  pricingRules PricingRule[]
+}
+
+model Product {
+  id                  String               @id @default(cuid())
+  name                String
+  slug                String               @unique
+  description         String?
+  sourceUrl           String?
+  sourceCost          Decimal?             @db.Decimal(12, 2)
+  sellingPrice        Decimal              @db.Decimal(12, 2)
+  stock               Int                  @default(0)
+  categoryId          String?
+  category            Category?            @relation(fields: [categoryId], references: [id])
+  featured            Boolean              @default(false)
+  status              ProductStatus        @default(DRAFT)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  images              ProductImage[]
+  orderItems          OrderItem[]
+  inventoryMovements  InventoryMovement[]
+  priceHistory        ProductPriceHistory[]
+  priceLocked         Boolean              @default(false)
+  priceLockValue      Decimal?             @db.Decimal(12, 2)
+  marketplaceProducts MarketplaceProduct[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([featured])
+}
+
+
+model PricingRule {
+  id             String   @id @default(cuid())
+  name           String
+  scope          String   @default("GLOBAL")
+  provider       String?
+  categoryId     String?
+  category       Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  markupPercent  Decimal  @db.Decimal(7, 2)
+  fixedAmount    Decimal  @default(0) @db.Decimal(12, 2)
+  minPrice       Decimal? @db.Decimal(12, 2)
+  maxPrice       Decimal? @db.Decimal(12, 2)
+  roundingMode   String   @default("NONE")
+  roundingValue  Decimal? @db.Decimal(12, 2)
+  enabled        Boolean  @default(true)
+  priority       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([scope, enabled, priority])
+  @@index([provider, enabled])
+  @@index([categoryId, enabled])
+}
+
+model ProductPriceHistory {
+  id             String   @id @default(cuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sourceCost     Decimal? @db.Decimal(12, 2)
+  oldSellingPrice Decimal @db.Decimal(12, 2)
+  newSellingPrice Decimal @db.Decimal(12, 2)
+  markupPercent  Decimal? @db.Decimal(7, 2)
+  reason         String
+  changedBy      String
+  createdAt      DateTime @default(now())
+
+  @@index([productId, createdAt])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  url       String
+  altText   String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+model OrderCounter {
+  id    Int @id @default(1)
+  value Int @default(0)
+}
+
+model RazorpayWebhookEvent {
+  id              String    @id @default(cuid())
+  eventId         String   @unique
+  event           String
+  payload         Json
+  receivedAt      DateTime  @default(now())
+  processedAt     DateTime?
+  processingError String?
+
+  @@index([event])
+  @@index([receivedAt])
+}
+
+model InventoryMovement {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  quantity  Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@index([productId, createdAt])
+  @@index([orderId])
+  @@index([reason])
+}
+
+model Order {
+  id                      String               @id @default(uuid())
+  orderNumber             String               @unique
+  customerName            String
+  email                   String?
+  phone                   String
+  addressLine1            String
+  addressLine2            String?
+  landmark                String?
+  city                    String
+  district                String
+  pinCode                 String
+  state                   String
+  totalAmount             Decimal              @db.Decimal(12, 2)
+  deliveryCharge          Decimal              @db.Decimal(12, 2)
+  status                  OrderStatus          @default(PAYMENT_PENDING)
+  paymentMethod           String               @default("UPI_MANUAL")
+  razorpayOrderId         String?              @unique
+  razorpayPaymentId       String?              @unique
+  razorpaySignature       String?
+  upiTransactionId        String?              @unique
+  paymentScreenshotUrl    String?
+  paymentVerifiedAt      DateTime?
+  paymentVerifiedBy      String?
+  paymentVerificationNote String?
+  paymentRejectionReason  String?
+  sourceOrderId           String?
+  courierName             String?
+  trackingNumber          String?
+  trackingUrl             String?
+  cancellationReason      String?
+  refundAmount            Decimal?
+  refundMethod            String?
+  refundReference         String?
+  refundProcessedAt       DateTime?
+  reservationExpiresAt    DateTime?
+  paymentAccessTokenHash  String?             @unique
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  items                   OrderItem[]
+  history                 OrderStatusHistory[]
+  inventoryMovements      InventoryMovement[]
+  marketplaceOrders       MarketplaceOrder[]
+
+  @@index([status])
+  @@index([phone])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([paymentMethod])
+  @@index([reservationExpiresAt])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  sourceCost  Decimal? @db.Decimal(12, 2)
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  product     Product  @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  oldStatus OrderStatus?
+  newStatus OrderStatus
+  changedBy String
+  note      String?
+  createdAt DateTime    @default(now())
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
+model Settings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model MarketplaceIntegration {
+  id                    String   @id @default(cuid())
+  provider              String   @unique
+  enabled               Boolean  @default(false)
+  autoSync              Boolean  @default(false)
+  syncIntervalMinutes   Int      @default(60)
+  lastSyncAt             DateTime?
+  lastSuccessAt          DateTime?
+  lastError              String?
+  importedProducts      Int      @default(0)
+  importedOrders        Int      @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  products              MarketplaceProduct[]
+  orders                MarketplaceOrder[]
+  syncRuns              MarketplaceSyncRun[]
+  settings              Json?
+  credentialsEncrypted  String?
+  healthStatus          String   @default("UNKNOWN")
+  lastSyncDurationMs    Int?
+}
+
+model MarketplaceProduct {
+  id             String                 @id @default(cuid())
+  integrationId String
+  integration   MarketplaceIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  externalId    String
+  productId     String?
+  product       Product?               @relation(fields: [productId], references: [id], onDelete: SetNull)
+  title         String
+  sourceUrl     String?
+  rawData       Json?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@unique([integrationId, externalId])
+  @@index([productId])
+}
+
+model MarketplaceOrder {
+  id             String                 @id @default(cuid())
+  integrationId String
+  integration   MarketplaceIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  externalId    String
+  orderId       String?
+  order         Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  status        String?
+  rawData       Json?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@unique([integrationId, externalId])
+  @@index([orderId])
+}
+
+model MarketplaceSyncRun {
+  id             String                 @id @default(cuid())
+  integrationId String
+  integration   MarketplaceIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  type           String
+  status         String
+  productsFound  Int                    @default(0)
+  ordersFound    Int                    @default(0)
+  error          String?
+  startedAt      DateTime               @default(now())
+  finishedAt     DateTime?
+
+  @@index([integrationId, startedAt])
+  @@index([status, startedAt])
+}

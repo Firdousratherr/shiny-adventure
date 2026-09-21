@@ -3,9 +3,15 @@ const bcrypt = require('bcryptjs');
 const db = new PrismaClient();
 
 async function main() {
-  const email = process.env.ADMIN_EMAIL;
-  const password = process.env.ADMIN_PASSWORD;
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PRODUCTION_SEED !== 'true') {
+    throw new Error('Refusing to run seed in production. Set ALLOW_PRODUCTION_SEED=true only for an intentional seed operation.');
+  }
+
+  const email = String(process.env.ADMIN_EMAIL || '').toLowerCase().trim();
+  const password = process.env.ADMIN_PASSWORD || '';
   if (!email || !password) throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD are required');
+  if (password.length < 12) throw new Error('ADMIN_PASSWORD must be at least 12 characters');
+
   const passwordHash = await bcrypt.hash(password, 12);
   await db.adminUser.upsert({ where: { email }, update: { passwordHash }, create: { email, passwordHash } });
 
@@ -45,4 +51,7 @@ async function main() {
   for (const [key, value] of Object.entries(settings)) await db.settings.upsert({ where: { key }, update: { value }, create: { key, value } });
 }
 
-main().finally(() => db.$disconnect());
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+}).finally(() => db.$disconnect());

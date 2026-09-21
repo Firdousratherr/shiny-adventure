@@ -1,0 +1,4 @@
+import { NextResponse } from 'next/server';
+import { auth } from '../../../../../auth';
+import { db } from '../../../../../lib/db';
+export async function POST(request:Request){const s=await auth();if(s?.user?.role!=='admin')return NextResponse.json({error:'Unauthorized'},{status:401});try{const {id}=await request.json();if(typeof id!=='string')return NextResponse.json({error:'Product ID is required.'},{status:400});const p=await db.product.update({where:{id},data:{status:'HIDDEN'}});return NextResponse.json({ok:true,id:p.id});}catch(e){console.error(e);return NextResponse.json({error:'Unable to archive product.'},{status:500});}}

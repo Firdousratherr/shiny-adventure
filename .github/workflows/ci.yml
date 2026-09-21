@@ -1,0 +1,50 @@
+name: CI
+
+# CI trigger enabled for branch validation
+
+on:
+  push:
+    branches: ["build/admin-order-management-final4", "build/dropshipping-store"]
+  pull_request:
+    branches: ["build/dropshipping-store", "build/admin-order-management-final4"]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/zenvora
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/zenvora
+      AUTH_SECRET: ci-only-secret-at-least-32-characters-long
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: zenvora
+        ports:
+          - 5432:5432
+        options: --health-cmd "pg_isready -U ci -d zenvora" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      - name: Generate Prisma client
+        run: npm run db:generate
+      - name: Apply database migrations
+        run: npm run db:migrate
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
