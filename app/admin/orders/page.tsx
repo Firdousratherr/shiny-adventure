@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '../../../auth';
 import { db } from '../../../lib/db';
 import PaymentActions from './payment-actions';
+import DeleteOrderButton from './delete-order-button';
 
 const statuses = ['PAYMENT_PENDING','CONFIRMED','ORDERED_FROM_SOURCE','SHIPPED','DELIVERED','CANCELLED','RTO','RETURN_REQUESTED','REFUNDED'] as const;
 const money = (v: unknown) => `₹${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -36,10 +37,4 @@ function OrderActions({ orderNumber, status }: { orderNumber: string; status: st
   if (!show) return null;
   const options = status==='RTO' ? ['REFUNDED'] : status==='RETURN_REQUESTED' ? ['REFUNDED','DELIVERED'] : ['ORDERED_FROM_SOURCE','SHIPPED','DELIVERED','CANCELLED','RTO','RETURN_REQUESTED'].filter(s=>s!==status);
   return <div className="mt-5 border-t pt-5"><form action="/api/admin/orders/update" method="post" className="grid gap-3 md:grid-cols-4"><input type="hidden" name="orderNumber" value={orderNumber}/><select required name="status" className="rounded-xl border px-3 py-3"><option value="">Change status…</option>{options.map(s=><option key={s}>{s}</option>)}</select><input name="note" placeholder="Admin note / reason" className="rounded-xl border px-3 py-3"/><input name="sourceOrderId" placeholder="Source order ID (private)" className="rounded-xl border px-3 py-3"/><input name="courierName" placeholder="Courier" className="rounded-xl border px-3 py-3"/><input name="trackingNumber" placeholder="Tracking number" className="rounded-xl border px-3 py-3"/><input name="trackingUrl" placeholder="Tracking URL" className="rounded-xl border px-3 py-3"/><input name="refundAmount" placeholder="Refund amount ₹" inputMode="decimal" className="rounded-xl border px-3 py-3"/><input name="refundMethod" placeholder="Refund method" className="rounded-xl border px-3 py-3"/><input name="refundReference" placeholder="Refund reference" className="rounded-xl border px-3 py-3"/><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white md:col-span-4">Save order update</button></form></div>;
-}
-function DeleteOrderButton({ orderNumber }: { orderNumber: string }) {
-  return <form action="/api/admin/orders/delete" method="post" onSubmit={e=>{if(!confirm('Delete this order from the admin list? The order will be archived and retained for audit records.')) e.preventDefault();}} className="mt-4 border-t pt-4">
-    <input type="hidden" name="orderNumber" value={orderNumber}/>
-    <button type="submit" className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-100">Delete order</button>
-  </form>;
 }
