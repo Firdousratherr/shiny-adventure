@@ -6,9 +6,9 @@ import AddToCart from '../../../components/add-to-cart';
 import { productImageUrl } from '../../../lib/product-image-url';
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const p = await db.product.findUnique({ where: { slug: params.slug }, select: { name: true, description: true, images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } } } });
+  const p = await db.product.findUnique({ where: { slug: params.slug }, select: { name: true, description: true, metaTitle: true, metaDescription: true, canonicalUrl: true, images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } } } });
   if (!p) return {};
-  return { title: p.name, description: p.description || `Shop ${p.name} online at Zenvora.`, openGraph: { title: p.name, description: p.description || undefined, images: p.images[0] ? [p.images[0].url] : [] } };
+  return { title: p.metaTitle || p.name, description: p.metaDescription || p.description || `Shop ${p.name} online at Zenvora.`, alternates: p.canonicalUrl ? { canonical: p.canonicalUrl } : undefined, openGraph: { title: p.metaTitle || p.name, description: p.metaDescription || p.description || undefined, images: p.images[0] ? [p.images[0].url] : [] } };
 }
 
 export default async function Product({ params }: { params: { slug: string } }) {
