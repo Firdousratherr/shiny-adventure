@@ -15,7 +15,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const admin = await requireAdminPermission('orders');
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const body = await request.json().catch(() => ({}));
+  const contentType = request.headers.get('content-type') || '';
+  const body = contentType.includes('application/json') ? await request.json().catch(() => ({})) : Object.fromEntries((await request.formData()).entries());
   const id = typeof body.id === 'string' ? body.id : '';
   const action = body.action === 'dismiss' ? 'dismiss' : 'read';
   if (!id) return NextResponse.json({ error: 'Notification ID is required.' }, { status: 400 });
