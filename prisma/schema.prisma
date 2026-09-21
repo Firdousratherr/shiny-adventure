@@ -157,6 +157,8 @@ model Product {
   stock               Int                  @default(0)
   categoryId          String?
   category            Category?            @relation(fields: [categoryId], references: [id])
+  supplierId           String?
+  supplier             Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   featured            Boolean              @default(false)
   status              ProductStatus        @default(DRAFT)
   createdAt           DateTime             @default(now())
@@ -175,6 +177,7 @@ model Product {
   recentlyViewed      RecentlyViewed[]
 
   @@index([categoryId])
+  @@index([supplierId])
   @@index([status])
   @@index([featured])
 }
