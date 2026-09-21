@@ -135,18 +135,18 @@ export default function Checkout() {
   if (!items.length) return (
     <main className="min-h-screen bg-[#070b16] px-4 py-16 text-center text-white">
       <h1 className="text-2xl font-black">Your cart is empty</h1>
-      <Link href="/products" className="mt-5 inline-block rounded-xl bg-slate-900 px-6 py-3 font-black text-slate-950">Shop products</Link>
+      <Link href="/products" className="mt-5 inline-block rounded-xl bg-white px-6 py-3 font-black text-slate-950">Shop products</Link>
     </main>
   );
 
   return (
-    <main className="min-h-screen bg-[#070b16] px-0 py-5 text-white sm:py-8">
-      <Link href="/cart" className="font-semibold">← Back to cart</Link>
+    <main className="min-h-screen bg-[#070b16] px-4 py-5 text-white sm:px-6 sm:py-8">\n      <div className="mx-auto max-w-6xl">
+      <div className="flex items-center justify-between border-b border-white/10 pb-4"><Link href="/cart" className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold hover:bg-white/5">← Back to cart</Link><span className="text-xs font-bold text-slate-500">🔒 Secure checkout</span></div>
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_340px]">
         <form ref={formRef} onSubmit={submit} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/20 sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-violet-600">Secure checkout</p>
+              <p className="text-xs font-black uppercase tracking-[.2em] text-violet-400">Step 1 of 2 · Delivery</p>
               <h1 className="text-2xl font-black sm:text-3xl">Delivery details</h1>
             </div>
             {loadingAccount && <span className="text-xs text-slate-400">Checking saved details…</span>}
