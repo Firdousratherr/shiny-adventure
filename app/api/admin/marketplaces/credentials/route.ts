@@ -13,7 +13,7 @@ const fields: Record<Provider, string[]> = {
   MEESHO: ['apiKey','apiSecret'],
   EBAY: ['clientId','clientSecret','environment','marketplaceId'],
   ETSY: ['apiKeyString','sharedSecret','accessToken','shopId'],
-  SHOPIFY: ['storeDomain','accessToken'],
+  SHOPIFY: ['storeDomain','clientId','clientSecret'],
 };
 
 function providerOf(value: unknown): Provider | null {
@@ -94,8 +94,30 @@ export async function POST(request: Request) {
     if (provider === 'MEESHO') throw new Error('Meesho requires official partner API access; connection testing is unavailable until that access is provided.');
     if (provider === 'SHOPIFY') {
       const domain = String(credentials.storeDomain ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-      const response = await fetch(`https://${domain}/admin/api/2026-07/graphql.json`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': String(credentials.accessToken ?? '') }, body: JSON.stringify({ query: '{ shop { name } }' }), cache: 'no-store' });
-      const data: any = await response.json(); if (!response.ok || data.errors?.length) throw new Error(data.errors?.[0]?.message || `Shopify returned ${response.status}`); detail = `Connected to ${data.data?.shop?.name || domain}.`;
+      if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(domain)) throw new Error('Use the Shopify myshopify.com store domain.');
+      const tokenResponse = await fetch(`https://${domain}/admin/oauth/access_token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: String(credentials.clientId ?? ''),
+          client_secret: String(credentials.clientSecret ?? ''),
+        }),
+        cache: 'no-store',
+      });
+      const tokenData: any = await tokenResponse.json();
+      if (!tokenResponse.ok || typeof tokenData.access_token !== 'string') {
+        throw new Error(tokenData.error_description || tokenData.error || `Shopify token request failed (${tokenResponse.status})`);
+      }
+      const response = await fetch(`https://${domain}/admin/api/2026-07/graphql.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': tokenData.access_token },
+        body: JSON.stringify({ query: '{ shop { name } }' }),
+        cache: 'no-store',
+      });
+      const data: any = await response.json();
+      if (!response.ok || data.errors?.length) throw new Error(data.errors?.[0]?.message || `Shopify returned ${response.status}`);
+      detail = `Connected to ${data.data?.shop?.name || domain}. Shopify token expires in 24 hours and is refreshed automatically during API use.`;
     } else if (provider === 'EBAY') {
       const base = String(credentials.environment ?? 'production') === 'sandbox' ? 'https://api.sandbox.ebay.com' : 'https://api.ebay.com';
       const response = await fetch(`${base}/identity/v1/oauth2/token`, { method: 'POST', headers: { Authorization: `Basic ${Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString('base64')}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope', cache: 'no-store' });
