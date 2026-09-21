@@ -20,9 +20,9 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 1500
 }
 
 export async function getShopifyAccessToken(credentials: Record<string, unknown>) {
-  const domain = validateShopifyDomain(credentials.storeDomain);
-  const clientId = String(credentials.clientId ?? '').trim();
-  const clientSecret = String(credentials.clientSecret ?? '').trim();
+  const domain = validateShopifyDomain(credentials.storeDomain ?? process.env.SHOPIFY_STORE_DOMAIN);
+  const clientId = String(credentials.clientId ?? process.env.SHOPIFY_CLIENT_ID ?? '').trim();
+  const clientSecret = String(credentials.clientSecret ?? process.env.SHOPIFY_CLIENT_SECRET ?? '').trim();
   if (!clientId || !clientSecret) throw new Error('Shopify Client ID and Client Secret are required.');
 
   const response = await fetchWithTimeout(`https://${domain}/admin/oauth/access_token`, {
