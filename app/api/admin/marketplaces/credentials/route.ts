@@ -4,6 +4,7 @@ import { requireAdminPermission } from '../../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../../lib/admin-audit';
 import { encryptMarketplaceCredentials, encryptionConfigured } from '../../../../../lib/marketplace-crypto';
 import { marketplaceCredentials, credentialStatus } from '../../../../../lib/marketplaces';
+import { testShopifyConnection } from '../../../../../lib/shopify';
 
 const PROVIDERS = ['AMAZON', 'FLIPKART', 'MEESHO', 'EBAY', 'ETSY', 'SHOPIFY'] as const;
 type Provider = typeof PROVIDERS[number];
@@ -57,6 +58,14 @@ export async function PUT(request: Request) {
     const patch = cleanCredentials(provider, body.credentials);
     const existing = await marketplaceCredentials(provider);
     const merged = { ...existing, ...patch };
+    if (provider === 'SHOPIFY') {
+      const required = ['storeDomain', 'clientId', 'clientSecret'];
+      if (!required.every(key => Boolean(merged[key]))) return NextResponse.json({ error: 'Shopify Store Domain, Client ID and Client Secret are all required.' }, { status: 400 });
+      const connection = await testShopifyConnection(merged);
+      const integration = await db.marketplaceIntegration.upsert({ where: { provider }, update: { credentialsEncrypted: encryptMarketplaceCredentials(merged), enabled: true, healthStatus: 'HEALTHY', lastError: null }, create: { provider, credentialsEncrypted: encryptMarketplaceCredentials(merged), enabled: true, healthStatus: 'HEALTHY' } });
+      await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'MARKETPLACE_CREDENTIALS_UPDATED', entityType: 'MARKETPLACE', entityId: integration.id, details: { provider, fieldsUpdated: Object.keys(patch), shopName: connection.shopName } });
+      return NextResponse.json({ success: true, configured: true, connected: true, shopName: connection.shopName, detail: `Connected to ${connection.shopName}. Access tokens are renewed server-side when needed.`, fields: fields[provider].reduce<Record<string, boolean>>((out, key) => { out[key] = Boolean(merged[key]); return out; }, {}) });
+    }
     if (!Object.keys(merged).length) return NextResponse.json({ error: 'Enter at least one credential.' }, { status: 400 });
     const integration = await db.marketplaceIntegration.upsert({
       where: { provider },
@@ -92,33 +101,7 @@ export async function POST(request: Request) {
     if (!(await credentialStatus(provider))) return NextResponse.json({ error: 'Required credentials are not configured.' }, { status: 400 });
     let detail = 'Connection successful.';
     if (provider === 'MEESHO') throw new Error('Meesho requires official partner API access; connection testing is unavailable until that access is provided.');
-    if (provider === 'SHOPIFY') {
-      const domain = String(credentials.storeDomain ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-      if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(domain)) throw new Error('Use the Shopify myshopify.com store domain.');
-      const tokenResponse = await fetch(`https://${domain}/admin/oauth/access_token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: String(credentials.clientId ?? ''),
-          client_secret: String(credentials.clientSecret ?? ''),
-        }),
-        cache: 'no-store',
-      });
-      const tokenData: any = await tokenResponse.json();
-      if (!tokenResponse.ok || typeof tokenData.access_token !== 'string') {
-        throw new Error(tokenData.error_description || tokenData.error || `Shopify token request failed (${tokenResponse.status})`);
-      }
-      const response = await fetch(`https://${domain}/admin/api/2026-07/graphql.json`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': tokenData.access_token },
-        body: JSON.stringify({ query: '{ shop { name } }' }),
-        cache: 'no-store',
-      });
-      const data: any = await response.json();
-      if (!response.ok || data.errors?.length) throw new Error(data.errors?.[0]?.message || `Shopify returned ${response.status}`);
-      detail = `Connected to ${data.data?.shop?.name || domain}. Shopify token expires in 24 hours and is refreshed automatically during API use.`;
-    } else if (provider === 'EBAY') {
+    if (provider === 'SHOPIFY') { const connection = await testShopifyConnection(credentials); detail = `Connected to ${connection.shopName}. Shopify client-credentials tokens are renewed server-side when needed.`; } else if (provider === 'EBAY') {
       const base = String(credentials.environment ?? 'production') === 'sandbox' ? 'https://api.sandbox.ebay.com' : 'https://api.ebay.com';
       const response = await fetch(`${base}/identity/v1/oauth2/token`, { method: 'POST', headers: { Authorization: `Basic ${Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString('base64')}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope', cache: 'no-store' });
       if (!response.ok) throw new Error(`eBay authentication failed (${response.status}).`); detail = 'eBay OAuth authentication successful.';
