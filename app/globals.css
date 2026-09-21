@@ -64,3 +64,5 @@ main.bg-slate-100 .hover\\:bg-slate-50:hover,main.bg-slate-100 .hover\\:bg-slate
   main.bg-slate-100>.container,main.bg-slate-950>.container,main.bg-slate-900>.container{margin-left:16rem;max-width:calc(1240px + 0rem)}
 }
 @media (max-width:1023px){main.bg-slate-100>.container,main.bg-slate-950>.container,main.bg-slate-900>.container{width:100%}}
+
+@media (min-width:1024px){main.bg-slate-100>header+.container,main.bg-slate-950>header+.container,main.bg-slate-900>header+.container{margin-left:16rem}}
