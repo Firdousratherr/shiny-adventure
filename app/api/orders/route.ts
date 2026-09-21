@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const values = Object.fromEntries(settings.map(s => [s.key, s.value]));
     const shipping = deliveryCharge(subtotal, values.freeShippingThreshold || '999', values.flatDeliveryCharge || '79');
     let discount = new Prisma.Decimal(0);
-    let coupon: { id: string; code: string; type: string; value: Prisma.Decimal; minOrderAmount: Prisma.Decimal | null; maxDiscount: Prisma.Decimal | null; usageLimit: number | null; usedCount: number } | null = null;
+    let coupon: { id: string; code: string; type: string; value: Prisma.Decimal; minOrderAmount: Prisma.Decimal | null; maxDiscount: Prisma.Decimal | null; usageLimit: number | null; usedCount: number; enabled: boolean; startsAt: Date | null; expiresAt: Date | null } | null = null;
     if (couponCode) {
       coupon = await db.coupon.findUnique({ where: { code: couponCode }, select: { id: true, code: true, type: true, value: true, minOrderAmount: true, maxDiscount: true, usageLimit: true, usedCount: true, enabled: true, startsAt: true, expiresAt: true } });
       const now = new Date();
