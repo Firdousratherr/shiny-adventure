@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { auth } from '../../auth';
 import { db } from '../../lib/db';
 import AddToCart from '../../components/add-to-cart';
+import { productImageUrl } from '../../lib/product-image-url';
 
 export default async function Products({ searchParams }: { searchParams: { q?: string; sort?: string; page?: string; category?: string } }) {
   const session = await auth();
@@ -31,7 +32,7 @@ export default async function Products({ searchParams }: { searchParams: { q?: s
     return params.toString();
   };
 
-  return <main className="min-h-screen bg-[#070b16] text-white">
+  return <main className="min-h-screen bg-[#070b16] pb-24 text-white sm:pb-0">
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070b16]/95 backdrop-blur-xl">
       <div className="container flex h-14 items-center gap-2 sm:h-16 sm:gap-4">
         <Link href="/" className="shrink-0 text-lg font-black sm:text-2xl">🛍️ Zenvora<span className="text-fuchsia-400">.</span></Link>
@@ -53,12 +54,12 @@ export default async function Products({ searchParams }: { searchParams: { q?: s
       {items.length === 0 ? <div className="py-20 text-center text-sm text-slate-500">No products found. Try another search or category.</div> : <div className="mt-6 grid gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {items.map(p => <article key={p.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 sm:rounded-3xl">
           <Link href={"/product/" + p.slug} className="group block">
-            <div className="relative flex h-48 items-center justify-center overflow-hidden bg-gradient-to-br from-white/5 to-violet-900/20 sm:h-60">{p.images[0] ? <img src={p.images[0].url} alt={p.images[0].altText || p.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/> : <span className="text-6xl">🛍️</span>}
+            <div className="relative flex h-48 items-center justify-center overflow-hidden bg-gradient-to-br from-white/5 to-violet-900/20 sm:h-60">{p.images[0] ? <img src={productImageUrl(p.images[0].url) || ''} alt={p.images[0].altText || p.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/> : <span className="text-6xl">🛍️</span>}
               {p.stock > 0 && p.stock <= 5 && <span className="absolute left-2 top-2 rounded-full bg-amber-400 px-2 py-1 text-[9px] font-black text-slate-950">Only {p.stock} left</span>}
             </div>
             <div className="px-3 pt-3 sm:p-5 sm:pb-2"><p className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-400">{p.category?.name || 'Zenvora'}</p><h2 className="mt-1 line-clamp-2 min-h-10 text-sm font-bold sm:text-base">{p.name}</h2><p className="mt-2 text-lg font-black sm:text-xl">₹{Number(p.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p><p className="mt-1 text-[10px] text-slate-500">{p.stock > 0 ? 'In stock' : 'Out of stock'}</p></div>
           </Link>
-          <div className="px-3 pb-3 sm:px-5 sm:pb-5"><AddToCart product={{ id: p.id, name: p.name, price: Number(p.sellingPrice), image: p.images[0]?.url, stock: p.stock }}/></div>
+          <div className="px-3 pb-3 sm:px-5 sm:pb-5"><AddToCart product={{ id: p.id, name: p.name, price: Number(p.sellingPrice), image: productImageUrl(p.images[0]?.url), stock: p.stock }}/></div>
         </article>)}
       </div>}
       {pages > 1 && <div className="mt-8 flex flex-wrap justify-center gap-2">{Array.from({ length: pages }, (_, i) => i + 1).map(n => <Link key={n} href={"/products?" + query({ page: String(n) })} className={"rounded-xl px-3 py-2 text-xs font-bold " + (n === page ? 'bg-violet-600 text-white' : 'bg-white/5 text-slate-300')}>{n}</Link>)}</div>}
