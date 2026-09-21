@@ -77,7 +77,8 @@ export default function MarketplacesPage() {
     ],
     SHOPIFY: [
       { key: 'storeDomain', label: 'Store Domain', placeholder: 'your-store.myshopify.com' },
-      { key: 'accessToken', label: 'Admin API Access Token', secret: true },
+      { key: 'clientId', label: 'Client ID', secret: true },
+      { key: 'clientSecret', label: 'Client Secret', secret: true },
     ],
   };
 
@@ -274,7 +275,7 @@ export default function MarketplacesPage() {
                 {selected === i.provider && <div className="border-t border-white/10 bg-black/20 p-5">
                   <div className="rounded-2xl border border-indigo-400/20 bg-indigo-500/5 p-4">
                     <div className="flex items-start justify-between gap-3">
-                      <div><h3 className="text-sm font-black">API credentials</h3><p className="mt-1 text-[10px] leading-5 text-slate-500">Enter credentials here. They are encrypted on the server and are never sent back to this page.</p></div>
+                      <div><h3 className="text-sm font-black">API credentials</h3><p className="mt-1 text-[10px] leading-5 text-slate-500">{i.provider === 'SHOPIFY' ? 'Enter your Shopify store domain and app credentials here. Zenvora obtains and refreshes the Admin API access token server-side; you do not need to paste an access token.' : 'Enter credentials here. They are encrypted on the server and are never sent back to this page.'}</p></div>
                       <span className={i.credentialsConfigured ? 'rounded-full bg-emerald-500/10 px-2.5 py-1 text-[9px] font-black text-emerald-400' : 'rounded-full bg-amber-500/10 px-2.5 py-1 text-[9px] font-black text-amber-400'}>{i.credentialsConfigured ? 'CONNECTED' : 'NOT SET'}</span>
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
