@@ -59,3 +59,8 @@ main.bg-slate-100 .hover\\:bg-slate-50:hover,main.bg-slate-100 .hover\\:bg-slate
 .zenvora-gradient-text{background:linear-gradient(100deg,#fff 10%,#e9d5ff 48%,#a78bfa 90%);background-clip:text;-webkit-background-clip:text;color:transparent}
 @media(max-width:767px){.zenvora-card{border-radius:1.25rem}.zenvora-mobile-nav{backdrop-filter:blur(20px);background:rgba(7,11,22,.92)!important}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+@media (min-width:1024px){
+  main.bg-slate-100>.container,main.bg-slate-950>.container,main.bg-slate-900>.container{margin-left:16rem;max-width:calc(1240px + 0rem)}
+}
+@media (max-width:1023px){main.bg-slate-100>.container,main.bg-slate-950>.container,main.bg-slate-900>.container{width:100%}}
