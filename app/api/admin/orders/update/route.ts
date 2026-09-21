@@ -14,7 +14,6 @@ export async function POST(request: Request) {
   const admin = await requireAdminPermission('orders');
   const adminEmail = admin?.email || null;
   if (!adminEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!(await requireAdminPermission('payments'))) return NextResponse.json({ error: 'Payments permission required.' }, { status: 403 });
   try {
     const body = await request.formData();
     const orderNumber = text(body.get('orderNumber'), 50).toUpperCase();
@@ -40,6 +39,7 @@ export async function POST(request: Request) {
         try { refundAmount = new Prisma.Decimal(refundRaw); } catch { throw new Error('INVALID_REFUND'); }
         if (!refundAmount.isFinite() || refundAmount.lessThan(0) || refundAmount.greaterThan(order.totalAmount)) throw new Error('INVALID_REFUND');
       }
+      if (target === 'REFUNDED' && !(await requireAdminPermission('payments'))) throw new Error('PAYMENTS_PERMISSION_REQUIRED');
       if (target === 'REFUNDED' && !refundAmount) refundAmount = order.totalAmount;
       if (target === 'REFUNDED' && !refundMethod) throw new Error('REFUND_METHOD_REQUIRED');
       if (target === 'REFUNDED' && !refundReference) throw new Error('REFUND_REFERENCE_REQUIRED');
@@ -85,6 +85,7 @@ export async function POST(request: Request) {
     if (message === 'INVALID_REFUND') return NextResponse.json({ error: 'Refund amount must be between ₹0 and the order total.' }, { status: 400 });
     if (message === 'REFUND_METHOD_REQUIRED') return NextResponse.json({ error: 'Refund method is required.' }, { status: 400 });
     if (message === 'REFUND_REFERENCE_REQUIRED') return NextResponse.json({ error: 'Refund reference is required.' }, { status: 400 });
+    if (message === 'PAYMENTS_PERMISSION_REQUIRED') return NextResponse.json({ error: 'Payments permission required to process refunds.' }, { status: 403 });
     if (message === 'RTO_REASON_REQUIRED') return NextResponse.json({ error: 'RTO reason is required.' }, { status: 400 });
     console.error('admin order update failed', error);
     return NextResponse.json({ error: 'Unable to update order.' }, { status: 500 });
