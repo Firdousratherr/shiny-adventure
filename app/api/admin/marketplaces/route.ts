@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { db } from '../../../../lib/db';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../lib/admin-audit';
@@ -26,14 +27,12 @@ export async function GET() {
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
   try {
     const integrations = await getIntegrations();
-    return NextResponse.json({
-      providers: PROVIDERS,
-      integrations: integrations.map(i => ({
-        ...i,
-        credentialsConfigured: await credentialStatus(i.provider),
-        capabilities: providerCapabilities(i.provider),
-      })),
-    });
+    const mapped = await Promise.all(integrations.map(async i => ({
+      ...i,
+      credentialsConfigured: await credentialStatus(i.provider),
+      capabilities: providerCapabilities(i.provider),
+    })));
+    return NextResponse.json({ providers: PROVIDERS, integrations: mapped });
   } catch (error) {
     console.error('marketplace integrations load failed', error);
     return NextResponse.json({ error: 'Unable to load marketplace integrations.' }, { status: 500 });
@@ -49,8 +48,15 @@ export async function PATCH(request: Request) {
     if (!PROVIDERS.some(p => p.key === provider)) return NextResponse.json({ error: 'Unsupported marketplace.' }, { status: 400 });
 
     const current = await db.marketplaceIntegration.findUnique({ where: { provider } });
-    const currentSettings = current?.settings && typeof current.settings === 'object' ? current.settings as Record<string, unknown> : {};
-    const data: { enabled?: boolean; autoSync?: boolean; syncIntervalMinutes?: number; settings?: Record<string, unknown> } = {};
+    const currentSettings = current?.settings && typeof current.settings === 'object' && !Array.isArray(current.settings)
+      ? current.settings as Record<string, unknown>
+      : {};
+    const data: {
+      enabled?: boolean;
+      autoSync?: boolean;
+      syncIntervalMinutes?: number;
+      settings?: Prisma.InputJsonValue;
+    } = {};
 
     if (typeof body.enabled === 'boolean') data.enabled = body.enabled;
     if (typeof body.autoSync === 'boolean') data.autoSync = body.autoSync;
@@ -67,7 +73,7 @@ export async function PATCH(request: Request) {
     for (const key of allowedSettings) {
       if (body.settings && Object.prototype.hasOwnProperty.call(body.settings, key)) settings[key] = body.settings[key];
     }
-    if (body.settings) data.settings = settings;
+    if (body.settings) data.settings = settings as Prisma.InputJsonValue;
 
     const integration = await db.marketplaceIntegration.upsert({
       where: { provider },
@@ -75,16 +81,17 @@ export async function PATCH(request: Request) {
       create: { provider, ...(data as any) },
     });
 
+    const credentialsConfigured = await credentialStatus(provider);
     await recordAdminAudit({
       adminId: admin.id,
       adminEmail: admin.email,
       action: 'MARKETPLACE_SETTINGS_UPDATED',
       entityType: 'MARKETPLACE',
       entityId: integration.id,
-      details: { provider, changes: data, credentialsConfigured: await credentialStatus(provider) },
+      details: { provider, changes: data, credentialsConfigured },
     });
 
-    return NextResponse.json({ integration, credentialsConfigured: credentialStatus(provider), capabilities: providerCapabilities(provider) });
+    return NextResponse.json({ integration, credentialsConfigured, capabilities: providerCapabilities(provider) });
   } catch (error) {
     console.error('marketplace integration update failed', error);
     return NextResponse.json({ error: 'Unable to update marketplace integration.' }, { status: 500 });
