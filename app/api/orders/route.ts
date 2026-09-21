@@ -21,8 +21,7 @@ export async function POST(request: Request) {
     const quantityByProduct = new Map<string, number>();
     for (const item of data.items) quantityByProduct.set(item.productId, (quantityByProduct.get(item.productId) || 0) + item.quantity);
     if ([...quantityByProduct.values()].some(quantity => quantity > 99)) {
-      void db.adminNotification.create({ data: { type: 'ORDER', title: 'New order awaiting payment', message: `${order.orderNumber} is awaiting payment confirmation.`, entityType: 'Order', entityId: order.id } }).catch(() => {});
-    return NextResponse.json({ error: 'A product quantity cannot exceed 99.' }, { status: 400 });
+      return NextResponse.json({ error: 'A product quantity cannot exceed 99.' }, { status: 400 });
     }
 
     const ids = [...quantityByProduct.keys()];
@@ -137,6 +136,7 @@ export async function POST(request: Request) {
       return created;
     });
 
+    void db.adminNotification.create({ data: { type: 'ORDER', title: 'New order awaiting payment', message: `${order.orderNumber} is awaiting payment confirmation.`, entityType: 'Order', entityId: order.id } }).catch(() => {});
     return NextResponse.json({
       orderNumber: order.orderNumber,
       paymentToken: paymentAccessToken,
