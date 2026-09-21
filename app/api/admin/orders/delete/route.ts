@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../../auth';
 import { db } from '../../../../../lib/db';
-
-export async function POST(request: Request) {
-  import { db } from '../../../../../lib/db';
 import { requireAdminPermission } from '../../../../../lib/admin-access';
-  const session = await auth();
-  if (!(await requireAdminPermission('orders')))
+export async function POST(request: Request) {
+  if (!(await requireAdminPermission('orders'))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.formData();
     const orderNumber = typeof body.get('orderNumber') === 'string' ? String(body.get('orderNumber')).trim().toUpperCase() : '';
@@ -15,8 +11,5 @@ import { requireAdminPermission } from '../../../../../lib/admin-access';
     if (!order || order.deletedAt) return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
     await db.order.update({ where: { id: order.id }, data: { deletedAt: new Date() } });
     return NextResponse.redirect(new URL('/admin/orders', request.url), 303);
-  } catch (error) {
-    console.error('admin order delete failed', error);
-    return NextResponse.json({ error: 'Unable to delete order.' }, { status: 500 });
-  }
+  } catch (error) { console.error('admin order delete failed', error); return NextResponse.json({ error: 'Unable to delete order.' }, { status: 500 }); }
 }
