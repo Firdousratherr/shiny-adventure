@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     let discount = new Prisma.Decimal(0);
     let coupon: { id: string; code: string; type: string; value: Prisma.Decimal; minOrderAmount: Prisma.Decimal | null; maxDiscount: Prisma.Decimal | null; usageLimit: number | null; usedCount: number } | null = null;
     if (couponCode) {
-      coupon = await db.coupon.findUnique({ where: { code: couponCode } });
+      coupon = await db.coupon.findUnique({ where: { code: couponCode }, select: { id: true, code: true, type: true, value: true, minOrderAmount: true, maxDiscount: true, usageLimit: true, usedCount: true, enabled: true, startsAt: true, expiresAt: true } });
       const now = new Date();
       if (!coupon || !coupon.enabled || (coupon.startsAt && coupon.startsAt > now) || (coupon.expiresAt && coupon.expiresAt <= now) || (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit)) {
         return NextResponse.json({ error: 'This coupon is invalid, expired or no longer available.' }, { status: 400 });
