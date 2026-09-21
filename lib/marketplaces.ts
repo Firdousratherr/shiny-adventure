@@ -26,7 +26,7 @@ const PROVIDER_ENV: Record<string, string[]> = {
   MEESHO: ['MEESHO_SELLER_API_KEY', 'MEESHO_SELLER_API_SECRET'],
   EBAY: ['EBAY_CLIENT_ID', 'EBAY_CLIENT_SECRET'],
   ETSY: ['ETSY_API_KEYSTRING', 'ETSY_API_SHARED_SECRET', 'ETSY_ACCESS_TOKEN', 'ETSY_SHOP_ID'],
-  SHOPIFY: ['SHOPIFY_STORE_DOMAIN', 'SHOPIFY_ACCESS_TOKEN'],
+  SHOPIFY: ['SHOPIFY_STORE_DOMAIN', 'SHOPIFY_CLIENT_ID', 'SHOPIFY_CLIENT_SECRET'],
 };
 
 export async function marketplaceCredentials(provider: string) {
@@ -184,12 +184,29 @@ async function flipkartItems(settings: Settings, credentials: Record<string, unk
   })).filter((x: SyncItem) => x.externalId);
 }
 
-async function shopifyItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
+async function shopifyAccessToken(credentials: Record<string, unknown>) {
   const domain = String(credentials.storeDomain ?? process.env.SHOPIFY_STORE_DOMAIN ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const clientId = String(credentials.clientId ?? process.env.SHOPIFY_CLIENT_ID ?? '');
+  const clientSecret = String(credentials.clientSecret ?? process.env.SHOPIFY_CLIENT_SECRET ?? '');
+  if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(domain)) throw new Error('Use the Shopify myshopify.com store domain.');
+  if (!clientId || !clientSecret) throw new Error('Shopify Client ID and Client Secret are not configured.');
+  const response = await fetch(`https://${domain}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret }),
+    cache: 'no-store',
+  });
+  const data: any = await response.json();
+  if (!response.ok || typeof data.access_token !== 'string') throw new Error(data.error_description || data.error || `Shopify token request failed (${response.status})`);
+  return { domain, accessToken: data.access_token as string };
+}
+
+async function shopifyItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
+  const { domain, accessToken } = await shopifyAccessToken(credentials);
   const query = `query { products(first: 100) { nodes { id title descriptionHtml onlineStoreUrl totalInventory images(first: 1) { nodes { url } } variants(first: 1) { nodes { price } } } } }`;
   const response = await fetch(`https://${domain}/admin/api/2026-07/graphql.json`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': String(credentials.accessToken ?? process.env.SHOPIFY_ACCESS_TOKEN ?? '') },
+    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': accessToken },
     body: JSON.stringify({ query }),
     cache: 'no-store',
   });
