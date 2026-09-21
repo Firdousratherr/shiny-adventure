@@ -522,3 +522,20 @@ model RecentlyViewed {
   @@index([sessionId, viewedAt])
   @@index([productId, viewedAt])
 }
+
+
+model AdminNotification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  entityType String?
+  entityId   String?
+  readAt    DateTime?
+  dismissedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([readAt, createdAt])
+  @@index([dismissedAt, createdAt])
+  @@index([type, createdAt])
+}
