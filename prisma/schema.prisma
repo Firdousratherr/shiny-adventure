@@ -144,6 +144,9 @@ model Product {
   name                String
   slug                String               @unique
   description         String?
+  metaTitle           String?
+  metaDescription     String?
+  canonicalUrl        String?
   sourceUrl           String?
   sourceCost          Decimal?             @db.Decimal(12, 2)
   sellingPrice        Decimal              @db.Decimal(12, 2)
@@ -290,6 +293,8 @@ model Order {
   paymentAccessTokenHash  String?             @unique
   createdAt               DateTime             @default(now())
   deletedAt               DateTime?
+  couponCode              String?
+  discountAmount          Decimal              @default(0) @db.Decimal(12, 2)
   updatedAt               DateTime             @updatedAt
   items                   OrderItem[]
   history                 OrderStatusHistory[]
@@ -302,6 +307,7 @@ model Order {
   @@index([status, createdAt])
   @@index([paymentMethod])
   @@index([reservationExpiresAt])
+  @@index([couponCode])
 }
 
 model OrderItem {
@@ -408,4 +414,40 @@ model MarketplaceSyncRun {
 
   @@index([integrationId, startedAt])
   @@index([status, startedAt])
+}
+
+
+model Coupon {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  type           String   @default("PERCENT")
+  value          Decimal  @db.Decimal(12, 2)
+  minOrderAmount Decimal? @db.Decimal(12, 2)
+  maxDiscount    Decimal? @db.Decimal(12, 2)
+  usageLimit     Int?
+  usedCount      Int      @default(0)
+  startsAt       DateTime?
+  expiresAt      DateTime?
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([enabled, expiresAt])
+}
+
+model StoreBanner {
+  id          String   @id @default(cuid())
+  title       String
+  subtitle    String?
+  imageUrl    String?
+  linkUrl     String?
+  buttonText  String?
+  sortOrder   Int      @default(0)
+  enabled     Boolean  @default(true)
+  startsAt    DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
 }
