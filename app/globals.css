@@ -66,3 +66,41 @@ main.bg-slate-100 .hover\\:bg-slate-50:hover,main.bg-slate-100 .hover\\:bg-slate
 @media (max-width:1023px){main.bg-slate-100>.container,main.bg-slate-950>.container,main.bg-slate-900>.container{width:100%}}
 
 @media (min-width:1024px){main.bg-slate-100>header+.container,main.bg-slate-950>header+.container,main.bg-slate-900>header+.container{margin-left:16rem}}
+
+
+/* Zenvora cross-page UI polish v2 */
+.store-dark h1,.store-dark h2,.store-dark h3{letter-spacing:-.025em}
+.store-dark main>div,.store-dark main>section{scroll-margin-top:88px}
+.store-dark :is(input,select,textarea){border-radius:12px;min-height:44px;transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease}
+.store-dark :is(input,select,textarea):focus{border-color:rgba(167,139,250,.65)!important;box-shadow:0 0 0 3px rgba(167,139,250,.12)!important}
+.store-dark :is(button,[role="button"]):not([aria-disabled="true"]):active{transform:translateY(1px)}
+.store-dark :is(.bg-white,.bg-slate-50,.bg-slate-100){border-color:var(--z-border)}
+.store-dark table{border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:16px}
+.store-dark th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8}
+.store-dark td,.store-dark th{border-bottom:1px solid rgba(255,255,255,.07)}
+.store-dark tbody tr:last-child td{border-bottom:0}
+.store-dark tbody tr{transition:background-color .16s ease}
+.store-dark tbody tr:hover{background:rgba(255,255,255,.035)}
+.store-dark :is(.rounded-lg,.rounded-xl,.rounded-2xl){background-clip:padding-box}
+.zenvora-page-header{position:relative;overflow:hidden}
+.zenvora-page-header:before{content:"";position:absolute;inset:-80px auto auto 12%;width:280px;height:180px;background:rgba(124,58,237,.12);filter:blur(55px);pointer-events:none}
+.zenvora-section-title{font-size:clamp(1.15rem,2vw,1.5rem);font-weight:750;letter-spacing:-.02em}
+.zenvora-empty-state{border:1px dashed rgba(255,255,255,.14);background:rgba(255,255,255,.025);border-radius:20px;padding:40px 20px;text-align:center}
+.zenvora-skeleton{position:relative;overflow:hidden;background:rgba(255,255,255,.06);border-radius:12px}
+.zenvora-skeleton:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);animation:zenvora-shimmer 1.4s infinite}
+@keyframes zenvora-shimmer{100%{transform:translateX(100%)}}
+.zenvora-sticky-action{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));z-index:30;background:rgba(7,11,22,.88);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.1);box-shadow:0 -12px 35px rgba(0,0,0,.25)}
+@media(min-width:768px){.zenvora-sticky-action{bottom:20px;border-radius:18px}}
+@media(max-width:767px){.zenvora-page-header{padding-top:4px}.zenvora-empty-state{padding:32px 16px}.zenvora-sticky-action{margin:0 -12px;padding-left:12px;padding-right:12px}}
+@media(prefers-reduced-motion:reduce){.zenvora-skeleton:after{animation:none}}
+
+/* Admin command-center polish */
+main.bg-slate-100 .zenvora-card{background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.035))!important}
+main.bg-slate-100 h1{letter-spacing:-.03em}
+main.bg-slate-100 h2,main.bg-slate-100 h3{letter-spacing:-.02em}
+main.bg-slate-100 :is(input,select,textarea){min-height:44px;border-radius:12px}
+main.bg-slate-100 :is(input,select,textarea):focus{border-color:rgba(167,139,250,.65)!important;box-shadow:0 0 0 3px rgba(167,139,250,.12)!important}
+main.bg-slate-100 :is(button,a):not([aria-disabled="true"]):active{transform:translateY(1px)}
+main.bg-slate-100 .overflow-x-auto{scrollbar-width:thin}
+main.bg-slate-100 .sticky{backdrop-filter:blur(14px)}
+@media(max-width:767px){main.bg-slate-100 .overflow-x-auto{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}}
