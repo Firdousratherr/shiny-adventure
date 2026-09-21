@@ -16,6 +16,9 @@ export async function POST(request: Request) {
     const b = await request.json();
     const name = typeof b.name === 'string' ? b.name.trim().slice(0, 200) : '';
     const description = typeof b.description === 'string' ? b.description.trim().slice(0, 10000) : null;
+    const metaTitle = typeof b.metaTitle === 'string' ? b.metaTitle.trim().slice(0, 160) || null : null;
+    const metaDescription = typeof b.metaDescription === 'string' ? b.metaDescription.trim().slice(0, 320) || null : null;
+    const canonicalUrl = typeof b.canonicalUrl === 'string' ? b.canonicalUrl.trim().slice(0, 500) || null : null;
     const slug = slugify(typeof b.slug === 'string' && b.slug.trim() ? b.slug : name);
     const sellingPrice = price(b.sellingPrice);
     const sourceCost = b.sourceCost === undefined || b.sourceCost === '' || b.sourceCost === null ? null : price(b.sourceCost);
@@ -28,7 +31,7 @@ export async function POST(request: Request) {
       if (!(await requireAdminPermission('pricing'))) return NextResponse.json({ error: 'Pricing permission required.' }, { status: 403 });
       if (!(await requireAdminPermission('inventory'))) return NextResponse.json({ error: 'Inventory permission required.' }, { status: 403 });
     }
-    const product = await db.product.create({ data: { name, slug, description, sellingPrice, sourceCost, stock, categoryId: typeof b.categoryId === 'string' && b.categoryId ? b.categoryId : null, featured: b.featured === true, status } });
+    const product = await db.product.create({ data: { name, slug, description, sellingPrice, sourceCost, stock, categoryId: typeof b.categoryId === 'string' && b.categoryId ? b.categoryId : null, metaTitle, metaDescription, canonicalUrl, featured: b.featured === true, status } });
     await recordAdminAudit({ adminId: adminAccess.id, adminEmail: adminAccess.email, action: 'PRODUCT_CREATED', entityType: 'PRODUCT', entityId: product.id, details: { name: product.name, sellingPrice: product.sellingPrice.toString(), stock: product.stock } });
     return NextResponse.json({ product }, { status: 201 });
   } catch (e) { if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return NextResponse.json({ error: 'A product with this slug already exists.' }, { status: 409 }); console.error(e); return NextResponse.json({ error: 'Unable to create product.' }, { status: 500 }); }
@@ -45,6 +48,9 @@ export async function PATCH(request: Request) {
     if (!id) return NextResponse.json({ error: 'Product ID is required.' }, { status: 400 });
     const data: Prisma.ProductUpdateInput = {};
     if (b.name !== undefined) { if (typeof b.name !== 'string' || !b.name.trim()) return NextResponse.json({ error: 'Product name is required.' }, { status: 400 }); data.name = b.name.trim().slice(0, 200); }
+    if (b.metaTitle !== undefined) data.metaTitle = typeof b.metaTitle === 'string' ? b.metaTitle.trim().slice(0,160) || null : null;
+    if (b.metaDescription !== undefined) data.metaDescription = typeof b.metaDescription === 'string' ? b.metaDescription.trim().slice(0,320) || null : null;
+    if (b.canonicalUrl !== undefined) data.canonicalUrl = typeof b.canonicalUrl === 'string' ? b.canonicalUrl.trim().slice(0,500) || null : null;
     if (b.description !== undefined) data.description = typeof b.description === 'string' ? b.description.trim().slice(0, 10000) || null : null;
     if (b.categoryId !== undefined) data.category = b.categoryId ? { connect: { id: String(b.categoryId) } } : { disconnect: true };
     if (b.slug !== undefined) { const slug = slugify(String(b.slug)); if (!slug) return NextResponse.json({ error: 'Invalid slug.' }, { status: 400 }); data.slug = slug; }
