@@ -4,6 +4,7 @@ import { db } from '../../../../../lib/db';
 import { canTransition } from '../../../../../lib/orders/status';
 import { notifyCustomer } from '../../../../../lib/email';
 import { requireAdminPermission } from '../../../../../lib/admin-access';
+import { releasePaymentReservation } from '../../../../../lib/inventory-reservations';
 
 const statuses = new Set<OrderStatus>(['ORDERED_FROM_SOURCE','SHIPPED','DELIVERED','CANCELLED','RTO','RETURN_REQUESTED','REFUNDED']);
 const text = (v: unknown, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : '';
@@ -47,10 +48,12 @@ export async function POST(request: Request) {
       const shouldReleaseReservation = target === 'CANCELLED' && order.status === 'PAYMENT_PENDING';
       const shouldRestore = target === 'CANCELLED' && order.status === 'CONFIRMED';
       const shouldRestockRto = target === 'RTO' && order.status === 'SHIPPED';
-      if (shouldReleaseReservation || shouldRestore || shouldRestockRto) {
+      if (shouldReleaseReservation) {
+        await releasePaymentReservation(tx, order, 'PAYMENT_RESERVATION_RELEASE');
+      } else if (shouldRestore || shouldRestockRto) {
         for (const item of order.items) {
           await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
-          await tx.inventoryMovement.create({ data: { productId: item.productId, orderId: order.id, quantity: item.quantity, reason: shouldReleaseReservation ? 'PAYMENT_RESERVATION_RELEASE' : shouldRestockRto ? 'RTO_RESTOCK' : 'CANCELLED_RESTOCK' } });
+          await tx.inventoryMovement.create({ data: { productId: item.productId, orderId: order.id, quantity: item.quantity, reason: shouldRestockRto ? 'RTO_RESTOCK' : 'CANCELLED_RESTOCK' } });
         }
       }
 
