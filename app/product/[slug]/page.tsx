@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { db } from '../../../lib/db';
 import AddToCart from '../../../components/add-to-cart';
+import { productImageUrl } from '../../../lib/product-image-url';
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const p = await db.product.findUnique({ where: { slug: params.slug }, select: { name: true, description: true, images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } } } });
@@ -13,11 +14,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 export default async function Product({ params }: { params: { slug: string } }) {
   const p = await db.product.findFirst({ where: { slug: params.slug, status: 'ACTIVE' }, select: { id: true, name: true, slug: true, description: true, sellingPrice: true, stock: true, images: { orderBy: { sortOrder: 'asc' }, select: { url: true, altText: true } } } });
   if (!p) notFound();
-  return <main className="min-h-screen bg-[#070b16] px-0 py-6 text-white sm:py-10">
+  return <main className="min-h-screen bg-[#070b16] px-0 pt-6 pb-32 text-white sm:py-10 sm:pb-10">
     <div className="flex items-center justify-between"><Link href="/products" className="font-semibold">← Back to shop</Link><Link href="/cart" className="font-semibold">Cart</Link></div>
     <div className="mt-8 grid gap-10 md:grid-cols-2">
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-3 shadow-2xl shadow-black/20">{p.images.length ? <div className="grid gap-3">{p.images.map((image) => <img key={image.url} src={image.url} alt={image.altText || p.name} className="aspect-square w-full rounded-2xl object-cover" />)}</div> : <div className="flex aspect-square items-center justify-center rounded-2xl bg-white/5 text-8xl">🛍️</div>}</div>
-      <div><p className="text-sm font-bold uppercase tracking-widest text-fuchsia-400">Zenvora</p><h1 className="mt-2 text-4xl font-black">{p.name}</h1><p className="mt-4 text-3xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p><p className="mt-3 font-semibold text-slate-400">{p.stock > 0 ? `${p.stock} available` : 'Out of stock'}</p><p className="mt-6 whitespace-pre-wrap leading-7 text-slate-300">{p.description}</p><AddToCart product={{ id: p.id, name: p.name, price: Number(p.sellingPrice), image: p.images[0]?.url, stock: p.stock }} /></div>
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-3 shadow-2xl shadow-black/20">{p.images.length ? <div className="grid gap-3">{p.images.map((image) => <img key={image.url} src={productImageUrl(image.url) || ''} alt={image.altText || p.name} className="aspect-square w-full rounded-2xl object-cover" />)}</div> : <div className="flex aspect-square items-center justify-center rounded-2xl bg-white/5 text-8xl">🛍️</div>}</div>
+      <div><p className="text-sm font-bold uppercase tracking-widest text-fuchsia-400">Zenvora</p><h1 className="mt-2 text-4xl font-black">{p.name}</h1><p className="mt-4 text-3xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p><p className="mt-3 font-semibold text-slate-400">{p.stock > 0 ? `${p.stock} available` : 'Out of stock'}</p><p className="mt-6 whitespace-pre-wrap leading-7 text-slate-300">{p.description}</p><AddToCart product={{ id: p.id, name: p.name, price: Number(p.sellingPrice), image: productImageUrl(p.images[0]?.url), stock: p.stock }} /></div>
     </div>
   </main>;
 }
