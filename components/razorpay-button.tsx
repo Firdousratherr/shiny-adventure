@@ -104,10 +104,21 @@ export default function RazorpayButton({ orderNumber, paymentToken, keyId, prefi
         {busy ? 'Processing…' : !scriptReady ? 'Loading secure payment…' : 'Pay securely with Razorpay'}
       </button>
 
+      <div className="mt-3 rounded-xl border border-blue-200/20 bg-blue-500/10 p-3 text-left text-xs text-slate-300">
+        <p className="font-bold text-blue-200">Razorpay Test Mode</p>
+        <p className="mt-1">
+          If your Razorpay account is in Test Mode, do not scan the checkout QR with a real UPI app.
+          In the Razorpay UPI test flow, enter <strong className="text-white">success@razorpay</strong> to simulate a successful payment.
+          Use <strong className="text-white">failure@razorpay</strong> to test a failed payment.
+        </p>
+      </div>
+
       {error && (
         <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-left text-sm font-semibold text-red-700">
           <p>{error}</p>
-          <p className="mt-1 text-xs font-medium text-red-600">If money was debited, do not pay again immediately; check your bank/Razorpay transaction status first.</p>
+          <p className="mt-1 text-xs font-medium text-red-600">
+            If money was debited, do not pay again immediately; check your bank/Razorpay transaction status first.
+          </p>
         </div>
       )}
     </div>
