@@ -140,7 +140,8 @@ export default function Checkout() {
   );
 
   return (
-    <main className="min-h-screen bg-[#070b16] px-4 py-5 text-white sm:px-6 sm:py-8">\n      <div className="mx-auto max-w-6xl">
+    <main className="min-h-screen bg-[#070b16] px-4 py-5 text-white sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-6xl">
       <div className="flex items-center justify-between border-b border-white/10 pb-4"><Link href="/cart" className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold hover:bg-white/5">← Back to cart</Link><span className="text-xs font-bold text-slate-500">🔒 Secure checkout</span></div>
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_340px]">
         <form ref={formRef} onSubmit={submit} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/20 sm:p-6">
