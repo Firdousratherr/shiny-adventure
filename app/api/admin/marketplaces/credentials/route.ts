@@ -6,122 +6,165 @@ import { encryptMarketplaceCredentials, encryptionConfigured } from '../../../..
 import { marketplaceCredentials, credentialStatus } from '../../../../../lib/marketplaces';
 import { testShopifyConnection } from '../../../../../lib/shopify';
 
-const PROVIDERS = ['AMAZON', 'FLIPKART', 'MEESHO', 'EBAY', 'ETSY', 'SHOPIFY'] as const;
-type Provider = typeof PROVIDERS[number];
-const fields: Record<Provider, string[]> = {
-  AMAZON: ['clientId','clientSecret','refreshToken','region','marketplaceId'],
-  FLIPKART: ['apiKey','apiSecret'],
-  MEESHO: ['apiKey','apiSecret'],
-  EBAY: ['clientId','clientSecret','environment','marketplaceId'],
-  ETSY: ['apiKeyString','sharedSecret','accessToken','shopId'],
-  SHOPIFY: ['storeDomain','clientId','clientSecret'],
-};
+const PROVIDER = 'SHOPIFY' as const;
+const FIELDS = ['storeDomain', 'clientId', 'clientSecret'] as const;
 
-function providerOf(value: unknown): Provider | null {
-  const p = typeof value === 'string' ? value.toUpperCase() : '';
-  return (PROVIDERS as readonly string[]).includes(p) ? p as Provider : null;
-}
-
-function cleanCredentials(provider: Provider, value: unknown) {
+function cleanCredentials(value: unknown) {
   const input = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-  const allowed = new Set(fields[provider]);
-  const out: Record<string, unknown> = {};
+  const allowed = new Set(FIELDS);
+  const out: Record<string, string> = {};
   for (const [key, raw] of Object.entries(input)) {
-    if (!allowed.has(key) || typeof raw !== 'string') continue;
+    if (!allowed.has(key as (typeof FIELDS)[number]) || typeof raw !== 'string') continue;
     const v = raw.trim();
     if (v) out[key] = v;
   }
   return out;
 }
 
-export async function GET(request: Request) {
+function fieldStatus(credentials: Record<string, unknown>) {
+  return FIELDS.reduce<Record<string, boolean>>((out, key) => {
+    out[key] = Boolean(credentials[key]);
+    return out;
+  }, {});
+}
+
+export async function GET() {
   const admin = await requireAdminPermission('marketplaces');
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
-  const provider = providerOf(new URL(request.url).searchParams.get('provider'));
-  if (!provider) return NextResponse.json({ error: 'Unsupported marketplace.' }, { status: 400 });
-  const integration = await db.marketplaceIntegration.findUnique({ where: { provider }, select: { credentialsEncrypted: true } });
-  const stored = integration?.credentialsEncrypted ? await marketplaceCredentials(provider) : {};
+
+  const stored = await marketplaceCredentials(PROVIDER);
   return NextResponse.json({
-    configured: await credentialStatus(provider),
-    fields: fields[provider].reduce<Record<string, boolean>>((out, key) => { out[key] = Boolean(stored[key]); return out; }, {}),
+    configured: await credentialStatus(PROVIDER),
+    fields: fieldStatus(stored),
   });
 }
 
 export async function PUT(request: Request) {
   const admin = await requireAdminPermission('marketplaces');
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
-  if (!encryptionConfigured()) return NextResponse.json({ error: 'Marketplace encryption is not configured. Add MARKETPLACE_ENCRYPTION_KEY to the server environment first.' }, { status: 503 });
+  if (!encryptionConfigured()) {
+    return NextResponse.json({ error: 'Marketplace credential encryption is not configured on the server.' }, { status: 503 });
+  }
+
   try {
     const body = await request.json();
-    const provider = providerOf(body.provider);
-    if (!provider) return NextResponse.json({ error: 'Unsupported marketplace.' }, { status: 400 });
-    const patch = cleanCredentials(provider, body.credentials);
-    const existing = await marketplaceCredentials(provider);
+    const patch = cleanCredentials(body.credentials);
+    const existing = await marketplaceCredentials(PROVIDER);
     const merged = { ...existing, ...patch };
-    if (provider === 'SHOPIFY') {
-      const required = ['storeDomain', 'clientId', 'clientSecret'];
-      if (!required.every(key => Boolean(merged[key]))) return NextResponse.json({ error: 'Shopify Store Domain, Client ID and Client Secret are all required.' }, { status: 400 });
-      const connection = await testShopifyConnection(merged);
-      const integration = await db.marketplaceIntegration.upsert({ where: { provider }, update: { credentialsEncrypted: encryptMarketplaceCredentials(merged), enabled: true, healthStatus: 'HEALTHY', lastError: null }, create: { provider, credentialsEncrypted: encryptMarketplaceCredentials(merged), enabled: true, healthStatus: 'HEALTHY' } });
-      await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'MARKETPLACE_CREDENTIALS_UPDATED', entityType: 'MARKETPLACE', entityId: integration.id, details: { provider, fieldsUpdated: Object.keys(patch), shopName: connection.shopName } });
-      return NextResponse.json({ success: true, configured: true, connected: true, shopName: connection.shopName, detail: `Connected to ${connection.shopName}. Access tokens are renewed server-side when needed.`, fields: fields[provider].reduce<Record<string, boolean>>((out, key) => { out[key] = Boolean(merged[key]); return out; }, {}) });
+
+    if (!FIELDS.every(key => Boolean(merged[key]))) {
+      return NextResponse.json({ error: 'Shopify Store Domain, Client ID and Client Secret are all required.' }, { status: 400 });
     }
-    if (!Object.keys(merged).length) return NextResponse.json({ error: 'Enter at least one credential.' }, { status: 400 });
+
+    const connection = await testShopifyConnection(merged);
     const integration = await db.marketplaceIntegration.upsert({
-      where: { provider },
-      update: { credentialsEncrypted: encryptMarketplaceCredentials(merged), healthStatus: 'UNKNOWN', lastError: null },
-      create: { provider, credentialsEncrypted: encryptMarketplaceCredentials(merged) },
+      where: { provider: PROVIDER },
+      update: {
+        credentialsEncrypted: encryptMarketplaceCredentials(merged),
+        enabled: true,
+        healthStatus: 'HEALTHY',
+        lastError: null,
+      },
+      create: {
+        provider: PROVIDER,
+        credentialsEncrypted: encryptMarketplaceCredentials(merged),
+        enabled: true,
+        healthStatus: 'HEALTHY',
+      },
     });
-    await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'MARKETPLACE_CREDENTIALS_UPDATED', entityType: 'MARKETPLACE', entityId: integration.id, details: { provider, fieldsUpdated: Object.keys(patch) } });
-    return NextResponse.json({ success: true, configured: await credentialStatus(provider), fields: fields[provider].reduce<Record<string, boolean>>((out, key) => { out[key] = Boolean(merged[key]); return out; }, {}) });
+
+    await recordAdminAudit({
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: 'SHOPIFY_CREDENTIALS_UPDATED',
+      entityType: 'MARKETPLACE',
+      entityId: integration.id,
+      details: { provider: PROVIDER, fieldsUpdated: Object.keys(patch), shopName: connection.shopName },
+    });
+
+    return NextResponse.json({
+      success: true,
+      configured: true,
+      connected: true,
+      shopName: connection.shopName,
+      detail: 'Connected to ' + connection.shopName + '. Shopify access tokens are renewed server-side when needed.',
+      fields: fieldStatus(merged),
+    });
   } catch (error) {
-    console.error('marketplace credentials save failed', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to save marketplace credentials.' }, { status: 500 });
+    console.error('shopify credentials save failed', error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to connect Shopify.' }, { status: 502 });
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE() {
   const admin = await requireAdminPermission('marketplaces');
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
-  const provider = providerOf(new URL(request.url).searchParams.get('provider'));
-  if (!provider) return NextResponse.json({ error: 'Unsupported marketplace.' }, { status: 400 });
-  const integration = await db.marketplaceIntegration.update({ where: { provider }, data: { credentialsEncrypted: null, enabled: false, autoSync: false, healthStatus: 'UNKNOWN' } });
-  await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'MARKETPLACE_CREDENTIALS_REMOVED', entityType: 'MARKETPLACE', entityId: integration.id, details: { provider } });
-  return NextResponse.json({ success: true, configured: false });
+
+  const integration = await db.marketplaceIntegration.upsert({
+    where: { provider: PROVIDER },
+    update: {
+      credentialsEncrypted: null,
+      enabled: false,
+      autoSync: false,
+      healthStatus: 'UNKNOWN',
+      lastError: null,
+    },
+    create: {
+      provider: PROVIDER,
+      enabled: false,
+    },
+  });
+
+  await recordAdminAudit({
+    adminId: admin.id,
+    adminEmail: admin.email,
+    action: 'SHOPIFY_CREDENTIALS_REMOVED',
+    entityType: 'MARKETPLACE',
+    entityId: integration.id,
+    details: { provider: PROVIDER },
+  });
+
+  return NextResponse.json({ success: true, configured: false, fields: fieldStatus({}) });
 }
 
-export async function POST(request: Request) {
+export async function POST() {
   const admin = await requireAdminPermission('marketplaces');
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
+
   try {
-    const body = await request.json();
-    const provider = providerOf(body.provider);
-    if (!provider) return NextResponse.json({ error: 'Unsupported marketplace.' }, { status: 400 });
-    const credentials = await marketplaceCredentials(provider);
-    if (!(await credentialStatus(provider))) return NextResponse.json({ error: 'Required credentials are not configured.' }, { status: 400 });
-    let detail = 'Connection successful.';
-    if (provider === 'MEESHO') throw new Error('Meesho requires official partner API access; connection testing is unavailable until that access is provided.');
-    if (provider === 'SHOPIFY') { const connection = await testShopifyConnection(credentials); detail = `Connected to ${connection.shopName}. Shopify client-credentials tokens are renewed server-side when needed.`; } else if (provider === 'EBAY') {
-      const base = String(credentials.environment ?? 'production') === 'sandbox' ? 'https://api.sandbox.ebay.com' : 'https://api.ebay.com';
-      const response = await fetch(`${base}/identity/v1/oauth2/token`, { method: 'POST', headers: { Authorization: `Basic ${Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString('base64')}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope', cache: 'no-store' });
-      if (!response.ok) throw new Error(`eBay authentication failed (${response.status}).`); detail = 'eBay OAuth authentication successful.';
-    } else if (provider === 'FLIPKART') {
-      const response = await fetch('https://api.flipkart.net/oauth-service/oauth/token?grant_type=client_credentials&scope=Seller_Api,Default', { headers: { Authorization: `Basic ${Buffer.from(`${credentials.apiKey}:${credentials.apiSecret}`).toString('base64')}` }, cache: 'no-store' });
-      if (!response.ok) throw new Error(`Flipkart authentication failed (${response.status}).`); detail = 'Flipkart authentication successful.';
-    } else if (provider === 'ETSY') {
-      const response = await fetch(`https://api.etsy.com/v3/application/shops/${credentials.shopId}`, { headers: { 'x-api-key': `${credentials.apiKeyString}:${credentials.sharedSecret}`, Authorization: `Bearer ${credentials.accessToken}` }, cache: 'no-store' });
-      if (!response.ok) throw new Error(`Etsy authentication failed (${response.status}).`); detail = 'Etsy authentication successful.';
-    } else if (provider === 'AMAZON') {
-      const mod: any = await import('amazon-sp-api'); const SellingPartner = mod.SellingPartner ?? mod.default;
-      const client = new SellingPartner({ region: String(credentials.region ?? 'eu'), refresh_token: String(credentials.refreshToken), credentials: { SELLING_PARTNER_APP_CLIENT_ID: String(credentials.clientId), SELLING_PARTNER_APP_CLIENT_SECRET: String(credentials.clientSecret) } });
-      await client.callAPI({ operation: 'getMarketplaceParticipations', endpoint: 'sellers' }); detail = 'Amazon SP-API authentication successful.';
+    const credentials = await marketplaceCredentials(PROVIDER);
+    if (!(await credentialStatus(PROVIDER))) {
+      return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before testing the connection.' }, { status: 409 });
     }
-    await db.marketplaceIntegration.update({ where: { provider }, data: { healthStatus: 'HEALTHY', lastError: null } });
-    await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'MARKETPLACE_CONNECTION_TESTED', entityType: 'MARKETPLACE', details: { provider, success: true } });
-    return NextResponse.json({ success: true, detail });
+
+    const connection = await testShopifyConnection(credentials);
+    await db.marketplaceIntegration.update({
+      where: { provider: PROVIDER },
+      data: { healthStatus: 'HEALTHY', lastError: null },
+    });
+
+    await recordAdminAudit({
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: 'SHOPIFY_CONNECTION_TESTED',
+      entityType: 'MARKETPLACE',
+      details: { provider: PROVIDER, success: true, shopName: connection.shopName },
+    });
+
+    return NextResponse.json({
+      success: true,
+      detail: 'Connected to ' + connection.shopName + '. Shopify access tokens are renewed server-side when needed.',
+      shopName: connection.shopName,
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Connection test failed.';
-    await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'MARKETPLACE_CONNECTION_TESTED', entityType: 'MARKETPLACE', details: { provider: 'unknown', success: false } });
+    const message = error instanceof Error ? error.message : 'Shopify connection test failed.';
+    await recordAdminAudit({
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: 'SHOPIFY_CONNECTION_TESTED',
+      entityType: 'MARKETPLACE',
+      details: { provider: PROVIDER, success: false },
+    });
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }
