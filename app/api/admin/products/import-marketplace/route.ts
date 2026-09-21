@@ -16,8 +16,9 @@ function parseMarketplaceUrl(sourceUrl:string):{provider:Marketplace; id:string;
     if(m)return {provider:'AMAZON',id:m[1].toUpperCase(),url:u.toString()};
   }
   if(host==='flipkart.com'){
-    const m=u.pathname.match(/\/p\/([a-z0-9]+)/i);
-    if(m)return {provider:'FLIPKART',id:m[1],url:u.toString()};
+    const pid=u.searchParams.get('pid');
+    if(pid)return {provider:'FLIPKART',id:pid,url:u.toString()};
+    return null;
   }
   return null;
 }
@@ -27,7 +28,7 @@ async function amazonToken(){
   const clientSecret=process.env.AMAZON_CREATORS_CLIENT_SECRET;
   if(!clientId||!clientSecret)throw new Error('Amazon Creators API is not configured. Add AMAZON_CREATORS_CLIENT_ID and AMAZON_CREATORS_CLIENT_SECRET.');
   const tokenUrl=process.env.AMAZON_CREATORS_TOKEN_URL||'https://api.amazon.co.uk/auth/o2/token';
-  const r=await fetch(tokenUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'client_credentials',client_id:clientId,client_secret:clientSecret,scope:'creatorsapi::default'}),cache:'no-store'});
+  const r=await fetch(tokenUrl,{signal:AbortSignal.timeout(10000),method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'client_credentials',client_id:clientId,client_secret:clientSecret,scope:'creatorsapi::default'}),cache:'no-store'});
   if(!r.ok)throw new Error('Amazon authentication failed. Check your Creators API credentials.');
   const j=await r.json(); if(!j.access_token)throw new Error('Amazon did not return an access token.'); return j.access_token as string;
 }
@@ -37,7 +38,7 @@ async function fetchAmazon(asin:string,sourceUrl:string){
   const marketplace=process.env.AMAZON_CREATORS_MARKETPLACE||'www.amazon.in';
   const partnerTag=process.env.AMAZON_ASSOCIATES_PARTNER_TAG;
   if(!partnerTag)throw new Error('Amazon Partner Tag is not configured. Add AMAZON_ASSOCIATES_PARTNER_TAG.');
-  const r=await fetch('https://creatorsapi.amazon/catalog/v1/getItems',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','x-marketplace':marketplace},body:JSON.stringify({itemIds:[asin],itemIdType:'ASIN',marketplace,partnerTag,resources:['images.primary.large','images.variants.large','itemInfo.title','itemInfo.features','itemInfo.productInfo','offersV2.listings.price','offersV2.listings.availability','browseNodeInfo.browseNodes'] }),cache:'no-store'});
+  const r=await fetch('https://creatorsapi.amazon/catalog/v1/getItems',{signal:AbortSignal.timeout(12000),method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','x-marketplace':marketplace},body:JSON.stringify({itemIds:[asin],itemIdType:'ASIN',marketplace,partnerTag,resources:['images.primary.large','images.variants.large','itemInfo.title','itemInfo.features','itemInfo.productInfo','offersV2.listings.price','offersV2.listings.availability','browseNodeInfo.browseNodes'] }),cache:'no-store'});
   if(!r.ok){const t=await r.text(); throw new Error(t.includes('AccessDenied')?'Amazon denied this API request. Verify Creators API access and Partner Tag.':'Amazon product lookup failed.');}
   const j=await r.json(); const item=j.itemsResult?.items?.[0];
   if(!item)throw new Error('Amazon product was not found.');
@@ -53,7 +54,7 @@ async function fetchFlipkart(productId:string,sourceUrl:string){
   const token=process.env.FLIPKART_AFFILIATE_TOKEN;
   if(!affiliateId||!token)throw new Error('Flipkart Affiliate API is not configured. Add FLIPKART_AFFILIATE_ID and FLIPKART_AFFILIATE_TOKEN.');
   const api='https://affiliate-api.flipkart.net/affiliate/1.0/product.json?id='+encodeURIComponent(productId);
-  const r=await fetch(api,{headers:{'Fk-Affiliate-Id':affiliateId,'Fk-Affiliate-Token':token},cache:'no-store'});
+  const r=await fetch(api,{signal:AbortSignal.timeout(12000),headers:{'Fk-Affiliate-Id':affiliateId,'Fk-Affiliate-Token':token},cache:'no-store'});
   if(!r.ok)throw new Error(r.status===401?'Flipkart authentication failed. Check Affiliate ID and API Token.':'Flipkart product lookup failed.');
   const j=await r.json();
   const p=j.productInfoList?.[0]??j.productInfo?.[0]??j.products?.[0]??j.productBaseInfoV1;
@@ -77,6 +78,7 @@ export async function POST(req:Request){
     if(!Number.isFinite(markup)||markup<0||markup>500)return NextResponse.json({error:'Markup must be between 0% and 500%.'},{status:400});
     const parsed=parseMarketplaceUrl(sourceUrl); if(!parsed)return NextResponse.json({error:'Use a public Amazon.in/Amazon.com/Amazon.co.uk product URL or a Flipkart product URL.'},{status:400});
     const product=parsed.provider==='AMAZON'?await fetchAmazon(parsed.id,parsed.url):await fetchFlipkart(parsed.id,parsed.url);
+    if(!Number.isFinite(product.sourceCost)||product.sourceCost<=0)return NextResponse.json({error:'The source API returned an invalid product price.'},{status:502});
     const preview={...product,sellingPrice:sellingPrice(product.sourceCost,markup),markupPercent:markup};
     if(action==='preview')return NextResponse.json({product:preview});
     if(!access.isSuperAdmin&&!access.permissions.includes('pricing'))return NextResponse.json({error:'Pricing permission required to import products.'},{status:403});
