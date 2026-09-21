@@ -110,7 +110,7 @@ export default function MarketplacesPage() {
       if (!r.ok) throw new Error(j.error || 'Unable to save credentials.');
       setCredentials({});
       setCredentialFields(j.fields || {});
-      setMessage(`${meta[provider]?.name || provider}: credentials saved securely.`);
+      setMessage(j.detail ? `${meta[provider]?.name || provider}: ${j.detail}` : `${meta[provider]?.name || provider}: credentials saved securely.`);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to save credentials.');
@@ -294,7 +294,7 @@ export default function MarketplacesPage() {
                       ))}
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <button disabled={credentialBusy} onClick={() => saveCredentials(i.provider)} className="rounded-xl bg-indigo-500 px-4 py-2.5 text-[10px] font-black text-white disabled:opacity-40">{credentialBusy ? 'Working…' : 'Save securely'}</button>
+                      <button disabled={credentialBusy} onClick={() => saveCredentials(i.provider)} className="rounded-xl bg-indigo-500 px-4 py-2.5 text-[10px] font-black text-white disabled:opacity-40">{credentialBusy ? (i.provider === 'SHOPIFY' ? 'Validating…' : 'Saving…') : (i.provider === 'SHOPIFY' ? 'Save & connect' : 'Save securely')}</button>
                       <button disabled={credentialBusy || !i.credentialsConfigured} onClick={() => testCredentials(i.provider)} className="rounded-xl border border-white/10 px-4 py-2.5 text-[10px] font-black text-slate-200 disabled:opacity-30">Test connection</button>
                       <button disabled={credentialBusy || !i.credentialsConfigured} onClick={() => removeCredentials(i.provider)} className="rounded-xl border border-red-400/20 px-4 py-2.5 text-[10px] font-black text-red-300 disabled:opacity-30">Remove credentials</button>
                     </div>
