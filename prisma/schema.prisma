@@ -377,9 +377,14 @@ model MarketplaceProduct {
   product       Product?               @relation(fields: [productId], references: [id], onDelete: SetNull)
   title         String
   sourceUrl     String?
-  rawData       Json?
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
+  rawData             Json?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  lastSourceCost     Decimal?               @db.Decimal(12, 2)
+  sourceAvailability String                 @default("UNKNOWN")
+  lastCheckedAt      DateTime?
+  lastCheckError     String?
+  priceChanges       MarketplacePriceChange[]
 
   @@unique([integrationId, externalId])
   @@index([productId])
