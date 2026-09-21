@@ -11,6 +11,7 @@ const requireAdmin = async () => {
 };
 
 export async function POST(request: Request) {
+  if (!(await requireAdminPermission('categories'))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const b = await request.json();
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  if (!(await requireAdminPermission('categories'))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const b = await request.json();
@@ -37,6 +39,7 @@ export async function PATCH(request: Request) {
 
 
 export async function DELETE(request: Request) {
+  if (!(await requireAdminPermission('categories'))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const b = await request.json();
