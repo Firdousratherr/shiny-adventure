@@ -32,6 +32,7 @@ export default function Checkout() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [selectedAddress, setSelectedAddress] = useState('');
+  const [coupon, setCoupon] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -111,6 +112,7 @@ export default function Checkout() {
       district: String(form.get('district') || ''),
       state: String(form.get('state') || ''),
       pinCode: String(form.get('pinCode') || ''),
+      couponCode: coupon.trim().toUpperCase(),
       items: items.map(i => ({ productId: i.productId, quantity: i.quantity })),
     };
     try {
@@ -203,7 +205,7 @@ export default function Checkout() {
         <aside className="h-fit rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-black/20 lg:sticky lg:top-20">
           <h2 className="font-bold">Order summary</h2>
           {items.map(i => <div key={i.productId} className="mt-3 flex justify-between gap-3 text-sm"><span>{i.name} × {i.quantity}</span><span>₹{(i.price*i.quantity).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>)}
-          <div className="mt-5 flex justify-between border-t border-white/10 pt-4"><span>Subtotal</span><strong>₹{subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>
+          <div className="mt-5 border-t border-white/10 pt-4"><label className="text-sm font-semibold">Coupon code<input value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="Optional" className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3"/></label></div><div className="mt-5 flex justify-between border-t border-white/10 pt-4"><span>Subtotal</span><strong>₹{subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>
           <p className="mt-2 text-xs text-slate-500">Final delivery and total are calculated again on the server.</p>
         </aside>
       </div>
