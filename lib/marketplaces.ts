@@ -36,7 +36,6 @@ const FIELD_ENV: Record<string, Record<string, string>> = {
   MEESHO: { apiKey: 'MEESHO_SELLER_API_KEY', apiSecret: 'MEESHO_SELLER_API_SECRET' },
   EBAY: { clientId: 'EBAY_CLIENT_ID', clientSecret: 'EBAY_CLIENT_SECRET' },
   ETSY: { apiKeyString: 'ETSY_API_KEYSTRING', sharedSecret: 'ETSY_API_SHARED_SECRET', accessToken: 'ETSY_ACCESS_TOKEN', shopId: 'ETSY_SHOP_ID' },
-  SHOPIFY: { storeDomain: 'SHOPIFY_STORE_DOMAIN', clientId: 'SHOPIFY_CLIENT_ID', clientSecret: 'SHOPIFY_CLIENT_SECRET' },
 };
 
 export async function marketplaceCredentials(provider: string) {
@@ -49,6 +48,9 @@ export async function marketplaceCredentials(provider: string) {
 export async function credentialStatus(provider: string) {
   const stored = await marketplaceCredentials(provider);
   const required = REQUIRED_FIELDS[provider] ?? [];
+  if (provider === 'SHOPIFY') {
+    return required.length > 0 && required.every(field => Boolean(stored[field]));
+  }
   const envMap = FIELD_ENV[provider] ?? {};
   return required.length > 0 && required.every(field => Boolean(stored[field] ?? process.env[envMap[field]]));
 }
