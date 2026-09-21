@@ -4,7 +4,7 @@
 
 :root{color-scheme:dark}
 *{box-sizing:border-box}
-html{scroll-behavior:smooth;background:#070b16}
+html{scroll-behavior:smooth;background:#070b16;scroll-padding-bottom:96px}
 body{margin:0;background:#070b16;color:#f8fafc;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
@@ -15,25 +15,24 @@ img{max-width:100%}
 a{transition:color .18s ease,background-color .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease}
 button{transition:background-color .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease,opacity .18s ease}
 input,select,textarea{color-scheme:dark}
-
-/* Shared admin command-center theme */
-main.bg-slate-100{background:#070b16!important;color:#f8fafc}
-main.bg-slate-100 header{background:rgba(11,16,32,.94)!important;border-color:rgba(255,255,255,.1)!important;color:#f8fafc}
-main.bg-slate-100 .bg-white:not(input):not(select):not(textarea):not(button){background:rgba(255,255,255,.045)!important;border-color:rgba(255,255,255,.1)!important;color:#f8fafc}
-main.bg-slate-100 .bg-slate-50{background:rgba(255,255,255,.04)!important}
-main.bg-slate-100 .bg-slate-100{background:rgba(255,255,255,.06)!important}
-main.bg-slate-100 .border-slate-200,
-main.bg-slate-100 .border-slate-100,
-main.bg-slate-100 .border-red-200,
-main.bg-slate-100 .border-emerald-200,
-main.bg-slate-100 .ring-slate-100,
-main.bg-slate-100 .ring-slate-200{border-color:rgba(255,255,255,.1)!important}
-main.bg-slate-100 .divide-y>*{border-color:rgba(255,255,255,.08)!important}
-main.bg-slate-100 .text-slate-950,
-main.bg-slate-100 .text-slate-900{color:#f8fafc!important}
+.store-dark{background:#070b16;color:#f8fafc}
+.store-dark .surface{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.1)}
+.store-dark .muted{color:#94a3b8}
+body:has(.zenvora-mobile-nav){padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+.zenvora-mobile-nav{padding-bottom:max(4px,env(safe-area-inset-bottom));box-shadow:0 18px 55px rgba(0,0,0,.55)}
+.zenvora-mobile-nav a{min-height:52px}
+@media (min-width:768px){body:has(.zenvora-mobile-nav){padding-bottom:0}}
+main.bg-slate-100{background:radial-gradient(circle at 10% 0%,rgba(124,58,237,.13),transparent 28%),radial-gradient(circle at 90% 0%,rgba(236,72,153,.10),transparent 25%),#070b16!important;color:#f8fafc}
+main.bg-slate-100 header{background:rgba(8,13,28,.88)!important;border-color:rgba(255,255,255,.08)!important;color:#f8fafc;box-shadow:0 12px 35px rgba(0,0,0,.18)}
+main.bg-slate-100 .bg-white:not(input):not(select):not(textarea):not(button){background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.035))!important;border-color:rgba(255,255,255,.09)!important;color:#f8fafc;box-shadow:0 14px 40px rgba(0,0,0,.16)}
+main.bg-slate-100 .bg-slate-50{background:rgba(255,255,255,.035)!important}
+main.bg-slate-100 .bg-slate-100{background:rgba(255,255,255,.05)!important}
+main.bg-slate-100 .border-slate-200,main.bg-slate-100 .border-slate-100,main.bg-slate-100 .border-red-200,main.bg-slate-100 .border-emerald-200,main.bg-slate-100 .ring-slate-100,main.bg-slate-100 .ring-slate-200{border-color:rgba(255,255,255,.09)!important}
+main.bg-slate-100 .divide-y>*{border-color:rgba(255,255,255,.07)!important}
+main.bg-slate-100 .text-slate-950,main.bg-slate-100 .text-slate-900{color:#f8fafc!important}
+main.bg-slate-100 .text-slate-800{color:#f1f5f9!important}
 main.bg-slate-100 .text-slate-700{color:#e2e8f0!important}
-main.bg-slate-100 .text-slate-600,
-main.bg-slate-100 .text-slate-500{color:#94a3b8!important}
+main.bg-slate-100 .text-slate-600,main.bg-slate-100 .text-slate-500{color:#94a3b8!important}
 main.bg-slate-100 .text-slate-400{color:#64748b!important}
 main.bg-slate-100 .text-indigo-600{color:#a78bfa!important}
 main.bg-slate-100 .text-indigo-700{color:#c4b5fd!important}
@@ -41,22 +40,67 @@ main.bg-slate-100 .bg-indigo-50{background:rgba(99,102,241,.14)!important}
 main.bg-slate-100 .bg-violet-50{background:rgba(139,92,246,.12)!important}
 main.bg-slate-100 .bg-red-50{background:rgba(239,68,68,.1)!important;border-color:rgba(248,113,113,.2)!important}
 main.bg-slate-100 .bg-emerald-50{background:rgba(16,185,129,.1)!important;border-color:rgba(52,211,153,.2)!important}
-main.bg-slate-100 input,
-main.bg-slate-100 select,
-main.bg-slate-100 textarea{background:rgba(15,23,42,.9);border-color:rgba(255,255,255,.12);color:#f8fafc}
-main.bg-slate-100 input::placeholder,
-main.bg-slate-100 textarea::placeholder{color:#64748b}
-main.bg-slate-100 .hover\\:bg-slate-50:hover,
-main.bg-slate-100 .hover\\:bg-slate-100:hover{background:rgba(255,255,255,.08)!important}
+main.bg-slate-100 input,main.bg-slate-100 select,main.bg-slate-100 textarea{background:rgba(10,16,31,.9);border-color:rgba(255,255,255,.11);color:#f8fafc}
+main.bg-slate-100 input::placeholder,main.bg-slate-100 textarea::placeholder{color:#64748b}
+main.bg-slate-100 button:not(.text-red-600):hover{box-shadow:0 8px 25px rgba(0,0,0,.18)}
+main.bg-slate-100 thead{background:rgba(255,255,255,.035)}
+main.bg-slate-100 .shadow-sm{box-shadow:0 14px 35px rgba(0,0,0,.14)!important}
+main.bg-slate-100 .shadow{box-shadow:0 14px 35px rgba(0,0,0,.16)!important}
+main.bg-slate-100 .hover\\:bg-slate-50:hover,main.bg-slate-100 .hover\\:bg-slate-100:hover{background:rgba(255,255,255,.07)!important}
+@media (max-width:767px){.container{padding-left:12px;padding-right:12px}input,select,textarea{font-size:16px!important}button,a{touch-action:manipulation}}
+/* Zenvora UI system */
+:root{--z-border:rgba(255,255,255,.1);--z-surface:rgba(255,255,255,.055);--z-surface-strong:rgba(255,255,255,.085);--z-muted:#94a3b8}
+*{scrollbar-width:thin;scrollbar-color:rgba(167,139,250,.35) transparent}
+*:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
+.zenvora-glass{background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.035));border:1px solid var(--z-border);backdrop-filter:blur(18px)}
+.zenvora-card{border:1px solid var(--z-border);background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.025));border-radius:1.5rem;box-shadow:0 18px 50px rgba(0,0,0,.16);transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.zenvora-card:hover{transform:translateY(-3px);border-color:rgba(167,139,250,.35);box-shadow:0 24px 60px rgba(0,0,0,.22)}
+.zenvora-pill{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.055);border-radius:999px}
+.zenvora-gradient-text{background:linear-gradient(100deg,#fff 10%,#e9d5ff 48%,#a78bfa 90%);background-clip:text;-webkit-background-clip:text;color:transparent}
+@media(max-width:767px){.zenvora-card{border-radius:1.25rem}.zenvora-mobile-nav{backdrop-filter:blur(20px);background:rgba(7,11,22,.92)!important}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
-/* Reusable storefront polish for older light components */
-.store-dark{background:#070b16;color:#f8fafc}
-.store-dark .surface{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.1)}
-.store-dark .muted{color:#94a3b8}
-
-@media (max-width:639px){
-  .container{padding-left:12px;padding-right:12px}
-  main{padding-bottom:76px}
-  input,select,textarea{font-size:16px!important}
-  button,a{touch-action:manipulation}
+@media (min-width:1024px){
+  main.bg-slate-100>.container,main.bg-slate-950>.container,main.bg-slate-900>.container{margin-left:16rem;max-width:calc(1240px + 0rem)}
 }
+@media (max-width:1023px){main.bg-slate-100>.container,main.bg-slate-950>.container,main.bg-slate-900>.container{width:100%}}
+
+@media (min-width:1024px){main.bg-slate-100>header+.container,main.bg-slate-950>header+.container,main.bg-slate-900>header+.container{margin-left:16rem}}
+
+
+/* Zenvora cross-page UI polish v2 */
+.store-dark h1,.store-dark h2,.store-dark h3{letter-spacing:-.025em}
+.store-dark main>div,.store-dark main>section{scroll-margin-top:88px}
+.store-dark :is(input,select,textarea){border-radius:12px;min-height:44px;transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease}
+.store-dark :is(input,select,textarea):focus{border-color:rgba(167,139,250,.65)!important;box-shadow:0 0 0 3px rgba(167,139,250,.12)!important}
+.store-dark :is(button,[role="button"]):not([aria-disabled="true"]):active{transform:translateY(1px)}
+.store-dark :is(.bg-white,.bg-slate-50,.bg-slate-100){border-color:var(--z-border)}
+.store-dark table{border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:16px}
+.store-dark th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8}
+.store-dark td,.store-dark th{border-bottom:1px solid rgba(255,255,255,.07)}
+.store-dark tbody tr:last-child td{border-bottom:0}
+.store-dark tbody tr{transition:background-color .16s ease}
+.store-dark tbody tr:hover{background:rgba(255,255,255,.035)}
+.store-dark :is(.rounded-lg,.rounded-xl,.rounded-2xl){background-clip:padding-box}
+.zenvora-page-header{position:relative;overflow:hidden}
+.zenvora-page-header:before{content:"";position:absolute;inset:-80px auto auto 12%;width:280px;height:180px;background:rgba(124,58,237,.12);filter:blur(55px);pointer-events:none}
+.zenvora-section-title{font-size:clamp(1.15rem,2vw,1.5rem);font-weight:750;letter-spacing:-.02em}
+.zenvora-empty-state{border:1px dashed rgba(255,255,255,.14);background:rgba(255,255,255,.025);border-radius:20px;padding:40px 20px;text-align:center}
+.zenvora-skeleton{position:relative;overflow:hidden;background:rgba(255,255,255,.06);border-radius:12px}
+.zenvora-skeleton:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);animation:zenvora-shimmer 1.4s infinite}
+@keyframes zenvora-shimmer{100%{transform:translateX(100%)}}
+.zenvora-sticky-action{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));z-index:30;background:rgba(7,11,22,.88);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.1);box-shadow:0 -12px 35px rgba(0,0,0,.25)}
+@media(min-width:768px){.zenvora-sticky-action{bottom:20px;border-radius:18px}}
+@media(max-width:767px){.zenvora-page-header{padding-top:4px}.zenvora-empty-state{padding:32px 16px}.zenvora-sticky-action{margin:0 -12px;padding-left:12px;padding-right:12px}}
+@media(prefers-reduced-motion:reduce){.zenvora-skeleton:after{animation:none}}
+
+/* Admin command-center polish */
+main.bg-slate-100 .zenvora-card{background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.035))!important}
+main.bg-slate-100 h1{letter-spacing:-.03em}
+main.bg-slate-100 h2,main.bg-slate-100 h3{letter-spacing:-.02em}
+main.bg-slate-100 :is(input,select,textarea){min-height:44px;border-radius:12px}
+main.bg-slate-100 :is(input,select,textarea):focus{border-color:rgba(167,139,250,.65)!important;box-shadow:0 0 0 3px rgba(167,139,250,.12)!important}
+main.bg-slate-100 :is(button,a):not([aria-disabled="true"]):active{transform:translateY(1px)}
+main.bg-slate-100 .overflow-x-auto{scrollbar-width:thin}
+main.bg-slate-100 .sticky{backdrop-filter:blur(14px)}
+@media(max-width:767px){main.bg-slate-100 .overflow-x-auto{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}}

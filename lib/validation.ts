@@ -11,6 +11,7 @@ export const checkoutSchema = z.object({
   district: z.string().trim().min(2).max(100),
   state: z.string().trim().min(2).max(100),
   pinCode: z.string().regex(/^\d{6}$/, 'PIN code must be exactly 6 digits'),
+  couponCode: z.string().trim().max(50).optional().or(z.literal('')),
   items: z.array(z.object({ productId: z.string().min(1), quantity: z.number().int().min(1).max(99) })).min(1).max(50),
 });
 

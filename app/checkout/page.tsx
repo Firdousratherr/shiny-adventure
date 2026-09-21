@@ -32,6 +32,7 @@ export default function Checkout() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [selectedAddress, setSelectedAddress] = useState('');
+  const [coupon, setCoupon] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -111,6 +112,7 @@ export default function Checkout() {
       district: String(form.get('district') || ''),
       state: String(form.get('state') || ''),
       pinCode: String(form.get('pinCode') || ''),
+      couponCode: coupon.trim().toUpperCase(),
       items: items.map(i => ({ productId: i.productId, quantity: i.quantity })),
     };
     try {
@@ -133,18 +135,19 @@ export default function Checkout() {
   if (!items.length) return (
     <main className="min-h-screen bg-[#070b16] px-4 py-16 text-center text-white">
       <h1 className="text-2xl font-black">Your cart is empty</h1>
-      <Link href="/products" className="mt-5 inline-block rounded-xl bg-slate-900 px-6 py-3 font-black text-slate-950">Shop products</Link>
+      <Link href="/products" className="mt-5 inline-block rounded-xl bg-white px-6 py-3 font-black text-slate-950">Shop products</Link>
     </main>
   );
 
   return (
-    <main className="min-h-screen bg-[#070b16] px-0 py-5 text-white sm:py-8">
-      <Link href="/cart" className="font-semibold">← Back to cart</Link>
+    <main className="min-h-screen bg-[#070b16] px-4 py-5 text-white sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-6xl">
+      <div className="flex items-center justify-between border-b border-white/10 pb-4"><Link href="/cart" className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold hover:bg-white/5">← Back to cart</Link><span className="text-xs font-bold text-slate-500">🔒 Secure checkout</span></div>
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_340px]">
         <form ref={formRef} onSubmit={submit} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/20 sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-violet-600">Secure checkout</p>
+              <p className="text-xs font-black uppercase tracking-[.2em] text-violet-400">Step 1 of 2 · Delivery</p>
               <h1 className="text-2xl font-black sm:text-3xl">Delivery details</h1>
             </div>
             {loadingAccount && <span className="text-xs text-slate-400">Checking saved details…</span>}
@@ -203,9 +206,10 @@ export default function Checkout() {
         <aside className="h-fit rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-black/20 lg:sticky lg:top-20">
           <h2 className="font-bold">Order summary</h2>
           {items.map(i => <div key={i.productId} className="mt-3 flex justify-between gap-3 text-sm"><span>{i.name} × {i.quantity}</span><span>₹{(i.price*i.quantity).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>)}
-          <div className="mt-5 flex justify-between border-t border-white/10 pt-4"><span>Subtotal</span><strong>₹{subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>
+          <div className="mt-5 border-t border-white/10 pt-4"><label className="text-sm font-semibold">Coupon code<input value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="Optional" className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3"/></label></div><div className="mt-5 flex justify-between border-t border-white/10 pt-4"><span>Subtotal</span><strong>₹{subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>
           <p className="mt-2 text-xs text-slate-500">Final delivery and total are calculated again on the server.</p>
         </aside>
+      </div>
       </div>
     </main>
   );

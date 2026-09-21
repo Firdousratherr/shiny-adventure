@@ -1,5 +1,6 @@
 import { db } from './db';
 import { decryptMarketplaceCredentials } from './marketplace-crypto';
+import { getShopifyAccessToken } from './shopify';
 
 export type SyncItem = {
   externalId: string;
@@ -20,13 +21,21 @@ type Settings = {
   query?: string;
 };
 
-const PROVIDER_ENV: Record<string, string[]> = {
-  AMAZON: ['AMAZON_SP_API_CLIENT_ID', 'AMAZON_SP_API_CLIENT_SECRET', 'AMAZON_SP_API_REFRESH_TOKEN'],
-  FLIPKART: ['FLIPKART_SELLER_API_KEY', 'FLIPKART_SELLER_API_SECRET'],
-  MEESHO: ['MEESHO_SELLER_API_KEY', 'MEESHO_SELLER_API_SECRET'],
-  EBAY: ['EBAY_CLIENT_ID', 'EBAY_CLIENT_SECRET'],
-  ETSY: ['ETSY_API_KEYSTRING', 'ETSY_API_SHARED_SECRET', 'ETSY_ACCESS_TOKEN', 'ETSY_SHOP_ID'],
-  SHOPIFY: ['SHOPIFY_STORE_DOMAIN', 'SHOPIFY_ACCESS_TOKEN'],
+const REQUIRED_FIELDS: Record<string, string[]> = {
+  AMAZON: ['clientId', 'clientSecret', 'refreshToken'],
+  FLIPKART: ['apiKey', 'apiSecret'],
+  MEESHO: ['apiKey', 'apiSecret'],
+  EBAY: ['clientId', 'clientSecret'],
+  ETSY: ['apiKeyString', 'sharedSecret', 'accessToken', 'shopId'],
+  SHOPIFY: ['storeDomain', 'clientId', 'clientSecret'],
+};
+
+const FIELD_ENV: Record<string, Record<string, string>> = {
+  AMAZON: { clientId: 'AMAZON_SP_API_CLIENT_ID', clientSecret: 'AMAZON_SP_API_CLIENT_SECRET', refreshToken: 'AMAZON_SP_API_REFRESH_TOKEN' },
+  FLIPKART: { apiKey: 'FLIPKART_SELLER_API_KEY', apiSecret: 'FLIPKART_SELLER_API_SECRET' },
+  MEESHO: { apiKey: 'MEESHO_SELLER_API_KEY', apiSecret: 'MEESHO_SELLER_API_SECRET' },
+  EBAY: { clientId: 'EBAY_CLIENT_ID', clientSecret: 'EBAY_CLIENT_SECRET' },
+  ETSY: { apiKeyString: 'ETSY_API_KEYSTRING', sharedSecret: 'ETSY_API_SHARED_SECRET', accessToken: 'ETSY_ACCESS_TOKEN', shopId: 'ETSY_SHOP_ID' },
 };
 
 export async function marketplaceCredentials(provider: string) {
@@ -38,8 +47,12 @@ export async function marketplaceCredentials(provider: string) {
 
 export async function credentialStatus(provider: string) {
   const stored = await marketplaceCredentials(provider);
-  const vars = PROVIDER_ENV[provider] ?? [];
-  return vars.length > 0 && vars.every(name => Boolean(stored[name] ?? process.env[name]));
+  const required = REQUIRED_FIELDS[provider] ?? [];
+  if (provider === 'SHOPIFY') {
+    return required.length > 0 && required.every(field => Boolean(stored[field]));
+  }
+  const envMap = FIELD_ENV[provider] ?? {};
+  return required.length > 0 && required.every(field => Boolean(stored[field] ?? process.env[envMap[field]]));
 }
 
 export function providerCapabilities(provider: string) {
@@ -184,26 +197,32 @@ async function flipkartItems(settings: Settings, credentials: Record<string, unk
   })).filter((x: SyncItem) => x.externalId);
 }
 
+
 async function shopifyItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
-  const domain = String(credentials.storeDomain ?? process.env.SHOPIFY_STORE_DOMAIN ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const { domain, accessToken } = await getShopifyAccessToken(credentials);
   const query = `query { products(first: 100) { nodes { id title descriptionHtml onlineStoreUrl totalInventory images(first: 1) { nodes { url } } variants(first: 1) { nodes { price } } } } }`;
-  const response = await fetch(`https://${domain}/admin/api/2026-07/graphql.json`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': String(credentials.accessToken ?? process.env.SHOPIFY_ACCESS_TOKEN ?? '') },
-    body: JSON.stringify({ query }),
-    cache: 'no-store',
-  });
-  if (!response.ok) throw new Error(`Shopify request failed (${response.status})`);
-  const data: any = await response.json();
-  if (data.errors?.length) throw new Error(data.errors.map((e: any) => e.message).join('; '));
-  return (data.data?.products?.nodes ?? []).map((x: any) => ({
-    externalId: x.id,
-    title: x.title,
-    sourceUrl: x.onlineStoreUrl || null,
-    sourceCost: Number(x.variants?.nodes?.[0]?.price ?? 0) || null,
-    imageUrl: x.images?.nodes?.[0]?.url || null,
-    rawData: x,
-  }));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(`https://${domain}/admin/api/2026-07/graphql.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': accessToken },
+      body: JSON.stringify({ query }),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Shopify request failed (${response.status})`);
+    const data: any = await response.json();
+    if (data.errors?.length) throw new Error(data.errors.map((e: any) => e.message).join('; '));
+    return (data.data?.products?.nodes ?? []).map((x: any) => ({
+      externalId: x.id,
+      title: x.title,
+      sourceUrl: x.onlineStoreUrl || null,
+      sourceCost: Number(x.variants?.nodes?.[0]?.price ?? 0) || null,
+      imageUrl: x.images?.nodes?.[0]?.url || null,
+      rawData: x,
+    }));
+  } finally { clearTimeout(timer); }
 }
 
 async function etsyItems(credentials: Record<string, unknown>): Promise<SyncItem[]> {

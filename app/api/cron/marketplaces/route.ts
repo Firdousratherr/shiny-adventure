@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/db';
 import { syncMarketplace } from '../../../../lib/marketplaces';
+import { releaseExpiredPaymentReservations } from '../../../../lib/inventory-reservations';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,10 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
-  const integrations = await db.marketplaceIntegration.findMany({ where: { enabled: true, autoSync: true } });
+  const released = await db.$transaction(async tx => releaseExpiredPaymentReservations(tx));
+  const integrations = await db.marketplaceIntegration.findMany({
+    where: { provider: 'SHOPIFY', enabled: true, autoSync: true },
+  });
   const results: Array<Record<string, unknown>> = [];
 
   for (const integration of integrations) {
@@ -39,5 +43,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ checked: integrations.length, results });
+  return NextResponse.json({ checked: integrations.length, releasedExpiredReservations: released, results });
 }

@@ -11,6 +11,7 @@ const requireAdmin = async () => {
 };
 
 export async function POST(request: Request) {
+  if (!(await requireAdminPermission('categories'))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const b = await request.json();
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  if (!(await requireAdminPermission('categories'))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const b = await request.json();
@@ -33,4 +35,24 @@ export async function PATCH(request: Request) {
     const category = await db.category.update({ where: { id: b.id }, data });
     return NextResponse.json({ category });
   } catch (e) { if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return NextResponse.json({ error: 'Category slug already exists.' }, { status: 409 }); if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') return NextResponse.json({ error: 'Category not found.' }, { status: 404 }); console.error(e); return NextResponse.json({ error: 'Unable to update category.' }, { status: 500 }); }
+}
+
+
+export async function DELETE(request: Request) {
+  if (!(await requireAdminPermission('categories'))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!(await requireAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const b = await request.json();
+    if (typeof b.id !== 'string' || !b.id) return NextResponse.json({ error: 'Category ID is required.' }, { status: 400 });
+    const productCount = await db.product.count({ where: { categoryId: b.id } });
+    if (productCount > 0) {
+      return NextResponse.json({ error: `Cannot delete this category because ${productCount} product(s) are assigned to it. Reassign those products first.` }, { status: 409 });
+    }
+    await db.category.delete({ where: { id: b.id } });
+    return NextResponse.json({ ok: true, id: b.id });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') return NextResponse.json({ error: 'Category not found.' }, { status: 404 });
+    console.error(e);
+    return NextResponse.json({ error: 'Unable to delete category.' }, { status: 500 });
+  }
 }

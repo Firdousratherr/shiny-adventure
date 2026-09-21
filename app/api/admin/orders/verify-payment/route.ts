@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../../auth';
 import { db } from '../../../../../lib/db';
 import { notifyCustomer } from '../../../../../lib/email';
 import { releaseExpiredPaymentReservations } from '../../../../../lib/inventory-reservations';
+import { requireAdminPermission } from '../../../../../lib/admin-access';
 
 export async function POST(request: Request) {
-  const session = await auth();
-  const adminEmail = session?.user?.role === 'admin' ? session.user.email : null;
-  if (!adminEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const admin = await requireAdminPermission('payments');
+  const adminEmail = admin?.email || null;
+  if (!adminEmail) return NextResponse.json({ error: 'Payments permission required.' }, { status: 403 });
 
   try {
     const body = await request.json();

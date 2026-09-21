@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     if (!parsed.success) return NextResponse.json({ error: 'Please check your checkout details.', issues: parsed.error.flatten() }, { status: 400 });
 
     const data = parsed.data;
+    const couponCode = (data.couponCode || '').trim().toUpperCase();
     const quantityByProduct = new Map<string, number>();
     for (const item of data.items) quantityByProduct.set(item.productId, (quantityByProduct.get(item.productId) || 0) + item.quantity);
     if ([...quantityByProduct.values()].some(quantity => quantity > 99)) {
@@ -43,12 +44,29 @@ export async function POST(request: Request) {
     const settings = await db.settings.findMany({ where: { key: { in: ['freeShippingThreshold', 'flatDeliveryCharge'] } } });
     const values = Object.fromEntries(settings.map(s => [s.key, s.value]));
     const shipping = deliveryCharge(subtotal, values.freeShippingThreshold || '999', values.flatDeliveryCharge || '79');
-    const amount = total(subtotal, shipping);
+    let discount = new Prisma.Decimal(0);
+    let coupon: { id: string; code: string; type: string; value: Prisma.Decimal; minOrderAmount: Prisma.Decimal | null; maxDiscount: Prisma.Decimal | null; usageLimit: number | null; usedCount: number; enabled: boolean; startsAt: Date | null; expiresAt: Date | null } | null = null;
+    if (couponCode) {
+      coupon = await db.coupon.findUnique({ where: { code: couponCode }, select: { id: true, code: true, type: true, value: true, minOrderAmount: true, maxDiscount: true, usageLimit: true, usedCount: true, enabled: true, startsAt: true, expiresAt: true } });
+      const now = new Date();
+      if (!coupon || !coupon.enabled || (coupon.startsAt && coupon.startsAt > now) || (coupon.expiresAt && coupon.expiresAt <= now) || (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit)) {
+        return NextResponse.json({ error: 'This coupon is invalid, expired or no longer available.' }, { status: 400 });
+      }
+      if (coupon.minOrderAmount && subtotal.lessThan(coupon.minOrderAmount)) return NextResponse.json({ error: `Minimum order value for this coupon is ₹${coupon.minOrderAmount.toFixed(2)}.` }, { status: 400 });
+      discount = coupon.type === 'FIXED' ? coupon.value : subtotal.mul(coupon.value).div(100);
+      if (coupon.maxDiscount && discount.greaterThan(coupon.maxDiscount)) discount = coupon.maxDiscount;
+      if (discount.greaterThan(subtotal)) discount = subtotal;
+    }
+    const amount = total(subtotal, shipping).minus(discount);
     const paymentAccessToken = createPaymentAccessToken();
     const paymentAccessTokenHash = hashPaymentAccessToken(paymentAccessToken);
     const reservationExpiresAt = new Date(Date.now() + PAYMENT_RESERVATION_MINUTES * 60 * 1000);
 
     const order = await db.$transaction(async tx => {
+      if (coupon) {
+        const used = await tx.coupon.updateMany({ where: { id: coupon.id, enabled: true, ...(coupon.usageLimit !== null ? { usedCount: { lt: coupon.usageLimit } } : {}) }, data: { usedCount: { increment: 1 } } });
+        if (used.count !== 1) throw new Error('COUPON_UNAVAILABLE');
+      }
       await releaseExpiredPaymentReservations(tx);
 
       // Reserve inventory atomically at order creation. Stock is reduced immediately and
@@ -87,6 +105,8 @@ export async function POST(request: Request) {
           pinCode: data.pinCode,
           totalAmount: amount,
           deliveryCharge: shipping,
+          couponCode: coupon?.code || null,
+          discountAmount: discount,
           status: 'PAYMENT_PENDING',
           reservationExpiresAt,
           paymentAccessTokenHash,
@@ -116,6 +136,7 @@ export async function POST(request: Request) {
       return created;
     });
 
+    void db.adminNotification.create({ data: { type: 'ORDER', title: 'New order awaiting payment', message: `${order.orderNumber} is awaiting payment confirmation.`, entityType: 'Order', entityId: order.id } }).catch(() => {});
     return NextResponse.json({
       orderNumber: order.orderNumber,
       paymentToken: paymentAccessToken,
@@ -125,6 +146,7 @@ export async function POST(request: Request) {
     }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
+    if (message === 'COUPON_UNAVAILABLE') return NextResponse.json({ error: 'That coupon was just used up. Please try another coupon.' }, { status: 409 });
     if (message.startsWith('INSUFFICIENT_STOCK:')) {
       return NextResponse.json({ error: `${message.slice(19)} is no longer available in the requested quantity.` }, { status: 409 });
     }

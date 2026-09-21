@@ -1,0 +1,2 @@
+import {db} from './db';
+export async function isFeatureEnabled(key:string,fallback=false){try{const f=await db.featureFlag.findUnique({where:{key},select:{enabled:true}});return f?.enabled??fallback}catch{return fallback}}

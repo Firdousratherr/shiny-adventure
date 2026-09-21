@@ -1,17 +1,18 @@
 import { NextResponse } from 'next/server';
 import { Prisma, type OrderStatus } from '@prisma/client';
-import { auth } from '../../../../../auth';
 import { db } from '../../../../../lib/db';
 import { canTransition } from '../../../../../lib/orders/status';
 import { notifyCustomer } from '../../../../../lib/email';
+import { requireAdminPermission } from '../../../../../lib/admin-access';
+import { releasePaymentReservation } from '../../../../../lib/inventory-reservations';
 
 const statuses = new Set<OrderStatus>(['ORDERED_FROM_SOURCE','SHIPPED','DELIVERED','CANCELLED','RTO','RETURN_REQUESTED','REFUNDED']);
 const text = (v: unknown, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : '';
 const statusMessage: Partial<Record<OrderStatus,string>> = { ORDERED_FROM_SOURCE:'Your order has been placed with the source supplier and is being prepared.', SHIPPED:'Your order has been shipped.', DELIVERED:'Your order has been marked as delivered.', CANCELLED:'Your order has been cancelled.', RTO:'Your order has been marked as returned to origin.', RETURN_REQUESTED:'Your return request has been recorded and is under review.', REFUNDED:'Your refund has been processed.' };
 
 export async function POST(request: Request) {
-  const session = await auth();
-  const adminEmail = session?.user?.role === 'admin' ? session.user.email : null;
+  const admin = await requireAdminPermission('orders');
+  const adminEmail = admin?.email || null;
   if (!adminEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.formData();
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
         try { refundAmount = new Prisma.Decimal(refundRaw); } catch { throw new Error('INVALID_REFUND'); }
         if (!refundAmount.isFinite() || refundAmount.lessThan(0) || refundAmount.greaterThan(order.totalAmount)) throw new Error('INVALID_REFUND');
       }
+      if (target === 'REFUNDED' && !(await requireAdminPermission('payments'))) throw new Error('PAYMENTS_PERMISSION_REQUIRED');
       if (target === 'REFUNDED' && !refundAmount) refundAmount = order.totalAmount;
       if (target === 'REFUNDED' && !refundMethod) throw new Error('REFUND_METHOD_REQUIRED');
       if (target === 'REFUNDED' && !refundReference) throw new Error('REFUND_REFERENCE_REQUIRED');
@@ -46,10 +48,12 @@ export async function POST(request: Request) {
       const shouldReleaseReservation = target === 'CANCELLED' && order.status === 'PAYMENT_PENDING';
       const shouldRestore = target === 'CANCELLED' && order.status === 'CONFIRMED';
       const shouldRestockRto = target === 'RTO' && order.status === 'SHIPPED';
-      if (shouldReleaseReservation || shouldRestore || shouldRestockRto) {
+      if (shouldReleaseReservation) {
+        await releasePaymentReservation(tx, order, 'PAYMENT_RESERVATION_RELEASE');
+      } else if (shouldRestore || shouldRestockRto) {
         for (const item of order.items) {
           await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
-          await tx.inventoryMovement.create({ data: { productId: item.productId, orderId: order.id, quantity: item.quantity, reason: shouldReleaseReservation ? 'PAYMENT_RESERVATION_RELEASE' : shouldRestockRto ? 'RTO_RESTOCK' : 'CANCELLED_RESTOCK' } });
+          await tx.inventoryMovement.create({ data: { productId: item.productId, orderId: order.id, quantity: item.quantity, reason: shouldRestockRto ? 'RTO_RESTOCK' : 'CANCELLED_RESTOCK' } });
         }
       }
 
@@ -83,6 +87,7 @@ export async function POST(request: Request) {
     if (message === 'INVALID_REFUND') return NextResponse.json({ error: 'Refund amount must be between ₹0 and the order total.' }, { status: 400 });
     if (message === 'REFUND_METHOD_REQUIRED') return NextResponse.json({ error: 'Refund method is required.' }, { status: 400 });
     if (message === 'REFUND_REFERENCE_REQUIRED') return NextResponse.json({ error: 'Refund reference is required.' }, { status: 400 });
+    if (message === 'PAYMENTS_PERMISSION_REQUIRED') return NextResponse.json({ error: 'Payments permission required to process refunds.' }, { status: 403 });
     if (message === 'RTO_REASON_REQUIRED') return NextResponse.json({ error: 'RTO reason is required.' }, { status: 400 });
     console.error('admin order update failed', error);
     return NextResponse.json({ error: 'Unable to update order.' }, { status: 500 });

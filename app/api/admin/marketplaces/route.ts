@@ -4,39 +4,40 @@ import { db } from '../../../../lib/db';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../lib/admin-audit';
 import { credentialStatus, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
-import { encryptionConfigured } from '../../../../lib/marketplace-crypto';
 
 const PROVIDERS = [
-  { key: 'AMAZON', name: 'Amazon', description: 'Amazon Selling Partner API', setup: 'SP-API developer + seller authorization' },
-  { key: 'FLIPKART', name: 'Flipkart', description: 'Flipkart Marketplace Seller API v3', setup: 'Seller Developer Access' },
-  { key: 'MEESHO', name: 'Meesho', description: 'Meesho seller/partner integration', setup: 'Official partner API access required' },
-  { key: 'EBAY', name: 'eBay', description: 'eBay Browse API catalog import', setup: 'eBay Developer application' },
-  { key: 'ETSY', name: 'Etsy', description: 'Etsy Open API v3', setup: 'Etsy app + OAuth seller authorization' },
-  { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify custom/public app access token' },
+  { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify app + client credentials' },
 ] as const;
 
-async function getIntegrations() {
-  for (const p of PROVIDERS) {
-    await db.marketplaceIntegration.upsert({ where: { provider: p.key }, update: {}, create: { provider: p.key } });
-  }
-  return db.marketplaceIntegration.findMany({ orderBy: { provider: 'asc' } });
+async function getIntegration() {
+  return db.marketplaceIntegration.upsert({
+    where: { provider: 'SHOPIFY' },
+    update: {},
+    create: { provider: 'SHOPIFY' },
+  });
 }
 
 export async function GET() {
   const admin = await requireAdminPermission('marketplaces');
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
   try {
-    const integrations = await getIntegrations();
-    const mapped = await Promise.all(integrations.map(async i => ({
-      ...i,
-      credentialsConfigured: await credentialStatus(i.provider),
-      capabilities: providerCapabilities(i.provider),
-    })));
-    return NextResponse.json({ providers: PROVIDERS, integrations: mapped });
+    const integration = await getIntegration();
+    return NextResponse.json({
+      providers: PROVIDERS,
+      integrations: [{
+        ...integration,
+        credentialsConfigured: await credentialStatus('SHOPIFY'),
+        capabilities: providerCapabilities('SHOPIFY'),
+      }],
+    });
   } catch (error) {
-    console.error('marketplace integrations load failed', error);
-    return NextResponse.json({ error: 'Unable to load marketplace integrations.' }, { status: 500 });
+    console.error('marketplace integration load failed', error);
+    return NextResponse.json({ error: 'Unable to load Shopify integration.' }, { status: 500 });
   }
+}
+
+function isShopify(provider: unknown): provider is 'SHOPIFY' {
+  return typeof provider === 'string' && provider.toUpperCase() === 'SHOPIFY';
 }
 
 export async function PATCH(request: Request) {
@@ -44,13 +45,13 @@ export async function PATCH(request: Request) {
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
   try {
     const body = await request.json();
-    const provider = typeof body.provider === 'string' ? body.provider.toUpperCase() : '';
-    if (!PROVIDERS.some(p => p.key === provider)) return NextResponse.json({ error: 'Unsupported marketplace.' }, { status: 400 });
+    if (!isShopify(body.provider)) return NextResponse.json({ error: 'Only Shopify is available in Marketplace Center.' }, { status: 400 });
 
-    const current = await db.marketplaceIntegration.findUnique({ where: { provider } });
-    const currentSettings = current?.settings && typeof current.settings === 'object' && !Array.isArray(current.settings)
+    const current = await getIntegration();
+    const currentSettings = current.settings && typeof current.settings === 'object' && !Array.isArray(current.settings)
       ? current.settings as Record<string, unknown>
       : {};
+
     const data: {
       enabled?: boolean;
       autoSync?: boolean;
@@ -68,33 +69,32 @@ export async function PATCH(request: Request) {
       data.syncIntervalMinutes = minutes;
     }
 
-    const allowedSettings = ['markupPercent', 'fixedAmount', 'maxItemsPerSync', 'syncProducts', 'syncOrders', 'syncInventory', 'query'];
+    const allowedSettings = ['markupPercent', 'fixedAmount', 'maxItemsPerSync', 'syncProducts', 'syncOrders', 'syncInventory'];
     const settings = { ...currentSettings };
     for (const key of allowedSettings) {
       if (body.settings && Object.prototype.hasOwnProperty.call(body.settings, key)) settings[key] = body.settings[key];
     }
     if (body.settings) data.settings = settings as Prisma.InputJsonValue;
 
-    const integration = await db.marketplaceIntegration.upsert({
-      where: { provider },
-      update: data,
-      create: { provider, ...(data as any) },
+    const integration = await db.marketplaceIntegration.update({
+      where: { id: current.id },
+      data,
     });
 
-    const credentialsConfigured = await credentialStatus(provider);
+    const credentialsConfigured = await credentialStatus('SHOPIFY');
     await recordAdminAudit({
       adminId: admin.id,
       adminEmail: admin.email,
-      action: 'MARKETPLACE_SETTINGS_UPDATED',
+      action: 'SHOPIFY_MARKETPLACE_SETTINGS_UPDATED',
       entityType: 'MARKETPLACE',
       entityId: integration.id,
-      details: { provider, changes: data, credentialsConfigured },
+      details: { provider: 'SHOPIFY', changes: data, credentialsConfigured },
     });
 
-    return NextResponse.json({ integration, credentialsConfigured, capabilities: providerCapabilities(provider) });
+    return NextResponse.json({ integration, credentialsConfigured, capabilities: providerCapabilities('SHOPIFY') });
   } catch (error) {
-    console.error('marketplace integration update failed', error);
-    return NextResponse.json({ error: 'Unable to update marketplace integration.' }, { status: 500 });
+    console.error('shopify marketplace update failed', error);
+    return NextResponse.json({ error: 'Unable to update Shopify marketplace settings.' }, { status: 500 });
   }
 }
 
@@ -103,33 +103,66 @@ export async function POST(request: Request) {
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
   try {
     const body = await request.json();
-    const provider = typeof body.provider === 'string' ? body.provider.toUpperCase() : '';
-    const integration = await db.marketplaceIntegration.findUnique({ where: { provider } });
-    if (!integration) return NextResponse.json({ error: 'Marketplace integration not found.' }, { status: 404 });
-    if (!integration.enabled) return NextResponse.json({ error: 'Turn this marketplace ON before syncing.' }, { status: 409 });
+    if (!isShopify(body.provider)) return NextResponse.json({ error: 'Only Shopify is available in Marketplace Center.' }, { status: 400 });
+
+    const integration = await getIntegration();
+    if (!integration.enabled) return NextResponse.json({ error: 'Turn Shopify ON before syncing.' }, { status: 409 });
+    if (!(await credentialStatus('SHOPIFY'))) return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before syncing.' }, { status: 409 });
 
     const started = Date.now();
     const run = await db.marketplaceSyncRun.create({ data: { integrationId: integration.id, type: 'MANUAL', status: 'RUNNING' } });
+
     try {
-      const result = await syncMarketplace(integration.id, provider, integration.settings);
+      const result = await syncMarketplace(integration.id, 'SHOPIFY', integration.settings);
       const duration = Date.now() - started;
-      await db.marketplaceSyncRun.update({ where: { id: run.id }, data: { status: 'SUCCESS', productsFound: result.found, ordersFound: result.importedOrders, finishedAt: new Date() } });
+      await db.marketplaceSyncRun.update({
+        where: { id: run.id },
+        data: { status: 'SUCCESS', productsFound: result.found, ordersFound: result.importedOrders, finishedAt: new Date() },
+      });
       await db.marketplaceIntegration.update({
         where: { id: integration.id },
-        data: { lastSyncAt: new Date(), lastSuccessAt: new Date(), lastError: null, importedProducts: { increment: result.importedProducts }, importedOrders: { increment: result.importedOrders }, healthStatus: 'HEALTHY', lastSyncDurationMs: duration },
+        data: {
+          lastSyncAt: new Date(),
+          lastSuccessAt: new Date(),
+          lastError: null,
+          importedProducts: result.importedProducts,
+          importedOrders: result.importedOrders,
+          healthStatus: 'HEALTHY',
+          lastSyncDurationMs: duration,
+        },
       });
-      await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'MARKETPLACE_SYNC_SUCCESS', entityType: 'MARKETPLACE', entityId: integration.id, details: { provider, runId: run.id, ...result, duration } });
+      await recordAdminAudit({
+        adminId: admin.id,
+        adminEmail: admin.email,
+        action: 'SHOPIFY_MARKETPLACE_SYNC_SUCCESS',
+        entityType: 'MARKETPLACE',
+        entityId: integration.id,
+        details: { provider: 'SHOPIFY', runId: run.id, ...result, duration },
+      });
       return NextResponse.json({ success: true, runId: run.id, ...result, duration });
     } catch (error) {
       const duration = Date.now() - started;
-      const message = error instanceof Error ? error.message : 'Marketplace sync failed.';
-      await db.marketplaceSyncRun.update({ where: { id: run.id }, data: { status: 'FAILED', error: message, finishedAt: new Date() } });
-      await db.marketplaceIntegration.update({ where: { id: integration.id }, data: { lastSyncAt: new Date(), lastError: message, healthStatus: 'ERROR', lastSyncDurationMs: duration } });
-      await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'MARKETPLACE_SYNC_FAILED', entityType: 'MARKETPLACE', entityId: integration.id, details: { provider, runId: run.id, error: message, duration } });
+      const message = error instanceof Error ? error.message : 'Shopify sync failed.';
+      await db.marketplaceSyncRun.update({
+        where: { id: run.id },
+        data: { status: 'FAILED', error: message, finishedAt: new Date() },
+      });
+      await db.marketplaceIntegration.update({
+        where: { id: integration.id },
+        data: { lastSyncAt: new Date(), lastError: message, healthStatus: 'ERROR', lastSyncDurationMs: duration },
+      });
+      await recordAdminAudit({
+        adminId: admin.id,
+        adminEmail: admin.email,
+        action: 'SHOPIFY_MARKETPLACE_SYNC_FAILED',
+        entityType: 'MARKETPLACE',
+        entityId: integration.id,
+        details: { provider: 'SHOPIFY', runId: run.id, error: message, duration },
+      });
       return NextResponse.json({ error: message, runId: run.id }, { status: 502 });
     }
   } catch (error) {
-    console.error('marketplace sync failed', error);
-    return NextResponse.json({ error: 'Unable to start marketplace sync.' }, { status: 500 });
+    console.error('shopify marketplace sync failed', error);
+    return NextResponse.json({ error: 'Unable to start Shopify sync.' }, { status: 500 });
   }
 }
