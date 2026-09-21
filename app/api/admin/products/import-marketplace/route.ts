@@ -149,12 +149,29 @@ export async function POST(request: Request) {
         title: name,
         sourceUrl: parsedUrl.url,
         rawData: { provider: parsedUrl.provider, sourceCost, markupPercent: markup, imageCount: importedImages, automatic: Boolean(scraped) },
+        lastSourceCost: new Prisma.Decimal(sourceCost),
+        sourceAvailability: 'UNKNOWN',
       },
     });
 
     await db.marketplaceIntegration.update({
       where: { id: integration.id },
       data: { importedProducts: { increment: 1 }, lastSuccessAt: new Date(), lastSyncAt: new Date(), healthStatus: 'HEALTHY', lastError: null },
+    });
+
+    await db.marketplaceImportLog.create({
+      data: {
+        integrationId: integration.id,
+        productId: product.id,
+        externalId: parsedUrl.id,
+        sourceUrl: parsedUrl.url,
+        title: name,
+        status: 'SUCCESS',
+        automatic: Boolean(scraped),
+        sourceCost: new Prisma.Decimal(sourceCost),
+        sellingPrice: new Prisma.Decimal(preview.sellingPrice),
+        importedImages,
+      },
     });
 
     return NextResponse.json({ ok: true, productId: product.id, importedImages, sellingPrice: preview.sellingPrice, automatic: Boolean(scraped) });
