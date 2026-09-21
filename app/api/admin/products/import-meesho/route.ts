@@ -10,6 +10,8 @@ export const runtime = 'nodejs';
 const MAX_HTML_BYTES = 4 * 1024 * 1024;
 const MAX_IMAGES = 8;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const DIRECT_FETCH_TIMEOUT_MS = 12000;
+const SCRAPER_FETCH_TIMEOUT_MS = 45000;
 
 function cleanText(value: unknown, max = 10000) {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : '';
@@ -101,29 +103,101 @@ function decimalPrice(value: unknown) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-async function fetchPage(url: string) {
+function looksLikeMeeshoChallenge(html: string) {
+  return /sec-if-cpt-container|akamai|access denied|request blocked/i.test(html) &&
+    !html.includes('__NEXT_DATA__') &&
+    !html.includes('application/ld+json');
+}
+
+function validateMeeshoHtml(html: string) {
+  if (looksLikeMeeshoChallenge(html)) {
+    throw new Error('Meesho anti-bot protection blocked this request.');
+  }
+  if (!html.includes('__NEXT_DATA__') && !html.includes('application/ld+json')) {
+    throw new Error('Meesho returned a page without product data.');
+  }
+  if (Buffer.byteLength(html, 'utf8') > MAX_HTML_BYTES) {
+    throw new Error('Meesho product page is too large to import.');
+  }
+  return html;
+}
+
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; ZenvoraProductImporter/1.0)',
-        Accept: 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-IN,en;q=0.9',
-      },
-      cache: 'no-store',
-    });
-    if (!response.ok) throw new Error('Meesho returned HTTP ' + response.status + '.');
-    const contentLength = Number(response.headers.get('content-length') || 0);
-    if (contentLength > MAX_HTML_BYTES) throw new Error('Meesho product page is too large to import.');
-    const html = await response.text();
-    if (Buffer.byteLength(html, 'utf8') > MAX_HTML_BYTES) throw new Error('Meesho product page is too large to import.');
-    return html;
+    return await fetch(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchDirect(url: string) {
+  const response = await fetchWithTimeout(url, {
+    redirect: 'follow',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-IN,en;q=0.9',
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+      Referer: 'https://www.google.com/',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'cross-site',
+      'Sec-Fetch-User': '?1',
+      Upgrade: '1',
+    },
+    cache: 'no-store',
+  }, DIRECT_FETCH_TIMEOUT_MS);
+
+  if (!response.ok) throw new Error('Meesho returned HTTP ' + response.status + '.');
+  const contentLength = Number(response.headers.get('content-length') || 0);
+  if (contentLength > MAX_HTML_BYTES) throw new Error('Meesho product page is too large to import.');
+  return validateMeeshoHtml(await response.text());
+}
+
+async function fetchViaScrapingBee(url: string, apiKey: string) {
+  const endpoint = new URL('https://app.scrapingbee.com/api/v1/');
+  endpoint.searchParams.set('api_key', apiKey);
+  endpoint.searchParams.set('url', url);
+  endpoint.searchParams.set('render_js', 'false');
+  endpoint.searchParams.set('premium_proxy', 'true');
+  const response = await fetchWithTimeout(endpoint.toString(), {
+    headers: { Accept: 'text/html,application/xhtml+xml' },
+    cache: 'no-store',
+  }, SCRAPER_FETCH_TIMEOUT_MS);
+  if (!response.ok) throw new Error('Meesho scraper returned HTTP ' + response.status + '.');
+  return validateMeeshoHtml(await response.text());
+}
+
+async function fetchPage(url: string) {
+  let directError: Error | null = null;
+  try {
+    return await fetchDirect(url);
+  } catch (error) {
+    directError = error instanceof Error ? error : new Error('Direct Meesho request failed.');
+  }
+
+  const scraperKey = process.env.SCRAPINGBEE_API_KEY?.trim();
+  if (scraperKey) {
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await fetchViaScrapingBee(url, scraperKey);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Meesho scraper request failed.');
+        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 900));
+      }
+    }
+    throw new Error(lastError?.message || directError?.message || 'Unable to read Meesho product.');
+  }
+
+  const message = directError?.message || 'Unable to read Meesho product.';
+  if (/HTTP 403|anti-bot|blocked/i.test(message)) {
+    throw new Error("Meesho blocked Zenvora's server request (HTTP 403). Add SCRAPINGBEE_API_KEY in Vercel to enable the automatic anti-bot fallback, then retry.");
+  }
+  throw new Error(message);
 }
 
 async function parseMeesho(url: string) {
