@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '../../../../../auth';
 import { put, del } from '@vercel/blob';
 import { db } from '../../../../../lib/db';
+import { productImageUrl } from '../../../../../lib/product-image-url';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -25,8 +26,8 @@ export async function POST(request: Request) {
     if (!ALLOWED.has(file.type) || file.size <= 0 || file.size > MAX_BYTES) return NextResponse.json({ error: 'Only JPG, PNG or WebP images up to 5 MB are allowed.' }, { status: 400 });
     const bytes = new Uint8Array(await file.arrayBuffer()); if (!matchesMagicBytes(file.type, bytes)) return NextResponse.json({ error: 'The uploaded file is not a valid image.' }, { status: 400 });
     const product = await db.product.findUnique({ where: { id: productId }, select: { id: true } }); if (!product) return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
-    const blob = await put(`products/${productId}/${crypto.randomUUID()}.${safeExt(file.type)}`, new Blob([bytes], { type: file.type }), { access: 'public', addRandomSuffix: false });
-    try { const last = await db.productImage.aggregate({ where: { productId }, _max: { sortOrder: true } }); const sortOrder = (last._max.sortOrder ?? -1) + 1; const image = await db.productImage.create({ data: { productId, url: blob.url, altText: altText || null, sortOrder } }); return NextResponse.json({ image }, { status: 201 }); }
+    const blob = await put(`products/${productId}/${crypto.randomUUID()}.${safeExt(file.type)}`, new Blob([bytes], { type: file.type }), { access: 'private', addRandomSuffix: false });
+    try { const last = await db.productImage.aggregate({ where: { productId }, _max: { sortOrder: true } }); const sortOrder = (last._max.sortOrder ?? -1) + 1; const image = await db.productImage.create({ data: { productId, url: blob.url, altText: altText || null, sortOrder } }); return NextResponse.json({ image: { ...image, url: productImageUrl(image.url) } }, { status: 201 }); }
     catch (error) { try { await del(blob.url); } catch (cleanupError) { console.error('product image cleanup failed', cleanupError); } throw error; }
   } catch (error) { console.error(error); return NextResponse.json({ error: 'Unable to upload image.' }, { status: 500 }); }
 }
