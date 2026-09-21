@@ -79,6 +79,8 @@ model CustomerUser {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   addresses    CustomerAddress[]
+  wishlists    Wishlist[]
+  recentlyViewed RecentlyViewed[]
 }
 
 model CustomerAddress {
@@ -164,6 +166,8 @@ model Product {
   priceLocked         Boolean              @default(false)
   priceLockValue      Decimal?             @db.Decimal(12, 2)
   marketplaceProducts MarketplaceProduct[]
+  wishlists           Wishlist[]
+  recentlyViewed      RecentlyViewed[]
 
   @@index([categoryId])
   @@index([status])
