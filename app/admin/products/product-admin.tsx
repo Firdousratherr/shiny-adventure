@@ -1,5 +1,6 @@
 'use client';
 import {useState} from 'react';
+import MarketplaceImporter from './marketplace-importer';
 type I={id:string;url:string;altText:string;sortOrder:number};
 type P={id:string;name:string;slug:string;description:string;sellingPrice:string;sourceCost:string;stock:number;categoryId:string;categoryName:string;featured:boolean;status:string;images:I[]};
 type C={id:string;name:string;slug:string};
@@ -20,6 +21,7 @@ export default function ProductAdmin({initialProducts,categories}:{initialProduc
  const importMeesho=async()=>{if(!meeshoPreview)return;setMeeshoBusy(true);setMeeshoError('');try{const r=await fetch('/api/admin/products/import-meesho',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'import',sourceUrl:meeshoUrl,markupPercent:Number(meeshoMarkup)})});const j=await r.json();if(!r.ok)throw new Error(j.error);alert('Imported to Zenvora as a DRAFT product. Images imported: '+j.importedImages);location.reload()}catch(e){setMeeshoError(e instanceof Error?e.message:'Unable to import Meesho product.')}finally{setMeeshoBusy(false)}};
 ;
  return <div className="mt-8 space-y-6">
+ <MarketplaceImporter />
  <section className="rounded-2xl bg-white p-5 shadow-sm">
   <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-bold text-pink-600">Marketplace importer</p><h2 className="text-xl font-black">Import from Meesho</h2><p className="mt-1 text-sm text-slate-500">Paste a public Meesho product URL. Zenvora will preview the product, calculate your markup, and import it as a draft.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">No Meesho API required</span></div>
   <div className="mt-4 grid gap-3 md:grid-cols-[1fr_160px_auto]"><input value={meeshoUrl} onChange={e=>setMeeshoUrl(e.target.value)} placeholder="https://www.meesho.com/.../p/..." className="w-full rounded-xl border px-3 py-3" inputMode="url"/><input value={meeshoMarkup} onChange={e=>setMeeshoMarkup(e.target.value)} placeholder="Markup %" className="w-full rounded-xl border px-3 py-3" inputMode="decimal"/><button disabled={meeshoBusy||!meeshoUrl.trim()} onClick={previewMeesho} className="rounded-xl bg-slate-900 px-5 py-3 font-bold text-white disabled:opacity-50">{meeshoBusy?'Reading…':'Preview product'}</button></div>
