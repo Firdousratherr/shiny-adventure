@@ -35,16 +35,16 @@ export default async function PaymentPage({
   const paymentWindowExpired = (order.status === 'PAYMENT_PENDING' && (!expiresAt || expiresAt <= Date.now())) || order.cancellationReason === 'Payment reservation expired.';
 
   return (
-    <main className="container max-w-2xl py-10">
+    <main className="min-h-screen bg-[#070b16] px-0 py-8 text-white sm:py-12">
       <Link href="/" className="text-2xl font-black">Zenvora</Link>
-      <div className="mt-8 rounded-3xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-100">
-        <p className="text-sm font-semibold text-slate-500">Order created</p>
+      <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-5 text-center shadow-2xl shadow-black/20 sm:p-8">
+        <p className="text-sm font-semibold text-slate-400">Order created</p>
         <h1 className="mt-2 text-3xl font-black">{order.orderNumber}</h1>
         <p className="mt-4 text-3xl font-black">₹{Number(order.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
         {paymentWindowExpired ? (
-          <p className="mt-6 rounded-xl bg-amber-50 p-4 font-semibold text-amber-800">This payment session has expired and the inventory reservation was released. Please place a new order.</p>
+          <p className="mt-6 rounded-xl border border-amber-400/20 bg-amber-500/10 p-4 font-semibold text-amber-200">This payment session has expired and the inventory reservation was released. Please place a new order.</p>
         ) : order.status !== 'PAYMENT_PENDING' ? (
-          <p className="mt-6 rounded-xl bg-slate-100 p-4 font-semibold">This order is already under payment review or has progressed.</p>
+          <p className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 font-semibold text-slate-200">This order is already under payment review or has progressed.</p>
         ) : (
           <>
             <p className="mt-6 font-semibold">Choose your payment method</p>
@@ -58,15 +58,15 @@ export default async function PaymentPage({
                 <p className="font-semibold">Pay using any UPI app</p>
                 {qr && <img src={qr} alt="UPI payment QR code" className="mx-auto mt-4 h-64 w-64" />}
                 <p className="mt-3 text-sm text-slate-500">UPI ID: <strong>{upiId}</strong>{s.upiDisplayName && <> · {s.upiDisplayName}</>}</p>
-                <a href={intent} className="mt-5 inline-block rounded-xl bg-slate-900 px-6 py-3 font-bold text-white">Pay with UPI app</a>
-                <div className="mt-8 border-t pt-6 text-left">
+                <a href={intent} className="mt-5 inline-block rounded-xl bg-white px-6 py-3 font-black text-slate-950">Pay with UPI app</a>
+                <div className="mt-8 border-t border-white/10 pt-6 text-left">
                   <h2 className="font-bold">After payment</h2>
-                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-600">
+                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-300">
                     <li>Complete the payment for the exact amount shown above.</li>
                     <li>Keep your UTR / transaction reference number.</li>
                     <li>Submit your UTR and payment screenshot to Zenvora for manual verification.</li>
                   </ol>
-                  <Link href={`/payment/${encodeURIComponent(order.orderNumber)}/submit?token=${encodeURIComponent(token)}`} className="mt-5 block rounded-xl border px-6 py-3 text-center font-bold">Submit payment details</Link>
+                  <Link href={`/payment/${encodeURIComponent(order.orderNumber)}/submit?token=${encodeURIComponent(token)}`} className="mt-5 block rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-center font-bold hover:bg-white/10">Submit payment details</Link>
                 </div>
               </>
             )}
