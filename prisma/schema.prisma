@@ -289,6 +289,7 @@ model Order {
   reservationExpiresAt    DateTime?
   paymentAccessTokenHash  String?             @unique
   createdAt               DateTime             @default(now())
+  deletedAt               DateTime?
   updatedAt               DateTime             @updatedAt
   items                   OrderItem[]
   history                 OrderStatusHistory[]
