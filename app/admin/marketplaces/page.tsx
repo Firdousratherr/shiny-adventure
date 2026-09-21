@@ -269,7 +269,7 @@ export default function MarketplacesPage() {
                       <label key={field.key} className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                         {field.label} {credentialFields[field.key] && <span className="text-emerald-400">• saved</span>}
                         <input
-                          type={field.secret ? 'password' : 'text'}
+                          type={'secret' in field && field.secret ? 'password' : 'text'}
                           autoComplete="off"
                           value={credentials[field.key] ?? ''}
                           onChange={e => setCredentials(current => ({ ...current, [field.key]: e.target.value }))}
