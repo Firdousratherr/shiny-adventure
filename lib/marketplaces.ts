@@ -20,13 +20,22 @@ type Settings = {
   query?: string;
 };
 
-const PROVIDER_ENV: Record<string, string[]> = {
-  AMAZON: ['AMAZON_SP_API_CLIENT_ID', 'AMAZON_SP_API_CLIENT_SECRET', 'AMAZON_SP_API_REFRESH_TOKEN'],
-  FLIPKART: ['FLIPKART_SELLER_API_KEY', 'FLIPKART_SELLER_API_SECRET'],
-  MEESHO: ['MEESHO_SELLER_API_KEY', 'MEESHO_SELLER_API_SECRET'],
-  EBAY: ['EBAY_CLIENT_ID', 'EBAY_CLIENT_SECRET'],
-  ETSY: ['ETSY_API_KEYSTRING', 'ETSY_API_SHARED_SECRET', 'ETSY_ACCESS_TOKEN', 'ETSY_SHOP_ID'],
-  SHOPIFY: ['SHOPIFY_STORE_DOMAIN', 'SHOPIFY_CLIENT_ID', 'SHOPIFY_CLIENT_SECRET'],
+const REQUIRED_FIELDS: Record<string, string[]> = {
+  AMAZON: ['clientId', 'clientSecret', 'refreshToken'],
+  FLIPKART: ['apiKey', 'apiSecret'],
+  MEESHO: ['apiKey', 'apiSecret'],
+  EBAY: ['clientId', 'clientSecret'],
+  ETSY: ['apiKeyString', 'sharedSecret', 'accessToken', 'shopId'],
+  SHOPIFY: ['storeDomain', 'clientId', 'clientSecret'],
+};
+
+const FIELD_ENV: Record<string, Record<string, string>> = {
+  AMAZON: { clientId: 'AMAZON_SP_API_CLIENT_ID', clientSecret: 'AMAZON_SP_API_CLIENT_SECRET', refreshToken: 'AMAZON_SP_API_REFRESH_TOKEN' },
+  FLIPKART: { apiKey: 'FLIPKART_SELLER_API_KEY', apiSecret: 'FLIPKART_SELLER_API_SECRET' },
+  MEESHO: { apiKey: 'MEESHO_SELLER_API_KEY', apiSecret: 'MEESHO_SELLER_API_SECRET' },
+  EBAY: { clientId: 'EBAY_CLIENT_ID', clientSecret: 'EBAY_CLIENT_SECRET' },
+  ETSY: { apiKeyString: 'ETSY_API_KEYSTRING', sharedSecret: 'ETSY_API_SHARED_SECRET', accessToken: 'ETSY_ACCESS_TOKEN', shopId: 'ETSY_SHOP_ID' },
+  SHOPIFY: { storeDomain: 'SHOPIFY_STORE_DOMAIN', clientId: 'SHOPIFY_CLIENT_ID', clientSecret: 'SHOPIFY_CLIENT_SECRET' },
 };
 
 export async function marketplaceCredentials(provider: string) {
@@ -38,8 +47,9 @@ export async function marketplaceCredentials(provider: string) {
 
 export async function credentialStatus(provider: string) {
   const stored = await marketplaceCredentials(provider);
-  const vars = PROVIDER_ENV[provider] ?? [];
-  return vars.length > 0 && vars.every(name => Boolean(stored[name] ?? process.env[name]));
+  const required = REQUIRED_FIELDS[provider] ?? [];
+  const envMap = FIELD_ENV[provider] ?? {};
+  return required.length > 0 && required.every(field => Boolean(stored[field] ?? process.env[envMap[field]]));
 }
 
 export function providerCapabilities(provider: string) {
