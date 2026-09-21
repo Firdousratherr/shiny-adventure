@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       if (!(await requireAdminPermission('pricing'))) return NextResponse.json({ error: 'Pricing permission required.' }, { status: 403 });
       if (!(await requireAdminPermission('inventory'))) return NextResponse.json({ error: 'Inventory permission required.' }, { status: 403 });
     }
-    const product = await db.product.create({ data: { name, slug, description, sellingPrice, sourceCost, stock, categoryId: typeof b.categoryId === 'string' && b.categoryId ? b.categoryId : null, metaTitle, metaDescription, canonicalUrl, featured: b.featured === true, status } });
+    const product = await db.product.create({ data: { name, slug, description, sellingPrice, sourceCost, stock, supplierId: typeof b.supplierId === 'string' && b.supplierId ? b.supplierId : null, categoryId: typeof b.categoryId === 'string' && b.categoryId ? b.categoryId : null, metaTitle, metaDescription, canonicalUrl, featured: b.featured === true, status } });
     await recordAdminAudit({ adminId: adminAccess.id, adminEmail: adminAccess.email, action: 'PRODUCT_CREATED', entityType: 'PRODUCT', entityId: product.id, details: { name: product.name, sellingPrice: product.sellingPrice.toString(), stock: product.stock } });
     return NextResponse.json({ product }, { status: 201 });
   } catch (e) { if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return NextResponse.json({ error: 'A product with this slug already exists.' }, { status: 409 }); console.error(e); return NextResponse.json({ error: 'Unable to create product.' }, { status: 500 }); }
@@ -52,14 +52,14 @@ export async function PATCH(request: Request) {
     if (b.metaDescription !== undefined) data.metaDescription = typeof b.metaDescription === 'string' ? b.metaDescription.trim().slice(0,320) || null : null;
     if (b.canonicalUrl !== undefined) data.canonicalUrl = typeof b.canonicalUrl === 'string' ? b.canonicalUrl.trim().slice(0,500) || null : null;
     if (b.description !== undefined) data.description = typeof b.description === 'string' ? b.description.trim().slice(0, 10000) || null : null;
-    if (b.categoryId !== undefined) data.category = b.categoryId ? { connect: { id: String(b.categoryId) } } : { disconnect: true };
+    if (b.categoryId !== undefined) data.category = b.categoryId ? { connect: { id: String(b.categoryId) } } : { disconnect: true }; if (b.supplierId !== undefined) data.supplier = b.supplierId ? { connect: { id: String(b.supplierId) } } : { disconnect: true };
     if (b.slug !== undefined) { const slug = slugify(String(b.slug)); if (!slug) return NextResponse.json({ error: 'Invalid slug.' }, { status: 400 }); data.slug = slug; }
     if (b.sellingPrice !== undefined) { const p = price(b.sellingPrice); if (!p) return NextResponse.json({ error: 'Invalid selling price.' }, { status: 400 }); data.sellingPrice = p; }
     if (b.sourceCost !== undefined) { const p = b.sourceCost === '' || b.sourceCost === null ? null : price(b.sourceCost); if (b.sourceCost !== '' && b.sourceCost !== null && !p) return NextResponse.json({ error: 'Invalid source cost.' }, { status: 400 }); data.sourceCost = p; }
     if (b.stock !== undefined) { const n = Number(b.stock); if (!Number.isSafeInteger(n) || n < 0) return NextResponse.json({ error: 'Invalid stock.' }, { status: 400 }); data.stock = n; }
     if (b.featured !== undefined) { if (typeof b.featured !== 'boolean') return NextResponse.json({ error: 'Invalid featured value.' }, { status: 400 }); data.featured = b.featured; }
     if (b.status !== undefined) { if (!validStatus(b.status)) return NextResponse.json({ error: 'Invalid product status.' }, { status: 400 }); data.status = b.status; }
-    const currentProduct = await db.product.findUnique({ where: { id }, select: { stock: true, status: true, sellingPrice: true, sourceCost: true, name: true } });
+    const currentProduct = await db.product.findUnique({ where: { id }, select: { stock: true, status: true, sellingPrice: true, sourceCost: true, name: true, slug: true, description: true, metaTitle: true, metaDescription: true, canonicalUrl: true, categoryId: true, supplierId: true, featured: true } });
     const current = currentProduct;
 
     if (!current) return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
@@ -92,6 +92,7 @@ export async function PATCH(request: Request) {
     const nextStatus = typeof data.status === 'string' ? data.status : current.status;
     if (nextStatus === 'ACTIVE' && nextStock === 0) return NextResponse.json({ error: 'An active product must have stock greater than zero.' }, { status: 400 });
     const product = await db.product.update({ where: { id }, data });
+    await db.productVersion.create({ data: { productId: product.id, changedBy: adminAccess.email, reason: actualPriceChange ? 'Pricing update' : 'Product update', snapshot: { name: product.name, slug: product.slug, description: product.description, sellingPrice: product.sellingPrice.toString(), sourceCost: product.sourceCost?.toString() ?? null, stock: product.stock, status: product.status, categoryId: product.categoryId, supplierId: product.supplierId, featured: product.featured } } });
     await recordAdminAudit({
       adminId: adminAccess.id,
       adminEmail: adminAccess.email,
