@@ -133,15 +133,15 @@ export default function Checkout() {
   if (!items.length) return (
     <main className="container py-16 text-center">
       <h1 className="text-2xl font-black">Your cart is empty</h1>
-      <Link href="/products" className="mt-5 inline-block rounded-xl bg-slate-900 px-6 py-3 font-bold text-white">Shop products</Link>
+      <Link href="/products" className="mt-5 inline-block rounded-xl bg-slate-900 px-6 py-3 font-black text-slate-950">Shop products</Link>
     </main>
   );
 
   return (
-    <main className="container py-5 sm:py-8">
+    <main className="min-h-screen bg-[#070b16] px-0 py-5 text-white sm:py-8">
       <Link href="/cart" className="font-semibold">← Back to cart</Link>
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_340px]">
-        <form ref={formRef} onSubmit={submit} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
+        <form ref={formRef} onSubmit={submit} className="rounded-3xl border border-white/10 bg-white/5/5 p-4 shadow-2xl shadow-black/20 sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-violet-600">Secure checkout</p>
@@ -151,11 +151,11 @@ export default function Checkout() {
           </div>
 
           {addresses.length > 0 && (
-            <section className="mt-6 rounded-2xl border border-violet-100 bg-violet-50/50 p-4">
+            <section className="mt-6 rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="font-bold text-slate-900">Saved addresses</h2>
-                  <p className="text-xs text-slate-500">Choose an address to fill the form automatically.</p>
+                  <h2 className="font-bold text-white">Saved addresses</h2>
+                  <p className="text-xs text-slate-400">Choose an address to fill the form automatically.</p>
                 </div>
                 <Link href="/account/addresses" className="text-xs font-bold text-violet-700">Manage</Link>
               </div>
@@ -165,7 +165,7 @@ export default function Checkout() {
                     key={address.id}
                     type="button"
                     onClick={() => applyAddress(address)}
-                    className={`text-left rounded-xl border p-3 transition ${selectedAddress === address.id ? 'border-violet-500 bg-white ring-2 ring-violet-100' : 'border-slate-200 bg-white hover:border-violet-300'}`}
+                    className={`text-left rounded-xl border p-3 transition ${selectedAddress === address.id ? 'border-violet-400 bg-white/10 ring-2 ring-violet-500/20' : 'border-white/10 bg-white/5 hover:border-violet-400/50'}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold">{address.label}</span>
@@ -182,7 +182,7 @@ export default function Checkout() {
           )}
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <label className="sm:col-span-2 text-sm font-semibold">Full name<input name="customerName" required minLength={2} maxLength={100} className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm"/></label>
+            <label className="sm:col-span-2 text-sm font-semibold">Full name<input name="customerName" required minLength={2} maxLength={100} className="mt-1.5 h-11 w-full rounded-xl border border-white/10 px-3 text-sm"/></label>
             <label className="text-sm font-semibold">Mobile number<input name="phone" required inputMode="numeric" pattern="[6-9][0-9]{9}" maxLength={10} className="mt-2 w-full rounded-xl border p-3" placeholder="10-digit mobile"/></label>
             <label className="text-sm font-semibold">Email (optional)<input name="email" type="email" className="mt-2 w-full rounded-xl border p-3"/></label>
             <label className="sm:col-span-2 text-sm font-semibold">Address<input name="addressLine1" required minLength={5} maxLength={200} className="mt-2 w-full rounded-xl border p-3"/></label>
@@ -195,7 +195,7 @@ export default function Checkout() {
           </div>
 
           {error && <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <button disabled={loading} className="mt-5 w-full rounded-xl bg-slate-900 px-5 py-3.5 text-sm font-bold text-white disabled:opacity-50">
+          <button disabled={loading} className="mt-5 w-full rounded-xl bg-white px-5 py-3.5 text-sm font-bold text-white disabled:opacity-50">
             {loading ? 'Creating order…' : 'Continue to payment'}
           </button>
         </form>
