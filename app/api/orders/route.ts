@@ -64,9 +64,10 @@ export async function POST(request: Request) {
         }
       }
 
-      const counter = await tx.orderCounter.update({
+      const counter = await tx.orderCounter.upsert({
         where: { id: 1 },
-        data: { value: { increment: 1 } },
+        create: { id: 1, value: 1 },
+        update: { value: { increment: 1 } },
         select: { value: true },
       });
       const orderNumber = `ORD-${new Date().getFullYear()}-${String(counter.value).padStart(4, '0')}`;
