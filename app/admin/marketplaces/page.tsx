@@ -217,7 +217,7 @@ export default function MarketplacesPage() {
             <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">Marketplace control</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={load} disabled={loading || busy} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-bold text-slate-300 disabled:opacity-40">Refresh</button>
+            <Link href="/admin/marketplaces/history" className="rounded-xl border border-white/10 px-4 py-2 text-xs font-bold text-slate-300">History</Link><button onClick={load} disabled={loading || busy} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-bold text-slate-300 disabled:opacity-40">Refresh</button>
             <Link href="/admin/dashboard" className="rounded-xl bg-white px-4 py-2 text-xs font-black text-slate-950">Dashboard</Link>
           </div>
         </div>
@@ -301,7 +301,10 @@ export default function MarketplacesPage() {
                   <h2 className="mt-1 text-xl font-black">Product sync</h2>
                   <p className="mt-2 text-xs leading-5 text-slate-500">{integration?.capabilities.note}. Products are imported into Zenvora using provider ID deduplication.</p>
                 </div>
-                <button onClick={sync} disabled={busy || !ready || !integration?.enabled} className="rounded-xl bg-white px-5 py-3 text-xs font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-30">{busy ? 'Working…' : 'Sync Shopify now'}</button>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={async () => { setBusy(true); setError(''); setMessage(''); try { const r = await fetch('/api/admin/marketplaces/monitor', { method: 'POST' }); const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Source monitoring failed.'); const changes = (j.results || []).filter((x: { priceChanged?: boolean }) => x.priceChanged).length; setMessage('Source check complete: ' + j.checked + ' products checked' + (changes ? ', ' + changes + ' price change(s) detected.' : '.')); } catch (e) { setError(e instanceof Error ? e.message : 'Source monitoring failed.'); } finally { setBusy(false); } }} disabled={busy} className="rounded-xl border border-violet-400/30 bg-violet-500/10 px-5 py-3 text-xs font-black text-violet-200 disabled:opacity-30">Check source prices & stock</button>
+                  <button onClick={sync} disabled={busy || !ready || !integration?.enabled} className="rounded-xl bg-white px-5 py-3 text-xs font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-30">{busy ? 'Working…' : 'Sync Shopify now'}</button>
+                </div>
               </div>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
