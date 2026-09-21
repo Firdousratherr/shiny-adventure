@@ -159,15 +159,23 @@ async function fetchDirect(url: string) {
 
 async function fetchViaScrapingBee(url: string, apiKey: string) {
   const endpoint = new URL('https://app.scrapingbee.com/api/v1/');
-  endpoint.searchParams.set('api_key', apiKey);
   endpoint.searchParams.set('url', url);
-  endpoint.searchParams.set('render_js', 'false');
-  endpoint.searchParams.set('premium_proxy', 'true');
+  endpoint.searchParams.set('mode', 'auto');
+  endpoint.searchParams.set('max_cost', '75');
+
   const response = await fetchWithTimeout(endpoint.toString(), {
-    headers: { Accept: 'text/html,application/xhtml+xml' },
+    headers: {
+      Accept: 'text/html,application/xhtml+xml',
+      Authorization: 'Bearer ' + apiKey,
+    },
     cache: 'no-store',
   }, SCRAPER_FETCH_TIMEOUT_MS);
-  if (!response.ok) throw new Error('Meesho scraper returned HTTP ' + response.status + '.');
+
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 300);
+    throw new Error('Meesho scraper returned HTTP ' + response.status + (detail ? ': ' + detail : '.'));
+  }
+
   return validateMeeshoHtml(await response.text());
 }
 
@@ -182,20 +190,32 @@ async function fetchPage(url: string) {
   const scraperKey = process.env.SCRAPINGBEE_API_KEY?.trim();
   if (scraperKey) {
     let lastError: Error | null = null;
-    for (let attempt = 0; attempt < 2; attempt++) {
+
+    // Meesho can return an HTTP 200 Akamai challenge instead of the product page.
+    // ScrapingBee Auto-Mode escalates proxy/JS configuration automatically.
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         return await fetchViaScrapingBee(url, scraperKey);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Meesho scraper request failed.');
-        if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 900));
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
+        }
       }
     }
-    throw new Error(lastError?.message || directError?.message || 'Unable to read Meesho product.');
+
+    throw new Error(
+      lastError?.message ||
+      directError?.message ||
+      'Unable to read Meesho product through the automatic scraper.'
+    );
   }
 
   const message = directError?.message || 'Unable to read Meesho product.';
   if (/HTTP 403|anti-bot|blocked/i.test(message)) {
-    throw new Error("Meesho blocked Zenvora's server request (HTTP 403). Add SCRAPINGBEE_API_KEY in Vercel to enable the automatic anti-bot fallback, then retry.");
+    throw new Error(
+      "Meesho blocked Zenvora's server request (HTTP 403). Add SCRAPINGBEE_API_KEY in Vercel to enable automatic scraping, then retry."
+    );
   }
   throw new Error(message);
 }
