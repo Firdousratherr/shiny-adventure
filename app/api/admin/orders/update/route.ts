@@ -4,15 +4,17 @@ import { auth } from '../../../../../auth';
 import { db } from '../../../../../lib/db';
 import { canTransition } from '../../../../../lib/orders/status';
 import { notifyCustomer } from '../../../../../lib/email';
+import { requireAdminPermission } from '../../../../../lib/admin-access';
 
 const statuses = new Set<OrderStatus>(['ORDERED_FROM_SOURCE','SHIPPED','DELIVERED','CANCELLED','RTO','RETURN_REQUESTED','REFUNDED']);
 const text = (v: unknown, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : '';
 const statusMessage: Partial<Record<OrderStatus,string>> = { ORDERED_FROM_SOURCE:'Your order has been placed with the source supplier and is being prepared.', SHIPPED:'Your order has been shipped.', DELIVERED:'Your order has been marked as delivered.', CANCELLED:'Your order has been cancelled.', RTO:'Your order has been marked as returned to origin.', RETURN_REQUESTED:'Your return request has been recorded and is under review.', REFUNDED:'Your refund has been processed.' };
 
 export async function POST(request: Request) {
-  const session = await auth();
-  const adminEmail = session?.user?.role === 'admin' ? session.user.email : null;
+  const admin = await requireAdminPermission('orders');
+  const adminEmail = admin?.email || null;
   if (!adminEmail) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!(await requireAdminPermission('payments'))) return NextResponse.json({ error: 'Payments permission required.' }, { status: 403 });
   try {
     const body = await request.formData();
     const orderNumber = text(body.get('orderNumber'), 50).toUpperCase();
