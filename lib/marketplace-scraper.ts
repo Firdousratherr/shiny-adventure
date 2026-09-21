@@ -25,7 +25,7 @@ function decodeHtml(value: string) {
 }
 
 function meta(html: string, key: string) {
-  const escaped = key.replace(/[.*+?^()|[\]\\]/g, '\\$&');
+  const escaped = key.replace(/[.*+?^()|]/g, '\\$&');
   const re = new RegExp('<meta[^>]+(?:property|name)=["\']' + escaped + '["\'][^>]+content=["\']([^"\']+)["\'][^>]*>', 'i');
   const m = html.match(re);
   return m ? decodeHtml(m[1]) : '';
