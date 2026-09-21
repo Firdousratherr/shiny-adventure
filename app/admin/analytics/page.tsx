@@ -9,8 +9,8 @@ export default async function AnalyticsPage(){
  const [orders,revenue,refunded,cost,top]=await Promise.all([
   db.order.count({where:{createdAt:{gte:since},deletedAt:null}}),
   db.order.aggregate({where:{createdAt:{gte:since},deletedAt:null,status:{in:['CONFIRMED','ORDERED_FROM_SOURCE','SHIPPED','DELIVERED']}},_sum:{totalAmount:true}}),
-  db.orderItem.findMany({where:{order:{createdAt:{gte:since},deletedAt:null,status:{in:['CONFIRMED','ORDERED_FROM_SOURCE','SHIPPED','DELIVERED']}}},select:{sourceCost:true,quantity:true}}),
   db.order.aggregate({where:{createdAt:{gte:since},deletedAt:null,status:'REFUNDED'},_sum:{refundAmount:true}}),
+  db.orderItem.findMany({where:{order:{createdAt:{gte:since},deletedAt:null,status:{in:['CONFIRMED','ORDERED_FROM_SOURCE','SHIPPED','DELIVERED']}}},select:{sourceCost:true,quantity:true}}),
   db.orderItem.groupBy({by:['productName'],where:{order:{createdAt:{gte:since},deletedAt:null,status:{in:['CONFIRMED','ORDERED_FROM_SOURCE','SHIPPED','DELIVERED']}}},_sum:{quantity:true},orderBy:{_sum:{quantity:'desc'}},take:10})
  ]);
  const gross=Number(revenue._sum.totalAmount||0), refund=Number(refunded._sum.refundAmount||0), productCost=cost.reduce((sum: number,item: { sourceCost: unknown; quantity: number })=>sum+(Number(item.sourceCost||0)*item.quantity),0), profit=gross-refund-productCost, margin=gross>0?(profit/gross)*100:0;
