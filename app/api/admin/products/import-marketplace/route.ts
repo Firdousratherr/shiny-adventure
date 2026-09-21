@@ -52,15 +52,15 @@ async function fetchFlipkart(productId:string,sourceUrl:string){
   const affiliateId=process.env.FLIPKART_AFFILIATE_ID;
   const token=process.env.FLIPKART_AFFILIATE_TOKEN;
   if(!affiliateId||!token)throw new Error('Flipkart Affiliate API is not configured. Add FLIPKART_AFFILIATE_ID and FLIPKART_AFFILIATE_TOKEN.');
-  const api='https://affiliate-api.flipkart.net/affiliate/1.0/product/json?productId='+encodeURIComponent(productId);
+  const api='https://affiliate-api.flipkart.net/affiliate/1.0/product.json?id='+encodeURIComponent(productId);
   const r=await fetch(api,{headers:{'Fk-Affiliate-Id':affiliateId,'Fk-Affiliate-Token':token},cache:'no-store'});
   if(!r.ok)throw new Error(r.status===401?'Flipkart authentication failed. Check Affiliate ID and API Token.':'Flipkart product lookup failed.');
   const j=await r.json();
-  const p=j.productInfoList?.[0]??j.productInfo?.[0]??j.products?.[0];
+  const p=j.productInfoList?.[0]??j.productInfo?.[0]??j.products?.[0]??j.productBaseInfoV1;
   const base=p?.productBaseInfoV1||p?.productBaseInfo||p;
   const title=base?.title;
-  const price=base?.price?.sellingPrice??base?.price?.finalPrice??base?.sellingPrice;
-  const images=[...(base?.imageUrls||[]).map((x:any)=>x?.url||x),base?.imageUrl].filter(Boolean).slice(0,8);
+  const price=base?.price?.sellingPrice??base?.price?.finalPrice??base?.sellingPrice??base?.flipkartSellingPrice??base?.flipkartSpecialPrice;
+  const imageSource=base?.imageUrls; const imageValues=imageSource&&typeof imageSource==='object'&&!Array.isArray(imageSource)?Object.values(imageSource):Array.isArray(imageSource)?imageSource:[]; const images=[...imageValues,base?.imageUrl].map((x:any)=>typeof x==='string'?x:x?.url).filter(Boolean).slice(0,8);
   if(!title||price==null)throw new Error('Flipkart returned incomplete product data. Try another product URL.');
   return {provider:'FLIPKART' as const,externalId:productId,title:String(title),description:base?.description?String(base.description):undefined,sourceCost:Number(price),images,sourceUrl};
 }
@@ -81,15 +81,15 @@ export async function POST(req:Request){
     if(action==='preview')return NextResponse.json({product:preview});
     if(!access.isSuperAdmin&&!access.permissions.includes('pricing'))return NextResponse.json({error:'Pricing permission required to import products.'},{status:403});
     const provider=parsed.provider==='AMAZON'?'AMAZON_CREATORS_API':'FLIPKART_AFFILIATE_API';
-    const integration=await prisma.marketplaceIntegration.upsert({where:{provider},update:{enabled:true},create:{provider,enabled:true}});
-    const existing=await prisma.marketplaceProduct.findUnique({where:{integrationId_externalId:{integrationId:integration.id,externalId:product.externalId}},include:{product:true}});
+    const integration=await db.marketplaceIntegration.upsert({where:{provider},update:{enabled:true,lastError:null},create:{provider,enabled:true}});
+    const existing=await db.marketplaceProduct.findUnique({where:{integrationId_externalId:{integrationId:integration.id,externalId:product.externalId}},include:{product:true}});
     if(existing?.productId)return NextResponse.json({error:'This product is already imported into Zenvora.',productId:existing.productId},{status:409});
-    let slug=slugify(product.title); let n=1; while(await prisma.product.findUnique({where:{slug}})){slug=slugify(product.title)+'-'+n++}
+    let slug=slugify(product.title); let n=1; while(await db.product.findUnique({where:{slug}})){slug=slugify(product.title)+'-'+n++}
     const categoryName=product.title.split(/[-|:]/)[0].trim().slice(0,60)||'Imported';
-    const category=await prisma.category.upsert({where:{slug:slugify(categoryName)},update:{},create:{name:categoryName,slug:slugify(categoryName)}});
-    const created=await prisma.product.create({data:{name:product.title,slug,description:product.description||null,sourceUrl:product.sourceUrl,sourceCost:product.sourceCost,sellingPrice:preview.sellingPrice,stock:0,status:'DRAFT',categoryId:category.id}});
-    await prisma.marketplaceProduct.create({data:{integrationId:integration.id,externalId:product.externalId,productId:created.id,title:product.title,sourceUrl:product.sourceUrl,rawData:product}});
-    await prisma.marketplaceIntegration.update({where:{id:integration.id},data:{importedProducts:{increment:1},lastSuccessAt:new Date(),healthStatus:'HEALTHY'}});
+    const category=await db.category.upsert({where:{slug:slugify(categoryName)},update:{},create:{name:categoryName,slug:slugify(categoryName)}});
+    const created=await db.product.create({data:{name:product.title,slug,description:product.description||null,sourceUrl:product.sourceUrl,sourceCost:product.sourceCost,sellingPrice:preview.sellingPrice,stock:0,status:'DRAFT',categoryId:category.id}});
+    await db.marketplaceProduct.create({data:{integrationId:integration.id,externalId:product.externalId,productId:created.id,title:product.title,sourceUrl:product.sourceUrl,rawData:product}});
+    await db.marketplaceIntegration.update({where:{id:integration.id},data:{importedProducts:{increment:1},lastSuccessAt:new Date(),healthStatus:'HEALTHY'}});
     return NextResponse.json({productId:created.id,importedImages:0,message:'Product imported as DRAFT. Add images manually if needed.'});
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Marketplace import failed.'},{status:500})}
 }
