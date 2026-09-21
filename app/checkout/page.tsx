@@ -131,7 +131,7 @@ export default function Checkout() {
   }
 
   if (!items.length) return (
-    <main className="container py-16 text-center">
+    <main className="min-h-screen bg-[#070b16] px-4 py-16 text-center text-white">
       <h1 className="text-2xl font-black">Your cart is empty</h1>
       <Link href="/products" className="mt-5 inline-block rounded-xl bg-slate-900 px-6 py-3 font-black text-slate-950">Shop products</Link>
     </main>
@@ -141,7 +141,7 @@ export default function Checkout() {
     <main className="min-h-screen bg-[#070b16] px-0 py-5 text-white sm:py-8">
       <Link href="/cart" className="font-semibold">← Back to cart</Link>
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_340px]">
-        <form ref={formRef} onSubmit={submit} className="rounded-3xl border border-white/10 bg-white/5/5 p-4 shadow-2xl shadow-black/20 sm:p-6">
+        <form ref={formRef} onSubmit={submit} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/20 sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-violet-600">Secure checkout</p>
@@ -165,14 +165,14 @@ export default function Checkout() {
                     key={address.id}
                     type="button"
                     onClick={() => applyAddress(address)}
-                    className={`text-left rounded-xl border p-3 transition ${selectedAddress === address.id ? 'border-violet-400 bg-white/10 ring-2 ring-violet-500/20' : 'border-white/10 bg-white/5 hover:border-violet-400/50'}`}
+                    className={`text-left rounded-xl border border-white/10 bg-white/5 p-3 transition ${selectedAddress === address.id ? 'border-violet-400 bg-white/10 ring-2 ring-violet-500/20' : 'border-white/10 bg-white/5 hover:border-violet-400/50'}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold">{address.label}</span>
-                      {address.isDefault && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">DEFAULT</span>}
+                      {address.isDefault && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-200">DEFAULT</span>}
                     </div>
                     <p className="mt-1 text-sm font-semibold">{address.fullName}</p>
-                    <p className="text-xs text-slate-500">{address.addressLine1}{address.addressLine2 ? `, ${address.addressLine2}` : ''}</p>
+                    <p className="text-xs text-slate-400">{address.addressLine1}{address.addressLine2 ? `, ${address.addressLine2}` : ''}</p>
                     <p className="text-xs text-slate-500">{address.city}, {address.district}, {address.state} - {address.pinCode}</p>
                     <p className="mt-1 text-xs text-slate-500">{address.phone}</p>
                   </button>
@@ -194,16 +194,16 @@ export default function Checkout() {
             <label className="text-sm font-semibold">PIN code<input name="pinCode" required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} className="mt-2 w-full rounded-xl border p-3"/></label>
           </div>
 
-          {error && <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <button disabled={loading} className="mt-5 w-full rounded-xl bg-white px-5 py-3.5 text-sm font-bold text-white disabled:opacity-50">
+          {error && <p className="mt-5 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
+          <button disabled={loading} className="mt-5 w-full rounded-xl bg-white px-5 py-3.5 text-sm font-black text-slate-950 shadow-lg shadow-black/20 disabled:opacity-50">
             {loading ? 'Creating order…' : 'Continue to payment'}
           </button>
         </form>
 
-        <aside className="h-fit rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 lg:sticky lg:top-20">
+        <aside className="h-fit rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-black/20 lg:sticky lg:top-20">
           <h2 className="font-bold">Order summary</h2>
           {items.map(i => <div key={i.productId} className="mt-3 flex justify-between gap-3 text-sm"><span>{i.name} × {i.quantity}</span><span>₹{(i.price*i.quantity).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>)}
-          <div className="mt-5 flex justify-between border-t pt-4"><span>Subtotal</span><strong>₹{subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>
+          <div className="mt-5 flex justify-between border-t border-white/10 pt-4"><span>Subtotal</span><strong>₹{subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>
           <p className="mt-2 text-xs text-slate-500">Final delivery and total are calculated again on the server.</p>
         </aside>
       </div>
