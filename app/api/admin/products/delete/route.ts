@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../../auth';
+import { requireAdminPermission } from '../../../../../lib/admin-access';
 import { db } from '../../../../../lib/db';
-export async function POST(request:Request){import { db } from '../../../../../lib/db';
-import { requireAdminPermission } from '../../../../../lib/admin-access';if(!(await requireAdminPermission('products')))return NextResponse.json({error:'Unauthorized'},{status:401});try{const {id}=await request.json();if(typeof id!=='string')return NextResponse.json({error:'Product ID is required.'},{status:400});const p=await db.product.update({where:{id},data:{status:'HIDDEN'}});return NextResponse.json({ok:true,id:p.id});}catch(e){console.error(e);return NextResponse.json({error:'Unable to archive product.'},{status:500});}}
+export async function POST(request: Request) {
+  if (!(await requireAdminPermission('products'))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const { id } = await request.json();
+    if (typeof id !== 'string') return NextResponse.json({ error: 'Product ID is required.' }, { status: 400 });
+    const p = await db.product.update({ where: { id }, data: { status: 'HIDDEN' } });
+    return NextResponse.json({ ok: true, id: p.id });
+  } catch (e) { console.error(e); return NextResponse.json({ error: 'Unable to archive product.' }, { status: 500 }); }
+}
