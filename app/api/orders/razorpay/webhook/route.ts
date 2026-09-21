@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../../lib/db';
-import { getRazorpay, verifyWebhookSignature } from '../../../../../lib/razorpay';
+import { verifyWebhookSignature } from '../../../../../lib/razorpay';
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -18,12 +18,11 @@ export async function POST(request: Request) {
     const event = typeof payload?.event === 'string' ? payload.event : '';
     const entity = payload?.payload?.payment?.entity;
 
+    const existing = await db.razorpayWebhookEvent.findUnique({ where: { eventId }, select: { id: true } });
+    if (existing) return NextResponse.json({ ok: true });
+
     await db.razorpayWebhookEvent.create({
-      data: {
-        eventId,
-        event,
-        payload,
-      },
+      data: { eventId, event, payload },
     });
 
     if (event !== 'payment.captured' || !entity?.order_id || !entity?.id) {
