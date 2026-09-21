@@ -3,8 +3,10 @@ import { auth } from '../../../../../auth';
 import { db } from '../../../../../lib/db';
 
 export async function POST(request: Request) {
+  import { db } from '../../../../../lib/db';
+import { requireAdminPermission } from '../../../../../lib/admin-access';
   const session = await auth();
-  if (session?.user?.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!(await requireAdminPermission('orders')))
   try {
     const body = await request.formData();
     const orderNumber = typeof body.get('orderNumber') === 'string' ? String(body.get('orderNumber')).trim().toUpperCase() : '';
