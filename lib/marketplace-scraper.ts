@@ -8,6 +8,7 @@ export type ScrapedMarketplaceProduct = {
   description: string;
   sourceCost: number;
   images: string[];
+  availability: 'AVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN';
 };
 
 const MAX_HTML_BYTES = 6 * 1024 * 1024;
@@ -215,7 +216,12 @@ function parseProduct(provider: 'AMAZON' | 'FLIPKART' | 'MEESHO', url: string, h
   if (!sourceCost) throw new Error('Could not read the current product price. Enter the price manually and preview again.');
   if (!images.length) throw new Error('Could not read a product image. You can continue by adding permitted image URLs manually.');
 
-  return { provider, externalId: id, sourceUrl: url, name, description, sourceCost, images };
+  const bodyText = cleanText(html).toLowerCase();
+  const unavailable = /out of stock|currently unavailable|sold out|not available|temporarily unavailable/.test(bodyText);
+  const available = !unavailable && /in stock|add to cart|buy now|available for purchase/.test(bodyText);
+  const availability = unavailable ? 'UNAVAILABLE' : available ? 'AVAILABLE' : 'UNKNOWN';
+
+  return { provider, externalId: id, sourceUrl: url, name, description, sourceCost, images, availability };
 }
 
 export async function scrapeMarketplaceProduct(sourceUrl: string) {
