@@ -40,7 +40,7 @@ export default function AdminNav({ active }: { active: Active }) {
       <div className="flex min-h-16 items-center gap-3 px-3 sm:px-5">
         <button type="button" aria-label="Open admin menu" onClick={()=>setOpen(true)} className="rounded-xl border border-white/10 px-3 py-2 lg:hidden">☰</button>
         <div className="min-w-0 flex-1">
-          <AdminCommandPalette />
+          <div className="min-w-0 flex-1"><AdminCommandPalette /></div>
         </div>
         <Link href="/admin/notifications" className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold">🔔</Link>
         <Link href="/" className="hidden rounded-xl bg-violet-500/10 px-3 py-2 text-sm font-bold text-violet-300 sm:block">Store</Link>
