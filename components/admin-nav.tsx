@@ -5,11 +5,11 @@ import { useState } from 'react';
 import { signOut } from 'next-auth/react';
 import AdminCommandPalette from './admin-command-palette';
 
-type Active = 'dashboard'|'operations'|'products'|'inventory'|'analytics'|'pricing'|'coupons'|'banners'|'orders'|'customers'|'settings'|'staff'|'approvals'|'marketplaces'|'audit'|'support'|'notifications'|'suppliers'|'reviews'|'automation'|'features'|'goals'|'integrations';
+type Active = 'dashboard'|'operations'|'products'|'product-health'|'duplicates'|'inventory'|'analytics'|'pricing'|'coupons'|'banners'|'orders'|'customers'|'settings'|'staff'|'approvals'|'marketplaces'|'audit'|'support'|'notifications'|'suppliers'|'reviews'|'automation'|'features'|'goals'|'integrations';
 
 const groups = [
   { title: 'Overview', items: [['dashboard','Dashboard','/admin/dashboard'],['operations','Operations Center','/admin/operations']] },
-  { title: 'Commerce', items: [['orders','Orders','/admin/orders'],['products','Products','/admin/products'],['inventory','Inventory','/admin/inventory'],['customers','Customers','/admin/customers']] },
+  { title: 'Commerce', items: [['orders','Orders','/admin/orders'],['products','Products','/admin/products'],['product-health','Product Health','/admin/product-health'],['duplicates','Duplicate Detector','/admin/duplicate-detector'],['inventory','Inventory','/admin/inventory'],['customers','Customers','/admin/customers']] },
   { title: 'Growth', items: [['pricing','Pricing','/admin/pricing'],['coupons','Coupons','/admin/coupons'],['banners','Storefront','/admin/banners']] },
   { title: 'Channels', items: [['marketplaces','Marketplace Center','/admin/marketplaces'],['suppliers','Suppliers','/admin/suppliers']] },
   { title: 'Customer Care', items: [['support','Support','/admin/support'],['notifications','Notifications','/admin/notifications'],['reviews','Reviews','/admin/reviews']] },
