@@ -36,9 +36,20 @@ const FIELD_ENV: Record<string, Record<string, string>> = {
   MEESHO: { apiKey: 'MEESHO_SELLER_API_KEY', apiSecret: 'MEESHO_SELLER_API_SECRET' },
   EBAY: { clientId: 'EBAY_CLIENT_ID', clientSecret: 'EBAY_CLIENT_SECRET' },
   ETSY: { apiKeyString: 'ETSY_API_KEYSTRING', sharedSecret: 'ETSY_API_SHARED_SECRET', accessToken: 'ETSY_ACCESS_TOKEN', shopId: 'ETSY_SHOP_ID' },
+  SHOPIFY: { storeDomain: 'SHOPIFY_STORE_DOMAIN', clientId: 'SHOPIFY_CLIENT_ID', clientSecret: 'SHOPIFY_CLIENT_SECRET' },
 };
 
 export async function marketplaceCredentials(provider: string) {
+  // Shopify is intentionally server-configured only. Never read or decrypt
+  // Shopify credentials from the database; they live in Vercel environment variables.
+  if (provider === 'SHOPIFY') {
+    return {
+      storeDomain: process.env.SHOPIFY_STORE_DOMAIN ?? '',
+      clientId: process.env.SHOPIFY_CLIENT_ID ?? '',
+      clientSecret: process.env.SHOPIFY_CLIENT_SECRET ?? '',
+    };
+  }
+
   const integration = await db.marketplaceIntegration.findUnique({ where: { provider }, select: { credentialsEncrypted: true } });
   let stored: Record<string, unknown> = {};
   if (integration?.credentialsEncrypted) stored = decryptMarketplaceCredentials(integration.credentialsEncrypted);
@@ -46,12 +57,9 @@ export async function marketplaceCredentials(provider: string) {
 }
 
 export async function credentialStatus(provider: string) {
-  const stored = await marketplaceCredentials(provider);
   const required = REQUIRED_FIELDS[provider] ?? [];
-  if (provider === 'SHOPIFY') {
-    return required.length > 0 && required.every(field => Boolean(stored[field]));
-  }
   const envMap = FIELD_ENV[provider] ?? {};
+  const stored = await marketplaceCredentials(provider);
   return required.length > 0 && required.every(field => Boolean(stored[field] ?? process.env[envMap[field]]));
 }
 
