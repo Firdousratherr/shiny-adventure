@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import AdminNav from '../../../../components/admin-nav';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { db } from '../../../../lib/db';
+import RetryImportButton from './retry-button';
 
 export default async function MarketplaceHistoryPage() {
   const admin = await requireAdminPermission('marketplaces');
@@ -38,8 +39,8 @@ export default async function MarketplaceHistoryPage() {
           <div className="border-b border-white/10 p-5"><h2 className="font-black">Recent imports</h2></div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-white/5 text-xs uppercase tracking-wider text-slate-400"><tr><th className="p-3">Time</th><th className="p-3">Source</th><th className="p-3">Product</th><th className="p-3">Cost</th><th className="p-3">Selling</th><th className="p-3">Mode</th><th className="p-3">Status</th></tr></thead>
-              <tbody className="divide-y divide-white/10">{imports.map(x => <tr key={x.id}><td className="p-3 text-slate-400">{x.createdAt.toLocaleString('en-IN')}</td><td className="p-3 font-bold">{x.integration.provider.replace('_MANUAL','')}</td><td className="max-w-xs p-3">{x.title || x.externalId}</td><td className="p-3">₹{x.sourceCost?.toFixed(2) || '—'}</td><td className="p-3">₹{x.sellingPrice?.toFixed(2) || '—'}</td><td className="p-3">{x.automatic ? 'Automatic' : 'Manual'}</td><td className="p-3">{x.status}</td></tr>)}</tbody>
+              <thead className="bg-white/5 text-xs uppercase tracking-wider text-slate-400"><tr><th className="p-3">Time</th><th className="p-3">Source</th><th className="p-3">Product</th><th className="p-3">Cost</th><th className="p-3">Selling</th><th className="p-3">Mode</th><th className="p-3">Status</th><th className="p-3">Action</th></tr></thead>
+              <tbody className="divide-y divide-white/10">{imports.map(x => <tr key={x.id}><td className="p-3 text-slate-400">{x.createdAt.toLocaleString('en-IN')}</td><td className="p-3 font-bold">{x.integration.provider.replace('_MANUAL','')}</td><td className="max-w-xs p-3">{x.title || x.externalId}</td><td className="p-3">₹{x.sourceCost?.toFixed(2) || '—'}</td><td className="p-3">₹{x.sellingPrice?.toFixed(2) || '—'}</td><td className="p-3">{x.automatic ? 'Automatic' : 'Manual'}</td><td className="p-3">{x.status}</td><td className="p-3">{x.status === 'FAILED' ? <RetryImportButton logId={x.id} /> : '—'}</td></tr>)}</tbody>
             </table>
             {!imports.length && <p className="p-6 text-sm text-slate-500">No imports recorded yet.</p>}
           </div>
