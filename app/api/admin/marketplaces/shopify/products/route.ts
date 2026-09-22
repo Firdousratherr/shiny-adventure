@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { requireAdminPermission } from '../../../../../lib/admin-access';
-import { credentialStatus, marketplaceCredentials } from '../../../../../lib/marketplaces';
-import { getShopifyAccessToken } from '../../../../../lib/shopify';
-import { db } from '../../../../../lib/db';
+import { requireAdminPermission } from '../../../../../../lib/admin-access';
+import { credentialStatus, marketplaceCredentials } from '../../../../../../lib/marketplaces';
+import { getShopifyAccessToken } from '../../../../../../lib/shopify';
+import { db } from '../../../../../../lib/db';
 const Q='query Products($first:Int!, $after:String, $query:String) { products(first:$first, after:$after, query:$query, sortKey:TITLE) { pageInfo { hasNextPage endCursor } nodes { id title vendor productType descriptionHtml onlineStoreUrl totalInventory images(first:20) { nodes { url } } variants(first:100) { nodes { id title sku barcode price compareAtPrice inventoryQuantity } } collections(first:10) { nodes { id title handle } } } } }';
 async function shopifyQuery(domain:string,token:string,variables:any){const r=await fetch('https://'+domain+'/admin/api/2026-07/graphql.json',{method:'POST',headers:{'Content-Type':'application/json','X-Shopify-Access-Token':token},body:JSON.stringify({query:Q,variables}),cache:'no-store'});const j:any=await r.json();if(!r.ok||j.errors?.length)throw new Error(j.errors?.map((e:any)=>e.message).join('; ')||'Shopify request failed');return j.data.products;}
 function mapProduct(x:any,imported:Set<string>){return{id:x.id,title:x.title,imageUrl:x.images?.nodes?.[0]?.url||null,price:Number(x.variants?.nodes?.[0]?.price||0),inventory:Number(x.totalInventory||0),url:x.onlineStoreUrl||null,productType:x.productType||'',vendor:x.vendor||'',collections:(x.collections?.nodes||[]).map((c:any)=>c.title),imported:imported.has(x.id)}}
