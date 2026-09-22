@@ -50,7 +50,6 @@ export default function MarketplacesPage() {
       if (!r.ok) throw new Error(j.error || 'Unable to load Shopify integration.');
       const next = (j.integrations?.[0] ?? null) as Integration | null;
       setIntegration(next);
-      setSettingsOpen(!next?.credentialsConfigured);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to load Shopify integration.');
     } finally {
@@ -146,7 +145,7 @@ export default function MarketplacesPage() {
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Only integration</p>
                 <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Shopify</h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Connect your Shopify store directly from this admin screen. Credentials are encrypted in the database, and Zenvora obtains the short-lived Admin API access token server-side when it needs one.</p>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Shopify is configured securely through the Vercel server environment. Zenvora obtains the short-lived Admin API access token server-side when it needs one.</p>
               </div>
               <div className={ready ? 'inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black uppercase text-emerald-300' : 'inline-flex shrink-0 items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1.5 text-[10px] font-black uppercase text-amber-300'}>
                 <span className={ready ? 'h-1.5 w-1.5 rounded-full bg-emerald-300' : 'h-1.5 w-1.5 rounded-full bg-amber-300'} />
