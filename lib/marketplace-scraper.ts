@@ -83,17 +83,36 @@ function firstNumber(values: unknown[]): number | null {
   return null;
 }
 
-function uniqueImages(values: unknown[]) {
+function uniqueImages(values: unknown[], provider?: 'AMAZON' | 'FLIPKART' | 'MEESHO') {
   const out: string[] = [];
   const seen = new Set<string>();
+
   for (const value of values) {
     if (typeof value !== 'string') continue;
+
     const url = decodeHtml(value).trim().replace(/\\u002F/g, '/');
     if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
+
+    // Meesho pages contain many non-product images (discount, payment,
+    // returns, delivery and other UI/benefit icons). Only accept images
+    // from Meesho's product-image path when importing a Meesho product.
+    if (provider === 'MEESHO') {
+      try {
+        const parsed = new URL(url);
+        const host = parsed.hostname.toLowerCase();
+        if (!host.endsWith('meesho.com') || !/\/images\/products\//i.test(parsed.pathname)) {
+          continue;
+        }
+      } catch {
+        continue;
+      }
+    }
+
     seen.add(url);
     out.push(url);
     if (out.length >= MAX_IMAGES) break;
   }
+
   return out;
 }
 
@@ -207,12 +226,27 @@ function parseProduct(provider: 'AMAZON' | 'FLIPKART' | 'MEESHO', url: string, h
   }
 
   const sourceCost = firstNumber(priceCandidates) ?? 0;
+  const nextDataImageKeys = provider === 'MEESHO'
+    ? [
+        'images',
+        'imageUrls',
+        'image_urls',
+        'productImages',
+        'product_images',
+        'productImage',
+        'product_image',
+        'product_image_large_url',
+        'product_image_thumb_url',
+      ]
+    : ['image', 'imageUrl', 'imageURL', 'imageSrc'];
+
   const images = uniqueImages([
+    // Structured Product.image is the preferred source.
     ...(Array.isArray(product.image) ? product.image : [product.image]),
+    ...walkStrings(nextData, nextDataImageKeys, 6000),
     meta(html, 'og:image'),
     meta(html, 'twitter:image'),
-    ...walkStrings(nextData, ['image', 'imageUrl', 'imageURL', 'imageSrc'], 6000),
-  ]);
+  ], provider);
 
   if (!name) throw new Error('Could not read the product title from this page. Try a direct product URL.');
   if (!sourceCost) throw new Error('Could not read the current product price. Enter the price manually and preview again.');
