@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../../../lib/db';
-import { requireAdminPermission } from '../../../../../lib/admin-access';
-import { credentialStatus, marketplaceCredentials, importItems, type SyncItem } from '../../../../../lib/marketplaces';
-import { getShopifyAccessToken } from '../../../../../lib/shopify';
+import { db } from '../../../../../../lib/db';
+import { requireAdminPermission } from '../../../../../../lib/admin-access';
+import { credentialStatus, marketplaceCredentials, importItems, type SyncItem } from '../../../../../../lib/marketplaces';
+import { getShopifyAccessToken } from '../../../../../../lib/shopify';
 
 const QUERY = 'query ProductById($ids:[ID!]!) { nodes(ids:$ids) { ... on Product { id title descriptionHtml vendor productType onlineStoreUrl totalInventory images(first:20){nodes{url}} variants(first:100){nodes{id title sku barcode price compareAtPrice inventoryQuantity}} collections(first:10){nodes{id title handle}} } } }';
 
