@@ -36,6 +36,7 @@ export async function POST(request: Request) {
           cancellationReason: reason,
           paymentRejectionReason: reason,
           reservationExpiresAt: null,
+          deletedAt: new Date(),
         },
       });
       if (claimed.count !== 1) throw new Error('INVALID_STATUS');
