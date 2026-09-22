@@ -104,3 +104,7 @@ main.bg-slate-100 :is(button,a):not([aria-disabled="true"]):active{transform:tra
 main.bg-slate-100 .overflow-x-auto{scrollbar-width:thin}
 main.bg-slate-100 .sticky{backdrop-filter:blur(14px)}
 @media(max-width:767px){main.bg-slate-100 .overflow-x-auto{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}}
+
+/* Final responsive polish */
+.zenvora-mobile-nav{bottom:max(8px,env(safe-area-inset-bottom));}
+@media(max-width:767px){body:has(.zenvora-mobile-nav){padding-bottom:calc(84px + env(safe-area-inset-bottom));}.zenvora-mobile-nav a{min-height:54px}.zenvora-mobile-nav a:active{transform:scale(.98)}}
