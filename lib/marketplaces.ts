@@ -279,6 +279,7 @@ export async function importItems(integrationId: string, provider: string, items
   let imported = 0;
   let updated = 0;
   let skipped = 0;
+  let failed = 0;
   const limit = Math.max(1, Math.min(500, Number(settings.maxItemsPerSync ?? items.length)));
 
   const existingRows = await db.marketplaceProduct.findMany({
@@ -298,7 +299,8 @@ export async function importItems(integrationId: string, provider: string, items
   const existingMap = new Map(existingRows.map(row => [row.externalId, row]));
 
   for (const item of items.slice(0, limit)) {
-    const existing = existingMap.get(item.externalId);
+    try {
+      const existing = existingMap.get(item.externalId);
     const evaluated = evaluateImportItem(provider, item, existing, settings);
     const raw = evaluated.raw;
     const cost = evaluated.cost;
@@ -454,8 +456,26 @@ export async function importItems(integrationId: string, provider: string, items
         importedImages,
       },
     });
+    } catch (error) {
+      failed++;
+      await db.marketplaceImportLog.create({
+        data: {
+          integrationId,
+          productId: existingMap.get(item.externalId)?.productId ?? null,
+          externalId: item.externalId,
+          sourceUrl: item.sourceUrl ?? null,
+          title: item.title,
+          status: 'FAILED',
+          automatic: Boolean(settings.automatic),
+          sourceCost: numeric(item.sourceCost),
+          sellingPrice: null,
+          importedImages: 0,
+          error: error instanceof Error ? error.message.slice(0, 1000) : 'Marketplace import failed.',
+        },
+      });
+    }
   }
-  return { imported, updated, skipped };
+  return { imported, updated, skipped, failed };
 }
 async function amazonItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
   const mod: any = await import('amazon-sp-api');
@@ -613,6 +633,7 @@ export async function syncMarketplace(integrationId: string, provider: string, r
     importedProducts: importResult.imported,
     updatedProducts: importResult.updated,
     skippedProducts: importResult.skipped,
+    failedProducts: importResult.failed,
     importedOrders: 0,
     found: items.length,
   };
