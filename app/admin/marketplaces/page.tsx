@@ -78,7 +78,7 @@ export default function MarketplacesPage() {
   };
   const sync = async () => {
     setBusy(true); setError(''); setMessage('');
-    try { const r = await fetch('/api/admin/marketplaces', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({provider:'SHOPIFY'}) }); const j=await r.json(); if(!r.ok) throw new Error(j.error||'Sync failed.'); setMessage(`Automatic sync complete: ${j.importedProducts} products processed.`); await load(); }
+    try { const r = await fetch('/api/admin/marketplaces', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({provider:'SHOPIFY'}) }); const j=await r.json(); if(!r.ok) throw new Error(j.error||'Sync failed.'); setMessage('Automatic sync complete: ' + (j.importedProducts ?? 0) + ' created, ' + (j.updatedProducts ?? 0) + ' updated, ' + (j.skippedProducts ?? 0) + ' skipped, ' + (j.failedProducts ?? 0) + ' failed.'); await load(); }
     catch(e){setError(e instanceof Error?e.message:'Sync failed.');} finally{setBusy(false);}
   };
   const loadCatalog = async (mode: 'products' | 'collections' = 'products') => {
