@@ -416,7 +416,7 @@ export async function syncMarketplace(integrationId: string, provider: string, r
     default: throw new Error('Unsupported marketplace provider.');
   }
 
-  const importResult = await importItems(integrationId, provider, items, settings);
+  const importResult = await importItems(integrationId, provider, items, { ...settings, automatic: true, changedBy: 'MARKETPLACE_SYNC' });
   return {
     importedProducts: importResult.imported,
     updatedProducts: importResult.updated,
