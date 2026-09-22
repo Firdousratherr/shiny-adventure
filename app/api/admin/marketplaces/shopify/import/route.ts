@@ -109,7 +109,7 @@ export async function POST(request:Request){
       where:{id:integration.id},
       data:{importedProducts:linked,lastSuccessAt:new Date(),lastError:null,healthStatus:'HEALTHY'}
     });
-    const failed=missing+Math.max(0,items.length-result.imported-result.updated-result.skipped);
+    const failed=missing+(result.failed||0);
     return NextResponse.json({
       success:true,requested:productIds.length,found:items.length,created:result.imported,
       updated:result.updated,skipped:result.skipped,failed
