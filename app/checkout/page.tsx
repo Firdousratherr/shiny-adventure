@@ -133,83 +133,104 @@ export default function Checkout() {
   }
 
   if (!items.length) return (
-    <main className="min-h-screen bg-[#070b16] px-4 py-16 text-center text-white">
+    <main className="min-h-screen bg-[#070b16] px-4 py-16 pb-28 text-center text-white">
       <h1 className="text-2xl font-black">Your cart is empty</h1>
+      <p className="mt-2 text-sm text-slate-500">Add a product before starting checkout.</p>
       <Link href="/products" className="mt-5 inline-block rounded-xl bg-white px-6 py-3 font-black text-slate-950">Shop products</Link>
     </main>
   );
 
   return (
-    <main className="min-h-screen bg-[#070b16] px-4 py-5 text-white sm:px-6 sm:py-8">
+    <main className="min-h-screen bg-[#070b16] px-4 pb-28 pt-5 text-white sm:px-6 sm:py-8 sm:pb-10">
       <div className="mx-auto max-w-6xl">
-      <div className="flex items-center justify-between border-b border-white/10 pb-4"><Link href="/cart" className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold hover:bg-white/5">← Back to cart</Link><span className="text-xs font-bold text-slate-500">🔒 Secure checkout</span></div>
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_340px]">
-        <form ref={formRef} onSubmit={submit} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/20 sm:p-6">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[.2em] text-violet-400">Step 1 of 2 · Delivery</p>
-              <h1 className="text-2xl font-black sm:text-3xl">Delivery details</h1>
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <Link href="/cart" className="rounded-xl border border-white/10 bg-white/[.025] px-3 py-2 text-sm font-bold hover:bg-white/5">← Back to cart</Link>
+          <span className="rounded-full border border-emerald-400/15 bg-emerald-400/5 px-3 py-1.5 text-xs font-bold text-emerald-300">🔒 Secure checkout</span>
+        </div>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_340px]">
+          <form ref={formRef} onSubmit={submit} className="rounded-3xl border border-white/10 bg-white/[.045] p-4 shadow-2xl shadow-black/20 sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[.2em] text-violet-400">Step 1 of 2 · Delivery</p>
+                <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Delivery details</h1>
+                <p className="mt-2 text-xs text-slate-500">We only use these details to deliver and contact you about this order.</p>
+              </div>
+              {loadingAccount && <span className="text-xs text-slate-400">Checking saved details…</span>}
             </div>
-            {loadingAccount && <span className="text-xs text-slate-400">Checking saved details…</span>}
-          </div>
 
-          {addresses.length > 0 && (
-            <section className="mt-6 rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-bold text-white">Saved addresses</h2>
-                  <p className="text-xs text-slate-400">Choose an address to fill the form automatically.</p>
+            {addresses.length > 0 && (
+              <section className="mt-6 rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-bold text-white">Saved addresses</h2>
+                    <p className="text-xs text-slate-400">Choose an address to fill the form automatically.</p>
+                  </div>
+                  <Link href="/account/addresses" className="text-xs font-bold text-violet-300 hover:text-violet-200">Manage</Link>
                 </div>
-                <Link href="/account/addresses" className="text-xs font-bold text-violet-700">Manage</Link>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {addresses.map(address => (
+                    <button
+                      key={address.id}
+                      type="button"
+                      onClick={() => applyAddress(address)}
+                      className={`text-left rounded-xl border p-3 transition ${
+                        selectedAddress === address.id
+                          ? 'border-violet-400/70 bg-white/10 ring-2 ring-violet-500/20'
+                          : 'border-white/10 bg-white/5 hover:border-violet-400/50 hover:bg-white/[.07]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold">{address.label}</span>
+                        {address.isDefault && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-200">DEFAULT</span>}
+                      </div>
+                      <p className="mt-1 text-sm font-semibold">{address.fullName}</p>
+                      <p className="text-xs text-slate-400">{address.addressLine1}{address.addressLine2 ? `, ${address.addressLine2}` : ''}</p>
+                      <p className="text-xs text-slate-500">{address.city}, {address.district}, {address.state} - {address.pinCode}</p>
+                      <p className="mt-1 text-xs text-slate-500">{address.phone}</p>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <label className="text-sm font-semibold sm:col-span-2">Full name<input name="customerName" required minLength={2} maxLength={100} className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-white/[.025] px-3 text-sm"/></label>
+              <label className="text-sm font-semibold">Mobile number<input name="phone" required inputMode="numeric" pattern="[6-9][0-9]{9}" maxLength={10} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[.025] p-3" placeholder="10-digit mobile"/></label>
+              <label className="text-sm font-semibold">Email (optional)<input name="email" type="email" className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[.025] p-3"/></label>
+              <label className="text-sm font-semibold sm:col-span-2">Address<input name="addressLine1" required minLength={5} maxLength={200} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[.025] p-3"/></label>
+              <label className="text-sm font-semibold">Apartment / area<input name="addressLine2" maxLength={200} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[.025] p-3"/></label>
+              <label className="text-sm font-semibold">Landmark<input name="landmark" maxLength={120} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[.025] p-3"/></label>
+              <label className="text-sm font-semibold">City<input name="city" required className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[.025] p-3"/></label>
+              <label className="text-sm font-semibold">District<input name="district" required className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[.025] p-3"/></label>
+              <label className="text-sm font-semibold">State<input name="state" required className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[.025] p-3"/></label>
+              <label className="text-sm font-semibold">PIN code<input name="pinCode" required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/[.025] p-3"/></label>
+            </div>
+
+            {error && <p className="mt-5 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
+            <button disabled={loading} className="mt-5 min-h-12 w-full rounded-xl bg-white px-5 py-3.5 text-sm font-black text-slate-950 shadow-lg shadow-black/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50">
+              {loading ? 'Creating order…' : 'Continue to payment'}
+            </button>
+          </form>
+
+          <aside className="h-fit rounded-3xl border border-white/10 bg-white/[.045] p-5 shadow-lg shadow-black/20 lg:sticky lg:top-20">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-violet-400">Step 2</p>
+                <h2 className="mt-1 font-bold">Order summary</h2>
               </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {addresses.map(address => (
-                  <button
-                    key={address.id}
-                    type="button"
-                    onClick={() => applyAddress(address)}
-                    className={`text-left rounded-xl border border-white/10 bg-white/5 p-3 transition ${selectedAddress === address.id ? 'border-violet-400 bg-white/10 ring-2 ring-violet-500/20' : 'border-white/10 bg-white/5 hover:border-violet-400/50'}`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold">{address.label}</span>
-                      {address.isDefault && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-200">DEFAULT</span>}
-                    </div>
-                    <p className="mt-1 text-sm font-semibold">{address.fullName}</p>
-                    <p className="text-xs text-slate-400">{address.addressLine1}{address.addressLine2 ? `, ${address.addressLine2}` : ''}</p>
-                    <p className="text-xs text-slate-500">{address.city}, {address.district}, {address.state} - {address.pinCode}</p>
-                    <p className="mt-1 text-xs text-slate-500">{address.phone}</p>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <label className="sm:col-span-2 text-sm font-semibold">Full name<input name="customerName" required minLength={2} maxLength={100} className="mt-1.5 h-11 w-full rounded-xl border border-white/10 px-3 text-sm"/></label>
-            <label className="text-sm font-semibold">Mobile number<input name="phone" required inputMode="numeric" pattern="[6-9][0-9]{9}" maxLength={10} className="mt-2 w-full rounded-xl border p-3" placeholder="10-digit mobile"/></label>
-            <label className="text-sm font-semibold">Email (optional)<input name="email" type="email" className="mt-2 w-full rounded-xl border p-3"/></label>
-            <label className="sm:col-span-2 text-sm font-semibold">Address<input name="addressLine1" required minLength={5} maxLength={200} className="mt-2 w-full rounded-xl border p-3"/></label>
-            <label className="text-sm font-semibold">Apartment / area<input name="addressLine2" maxLength={200} className="mt-2 w-full rounded-xl border p-3"/></label>
-            <label className="text-sm font-semibold">Landmark<input name="landmark" maxLength={120} className="mt-2 w-full rounded-xl border p-3"/></label>
-            <label className="text-sm font-semibold">City<input name="city" required className="mt-2 w-full rounded-xl border p-3"/></label>
-            <label className="text-sm font-semibold">District<input name="district" required className="mt-2 w-full rounded-xl border p-3"/></label>
-            <label className="text-sm font-semibold">State<input name="state" required className="mt-2 w-full rounded-xl border p-3"/></label>
-            <label className="text-sm font-semibold">PIN code<input name="pinCode" required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} className="mt-2 w-full rounded-xl border p-3"/></label>
-          </div>
-
-          {error && <p className="mt-5 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
-          <button disabled={loading} className="mt-5 w-full rounded-xl bg-white px-5 py-3.5 text-sm font-black text-slate-950 shadow-lg shadow-black/20 disabled:opacity-50">
-            {loading ? 'Creating order…' : 'Continue to payment'}
-          </button>
-        </form>
-
-        <aside className="h-fit rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-black/20 lg:sticky lg:top-20">
-          <h2 className="font-bold">Order summary</h2>
-          {items.map(i => <div key={i.productId} className="mt-3 flex justify-between gap-3 text-sm"><span>{i.name} × {i.quantity}</span><span>₹{(i.price*i.quantity).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>)}
-          <div className="mt-5 border-t border-white/10 pt-4"><label className="text-sm font-semibold">Coupon code<input value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="Optional" className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3"/></label></div><div className="mt-5 flex justify-between border-t border-white/10 pt-4"><span>Subtotal</span><strong>₹{subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>
-          <p className="mt-2 text-xs text-slate-500">Final delivery and total are calculated again on the server.</p>
-        </aside>
-      </div>
+              <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold text-slate-400">{items.length} line{items.length === 1 ? '' : 's'}</span>
+            </div>
+            <div className="mt-4 max-h-72 space-y-3 overflow-auto pr-1">
+              {items.map(i => <div key={i.productId} className="flex justify-between gap-3 text-sm"><span className="min-w-0 truncate text-slate-300">{i.name} × {i.quantity}</span><span className="shrink-0 font-bold">₹{(i.price*i.quantity).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>)}
+            </div>
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <label className="text-sm font-semibold">Coupon code<input value={coupon} onChange={e=>setCoupon(e.target.value)} placeholder="Optional" className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 uppercase placeholder:normal-case"/></label>
+            </div>
+            <div className="mt-5 flex justify-between border-t border-white/10 pt-4"><span className="text-slate-300">Subtotal</span><strong>₹{subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>
+            <p className="mt-2 text-xs text-slate-500">Final delivery and total are calculated again on the server.</p>
+          </aside>
+        </div>
       </div>
     </main>
   );
