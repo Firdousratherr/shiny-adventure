@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../../lib/db';
 import { requireAdminPermission } from '../../../../../lib/admin-access';
-import { credentialStatus, marketplaceCredentials, importItems, type SyncItem } from '../../../../../lib/marketplaces';
+import { credentialStatus, marketplaceCredentials, importItems, previewItems, type ImportMode, type SyncItem } from '../../../../../lib/marketplaces';
 import { getShopifyAccessToken } from '../../../../../lib/shopify';
 
 const QUERY='query ProductsByIds($ids:[ID!]!) { nodes(ids:$ids) { ... on Product { id title descriptionHtml vendor productType onlineStoreUrl totalInventory images(first:20){nodes{url}} variants(first:100){nodes{id title sku barcode price compareAtPrice inventoryQuantity}} collections(first:10){nodes{id title handle}} } } }';
@@ -19,6 +19,45 @@ export async function POST(request:Request){
     const markup=Number(body.markupPercent??0), fixed=Number(body.fixedAmount??0);
     if(!Number.isFinite(markup)||markup<0||markup>10000||!Number.isFinite(fixed)||fixed<0||fixed>10000000)
       return NextResponse.json({error:'Invalid pricing settings.'},{status:400});
+    const mode: ImportMode = ['CREATE_ONLY','UPDATE_ONLY','CREATE_AND_UPDATE'].includes(String(body.mode))
+      ? String(body.mode) as ImportMode
+      : 'CREATE_AND_UPDATE';
+    const roundingMode = ['NONE','NEAREST','UP','DOWN'].includes(String(body.roundingMode))
+      ? String(body.roundingMode) as 'NONE'|'NEAREST'|'UP'|'DOWN'
+      : 'NONE';
+    const numericOrUndefined = (value: unknown) => {
+      if (value === null || value === undefined || value === '') return undefined;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : undefined;
+    };
+    const rules = {
+      mode,
+      markupPercent: markup,
+      fixedAmount: fixed,
+      skipExisting: Boolean(body.skipExisting),
+      skipOutOfStock: Boolean(body.skipOutOfStock),
+      skipWithoutImages: Boolean(body.skipWithoutImages),
+      skipWithoutPrice: Boolean(body.skipWithoutPrice),
+      minSourcePrice: numericOrUndefined(body.minSourcePrice),
+      maxSourcePrice: numericOrUndefined(body.maxSourcePrice),
+      minInventory: numericOrUndefined(body.minInventory),
+      roundingMode,
+      roundingValue: numericOrUndefined(body.roundingValue),
+      minSellingPrice: numericOrUndefined(body.minSellingPrice),
+      maxSellingPrice: numericOrUndefined(body.maxSellingPrice),
+      protectLockedPrice: body.protectLockedPrice !== false,
+      updatePrice: body.updatePrice !== false,
+      importImages: body.importImages !== false,
+      importDescriptions: body.importDescriptions !== false,
+      importInventory: body.importInventory !== false,
+    };
+    if ((rules.minSourcePrice !== undefined && rules.maxSourcePrice !== undefined && rules.minSourcePrice > rules.maxSourcePrice) ||
+        (rules.minSellingPrice !== undefined && rules.maxSellingPrice !== undefined && rules.minSellingPrice > rules.maxSellingPrice)) {
+      return NextResponse.json({error:'Minimum price cannot exceed maximum price.'},{status:400});
+    }
+    if (rules.roundingMode !== 'NONE' && (!rules.roundingValue || rules.roundingValue <= 0)) {
+      return NextResponse.json({error:'Rounding value must be greater than zero.'},{status:400});
+    }
 
     const integration=await db.marketplaceIntegration.upsert({where:{provider:'SHOPIFY'},update:{},create:{provider:'SHOPIFY'}});
     const {domain,accessToken}=await getShopifyAccessToken(await marketplaceCredentials('SHOPIFY'));
@@ -43,12 +82,28 @@ export async function POST(request:Request){
       imageUrl:x.images?.nodes?.[0]?.url||null,rawData:x
     }));
     const missing=productIds.length-items.length;
-    const result=await importItems(integration.id,'SHOPIFY',items,{
-      markupPercent:markup,fixedAmount:fixed,maxItemsPerSync:items.length,
-      automatic:false,changedBy:admin.email||'ADMIN',
-      skipExisting:Boolean(body.skipExisting),skipOutOfStock:Boolean(body.skipOutOfStock),
-      skipWithoutImages:Boolean(body.skipWithoutImages),skipWithoutPrice:Boolean(body.skipWithoutPrice)
-    });
+    const importSettings = {
+      ...rules,
+      maxItemsPerSync: items.length,
+      automatic:false,
+      changedBy:admin.email||'ADMIN',
+    };
+    if (body.preview === true) {
+      const preview = await previewItems(integration.id, 'SHOPIFY', items, importSettings);
+      const summary = preview.reduce((acc, row) => {
+        acc.total++;
+        if (row.action === 'CREATE') acc.create++;
+        else if (row.action === 'UPDATE') acc.update++;
+        else acc.skip++;
+        return acc;
+      }, { total:0, create:0, update:0, skip:0 });
+      return NextResponse.json({
+        success:true,preview,summary,
+        requested:productIds.length,found:items.length,missing
+      });
+    }
+
+    const result=await importItems(integration.id,'SHOPIFY',items,importSettings);
     const linked=await db.marketplaceProduct.count({where:{integrationId:integration.id,productId:{not:null}}});
     await db.marketplaceIntegration.update({
       where:{id:integration.id},
