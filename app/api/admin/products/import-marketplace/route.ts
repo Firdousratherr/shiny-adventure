@@ -16,6 +16,10 @@ function sellingPrice(cost: number, markup: number) {
   return Math.round(cost * (1 + markup / 100) * 100) / 100;
 }
 
+function normalizeCategory(value: string) {
+  return value.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 async function importImage(productId: string, imageUrl: string, index: number) {
   try {
     const controller = new AbortController();
@@ -67,6 +71,29 @@ export async function POST(request: Request) {
     const description = scraped?.description || manualDescription;
     const sourceCost = scraped?.sourceCost || (Number.isFinite(manualCost) && manualCost > 0 ? manualCost : 0);
     const images = scraped?.images?.length ? scraped.images : manualImages;
+    const sourceCategoryName = scraped?.categoryName || '';
+
+    const requestedCategoryId =
+      typeof body.categoryId === 'string' && body.categoryId.trim()
+        ? body.categoryId.trim()
+        : '';
+
+    let matchedCategory = requestedCategoryId
+      ? await db.category.findUnique({ where: { id: requestedCategoryId }, select: { id: true, name: true } })
+      : null;
+
+    if (requestedCategoryId && !matchedCategory) {
+      return NextResponse.json({ error: 'Selected category was not found.' }, { status: 400 });
+    }
+
+    if (!matchedCategory && sourceCategoryName) {
+      const candidates = await db.category.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
+      const normalizedSource = normalizeCategory(sourceCategoryName);
+      matchedCategory =
+        candidates.find(category => normalizeCategory(category.name) === normalizedSource) ||
+        candidates.find(category => normalizeCategory(category.name).includes(normalizedSource) || normalizedSource.includes(normalizeCategory(category.name))) ||
+        null;
+    }
 
     if (!name) return NextResponse.json({ error: scrapeError || 'Product title could not be read. Enter the title manually.' }, { status: 422 });
     if (!sourceCost) return NextResponse.json({ error: scrapeError || 'Product price could not be read. Enter the current source price manually.' }, { status: 422 });
@@ -78,6 +105,9 @@ export async function POST(request: Request) {
       description,
       sourceCost,
       images,
+      sourceCategoryName: sourceCategoryName || undefined,
+      matchedCategoryId: matchedCategory?.id || '',
+      matchedCategoryName: matchedCategory?.name || '',
       sourceUrl: parsedUrl.url,
       sellingPrice: sellingPrice(sourceCost, markup),
       markupPercent: markup,
@@ -112,12 +142,7 @@ export async function POST(request: Request) {
       slug = `${baseSlug}-${n}`;
     }
 
-    const categoryName = name.split(/[-|:]/)[0].trim().slice(0, 60) || 'Imported';
-    const category = await db.category.upsert({
-      where: { slug: slugify(categoryName) },
-      update: {},
-      create: { name: categoryName, slug: slugify(categoryName) },
-    });
+    const categoryId = matchedCategory?.id || null;
 
     const product = await db.product.create({
       data: {
@@ -129,7 +154,7 @@ export async function POST(request: Request) {
         sellingPrice: new Prisma.Decimal(preview.sellingPrice),
         stock: 0,
         status: 'DRAFT',
-        categoryId: category.id,
+        categoryId,
       },
     });
 
@@ -174,7 +199,17 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ ok: true, productId: product.id, importedImages, sellingPrice: preview.sellingPrice, automatic: Boolean(scraped) });
+    return NextResponse.json({
+      ok: true,
+      productId: product.id,
+      importedImages,
+      sellingPrice: preview.sellingPrice,
+      automatic: Boolean(scraped),
+      categoryId,
+      categoryName: matchedCategory?.name || null,
+      sourceCategoryName: sourceCategoryName || null,
+      categoryMatched: Boolean(matchedCategory),
+    });
   } catch (error) {
     console.error('Marketplace product import failed:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Marketplace import failed.' }, { status: 500 });
