@@ -11,6 +11,8 @@ export type SyncItem = {
   rawData?: unknown;
 };
 
+export type ImportMode = 'CREATE_ONLY' | 'UPDATE_ONLY' | 'CREATE_AND_UPDATE';
+
 type Settings = {
   markupPercent?: number;
   fixedAmount?: number;
@@ -20,10 +22,23 @@ type Settings = {
   syncInventory?: boolean;
   query?: string;
   automatic?: boolean;
+  mode?: ImportMode;
   skipExisting?: boolean;
   skipOutOfStock?: boolean;
   skipWithoutImages?: boolean;
   skipWithoutPrice?: boolean;
+  minSourcePrice?: number;
+  maxSourcePrice?: number;
+  minInventory?: number;
+  roundingMode?: 'NONE' | 'NEAREST' | 'UP' | 'DOWN';
+  roundingValue?: number;
+  minSellingPrice?: number;
+  maxSellingPrice?: number;
+  protectLockedPrice?: boolean;
+  updatePrice?: boolean;
+  importImages?: boolean;
+  importDescriptions?: boolean;
+  importInventory?: boolean;
   changedBy?: string;
 };
 
@@ -85,15 +100,179 @@ function settingsOf(value: unknown): Settings {
   return value as Settings;
 }
 
+function numeric(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeImageUrls(provider: string, raw: any, fallback?: string | null) {
+  const candidates = provider === 'SHOPIFY' && Array.isArray(raw?.images?.nodes)
+    ? raw.images.nodes.map((x: any) => x?.url)
+    : [fallback];
+
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const candidate of candidates) {
+    const value = String(candidate ?? '').trim();
+    if (!value || seen.has(value)) continue;
+    try {
+      const parsed = new URL(value);
+      if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+      if (/placeholder|placehold|no[-_ ]?image|default[-_ ]?image|coming[-_ ]?soon/i.test(value)) continue;
+      seen.add(value);
+      urls.push(value);
+    } catch {
+      // Ignore malformed image URLs from third-party catalogs.
+    }
+    if (urls.length >= 20) break;
+  }
+  return urls;
+}
+
 function priceWithMarkup(cost: number | null | undefined, settings: Settings) {
   if (!cost || cost <= 0) return 0;
-  const markup = Number(settings.markupPercent ?? 0);
-  const fixed = Number(settings.fixedAmount ?? 0);
-  return Math.round((cost * (1 + markup / 100) + fixed) * 100) / 100;
+  const markup = numeric(settings.markupPercent) ?? 0;
+  const fixed = numeric(settings.fixedAmount) ?? 0;
+  let price = cost * (1 + markup / 100) + fixed;
+
+  const step = numeric(settings.roundingValue);
+  if (step && step > 0 && settings.roundingMode && settings.roundingMode !== 'NONE') {
+    if (settings.roundingMode === 'UP') price = Math.ceil(price / step) * step;
+    else if (settings.roundingMode === 'DOWN') price = Math.floor(price / step) * step;
+    else price = Math.round(price / step) * step;
+  }
+
+  const minPrice = numeric(settings.minSellingPrice);
+  const maxPrice = numeric(settings.maxSellingPrice);
+  if (minPrice !== null && minPrice >= 0) price = Math.max(price, minPrice);
+  if (maxPrice !== null && maxPrice >= 0) price = Math.min(price, maxPrice);
+  return Math.round(price * 100) / 100;
 }
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 70) || 'product';
+}
+
+type ExistingState = {
+  productId?: string | null;
+  product?: {
+    id: string;
+    sellingPrice: unknown;
+    priceLocked: boolean;
+    priceLockValue: unknown;
+    _count?: { images: number };
+  } | null;
+};
+
+function evaluateImportItem(
+  provider: string,
+  item: SyncItem,
+  existing: ExistingState | null | undefined,
+  settings: Settings,
+) {
+  const raw = item.rawData && typeof item.rawData === 'object' ? item.rawData as any : {};
+  const costNumber = numeric(item.sourceCost);
+  const cost = costNumber !== null && costNumber > 0 ? costNumber : null;
+  const inventory = provider === 'SHOPIFY' ? Math.max(0, numeric(raw.totalInventory) ?? 0) : null;
+  const imageUrls = normalizeImageUrls(provider, raw, item.imageUrl);
+  const hasExistingProduct = Boolean(existing?.productId);
+  const mode: ImportMode = settings.mode ?? 'CREATE_AND_UPDATE';
+  const currentSellingPrice = numeric(existing?.product?.sellingPrice);
+  const lockedPrice = settings.protectLockedPrice !== false && existing?.product?.priceLocked
+    ? numeric(existing?.product?.priceLockValue)
+    : null;
+
+  let proposedSellingPrice = priceWithMarkup(cost, settings);
+  if (lockedPrice !== null) proposedSellingPrice = lockedPrice;
+  else if (hasExistingProduct && settings.updatePrice === false) proposedSellingPrice = currentSellingPrice ?? proposedSellingPrice;
+
+  let action: 'CREATE' | 'UPDATE' | 'SKIP' = hasExistingProduct ? 'UPDATE' : 'CREATE';
+  let reason = '';
+
+  if (hasExistingProduct && (settings.skipExisting || mode === 'CREATE_ONLY')) {
+    action = 'SKIP'; reason = 'Already imported';
+  } else if (!hasExistingProduct && mode === 'UPDATE_ONLY') {
+    action = 'SKIP'; reason = 'Not previously imported';
+  } else if (settings.skipOutOfStock && inventory !== null && inventory <= 0) {
+    action = 'SKIP'; reason = 'Out of stock';
+  } else if (settings.skipWithoutImages && imageUrls.length === 0) {
+    action = 'SKIP'; reason = 'No usable images';
+  } else if (settings.skipWithoutPrice && cost === null) {
+    action = 'SKIP'; reason = 'No source price';
+  } else if (numeric(settings.minSourcePrice) !== null && (cost === null || (cost as number) < (numeric(settings.minSourcePrice) as number))) {
+    action = 'SKIP'; reason = 'Source price below minimum';
+  } else if (numeric(settings.maxSourcePrice) !== null && cost !== null && cost > (numeric(settings.maxSourcePrice) as number)) {
+    action = 'SKIP'; reason = 'Source price above maximum';
+  } else if (numeric(settings.minInventory) !== null && inventory !== null && inventory < (numeric(settings.minInventory) as number)) {
+    action = 'SKIP'; reason = 'Inventory below minimum';
+  }
+
+  return {
+    raw,
+    cost,
+    inventory,
+    imageUrls,
+    hasExistingProduct,
+    currentSellingPrice,
+    proposedSellingPrice,
+    action,
+    reason,
+  };
+}
+
+export type ImportPreviewRow = {
+  externalId: string;
+  title: string;
+  sourceCost: number | null;
+  currentSellingPrice: number | null;
+  proposedSellingPrice: number;
+  inventory: number | null;
+  imageCount: number;
+  existingImages: number;
+  action: 'CREATE' | 'UPDATE' | 'SKIP';
+  reason: string;
+  lockedPrice: boolean;
+};
+
+export async function previewItems(
+  integrationId: string,
+  provider: string,
+  items: SyncItem[],
+  settings: Settings,
+): Promise<ImportPreviewRow[]> {
+  const limitedItems = items.slice(0, Math.max(1, Math.min(100, Number(settings.maxItemsPerSync ?? items.length))));
+  const existingRows = await db.marketplaceProduct.findMany({
+    where: { integrationId, externalId: { in: limitedItems.map(x => x.externalId) } },
+    include: {
+      product: {
+        select: {
+          id: true,
+          sellingPrice: true,
+          priceLocked: true,
+          priceLockValue: true,
+          _count: { select: { images: true } },
+        },
+      },
+    },
+  });
+  const existingMap = new Map(existingRows.map(row => [row.externalId, row]));
+  return limitedItems.map(item => {
+    const existing = existingMap.get(item.externalId);
+    const result = evaluateImportItem(provider, item, existing, settings);
+    return {
+      externalId: item.externalId,
+      title: item.title,
+      sourceCost: result.cost,
+      currentSellingPrice: result.currentSellingPrice,
+      proposedSellingPrice: result.proposedSellingPrice,
+      inventory: result.inventory,
+      imageCount: result.imageUrls.length,
+      existingImages: existing?.product?._count?.images ?? 0,
+      action: result.action,
+      reason: result.reason,
+      lockedPrice: Boolean(existing?.product?.priceLocked),
+    };
+  });
 }
 
 export async function importItems(integrationId: string, provider: string, items: SyncItem[], settings: Settings) {
@@ -102,63 +281,49 @@ export async function importItems(integrationId: string, provider: string, items
   let skipped = 0;
   const limit = Math.max(1, Math.min(500, Number(settings.maxItemsPerSync ?? items.length)));
 
+  const existingRows = await db.marketplaceProduct.findMany({
+    where: { integrationId, externalId: { in: items.slice(0, limit).map(x => x.externalId) } },
+    include: {
+      product: {
+        select: {
+          id: true,
+          sellingPrice: true,
+          priceLocked: true,
+          priceLockValue: true,
+          _count: { select: { images: true } },
+        },
+      },
+    },
+  });
+  const existingMap = new Map(existingRows.map(row => [row.externalId, row]));
+
   for (const item of items.slice(0, limit)) {
-    const raw = item.rawData && typeof item.rawData === 'object' ? item.rawData as any : {};
-    const cost = item.sourceCost && item.sourceCost > 0 ? item.sourceCost : null;
-    const sellingPrice = priceWithMarkup(cost, settings);
-    const imageUrls = provider === 'SHOPIFY' && Array.isArray(raw.images?.nodes)
-      ? raw.images.nodes.map((x: any) => String(x?.url || '')).filter(Boolean).slice(0, 20)
-      : item.imageUrl ? [item.imageUrl] : [];
+    const existing = existingMap.get(item.externalId);
+    const evaluated = evaluateImportItem(provider, item, existing, settings);
+    const raw = evaluated.raw;
+    const cost = evaluated.cost;
+    const sellingPrice = evaluated.proposedSellingPrice;
 
-    const existing = await db.marketplaceProduct.findUnique({
-      where: { integrationId_externalId: { integrationId, externalId: item.externalId } },
-      include: { product: { select: { id: true, sellingPrice: true } } },
-    });
-
-    if (settings.skipExisting && existing?.productId) {
+    if (evaluated.action === 'SKIP') {
       skipped++;
       await db.marketplaceImportLog.create({
         data: {
-          integrationId, productId: existing.productId, externalId: item.externalId,
-          sourceUrl: item.sourceUrl ?? null, title: item.title, status: 'SKIPPED',
-          automatic: Boolean(settings.automatic), sourceCost: cost, sellingPrice: sellingPrice || null,
-          importedImages: 0, error: null,
+          integrationId,
+          productId: existing?.productId ?? null,
+          externalId: item.externalId,
+          sourceUrl: item.sourceUrl ?? null,
+          title: item.title,
+          status: 'SKIPPED',
+          automatic: Boolean(settings.automatic),
+          sourceCost: cost,
+          sellingPrice: sellingPrice || null,
+          importedImages: 0,
+          error: evaluated.reason || null,
         },
       });
       continue;
     }
-    if (settings.skipOutOfStock && provider === 'SHOPIFY' && Number(raw.totalInventory ?? 0) <= 0) {
-      skipped++;
-      await db.marketplaceImportLog.create({ data: {
-        integrationId, productId: existing?.productId ?? null, externalId: item.externalId,
-        sourceUrl: item.sourceUrl ?? null, title: item.title, status: 'SKIPPED',
-        automatic: Boolean(settings.automatic), sourceCost: cost, sellingPrice: sellingPrice || null,
-        importedImages: 0, error: 'Out of stock',
-      }});
-      continue;
-    }
-    if (settings.skipWithoutImages && imageUrls.length === 0) {
-      skipped++;
-      await db.marketplaceImportLog.create({ data: {
-        integrationId, productId: existing?.productId ?? null, externalId: item.externalId,
-        sourceUrl: item.sourceUrl ?? null, title: item.title, status: 'SKIPPED',
-        automatic: Boolean(settings.automatic), sourceCost: cost, sellingPrice: sellingPrice || null,
-        importedImages: 0, error: 'No images',
-      }});
-      continue;
-    }
-    if (settings.skipWithoutPrice && !cost) {
-      skipped++;
-      await db.marketplaceImportLog.create({ data: {
-        integrationId, productId: existing?.productId ?? null, externalId: item.externalId,
-        sourceUrl: item.sourceUrl ?? null, title: item.title, status: 'SKIPPED',
-        automatic: Boolean(settings.automatic), sourceCost: null, sellingPrice: null,
-        importedImages: 0, error: 'No source price',
-      }});
-      continue;
-    }
 
-    let productId = existing?.productId ?? null;
     const collections = Array.isArray(raw.collections?.nodes) ? raw.collections.nodes : [];
     const categoryName = provider === 'SHOPIFY'
       ? String(collections[0]?.title || raw.productType || '').trim()
@@ -168,30 +333,34 @@ export async function importItems(integrationId: string, provider: string, items
       const slug = slugify(categoryName);
       const category = await db.category.upsert({
         where: { slug },
-        update: { name: categoryName },
+        update: {},
         create: { name: categoryName, slug },
       });
       categoryId = category.id;
     }
 
-    let action: 'CREATED' | 'UPDATED' = 'CREATED';
+    let productId = existing?.productId ?? null;
+    let action: 'CREATED' | 'UPDATED' = evaluated.action === 'CREATE' ? 'CREATED' : 'UPDATED';
+
     if (!productId) {
       const baseSlug = slugify(item.title);
       let slug = baseSlug;
       for (let n = 2; ; n++) {
         const clash = await db.product.findUnique({ where: { slug } });
         if (!clash) break;
-        slug = `${baseSlug}-${provider.toLowerCase()}-${n}`;
+        slug = baseSlug + '-' + provider.toLowerCase() + '-' + n;
       }
       const product = await db.product.create({
         data: {
           name: item.title,
           slug,
-          description: provider === 'SHOPIFY' ? String(raw.descriptionHtml || '') || null : null,
+          description: settings.importDescriptions === false
+            ? null
+            : String(raw.descriptionHtml || '') || null,
           sourceUrl: item.sourceUrl ?? null,
           sourceCost: cost,
           sellingPrice: sellingPrice || 0,
-          stock: provider === 'SHOPIFY' ? Number(raw.totalInventory ?? 0) || 0 : 0,
+          stock: settings.importInventory === false ? 0 : (provider === 'SHOPIFY' ? Number(raw.totalInventory ?? 0) || 0 : 0),
           categoryId,
           status: 'DRAFT',
         },
@@ -199,27 +368,32 @@ export async function importItems(integrationId: string, provider: string, items
       productId = product.id;
       imported++;
     } else {
-      action = 'UPDATED';
       const oldSellingPrice = Number(existing?.product?.sellingPrice ?? 0);
-      await db.product.update({
-        where: { id: productId },
-        data: {
-          name: item.title,
-          description: provider === 'SHOPIFY' ? String(raw.descriptionHtml || '') || null : undefined,
-          sourceUrl: item.sourceUrl ?? undefined,
-          sourceCost: cost ?? undefined,
-          ...(sellingPrice > 0 ? { sellingPrice } : {}),
-          ...(provider === 'SHOPIFY' ? { stock: Number(raw.totalInventory ?? 0) || 0, categoryId } : {}),
-        },
-      });
+      const updateData: Record<string, unknown> = {
+        name: item.title,
+        sourceUrl: item.sourceUrl ?? undefined,
+        sourceCost: cost,
+      };
+      if (provider === 'SHOPIFY') {
+        if (settings.importDescriptions !== false) updateData.description = String(raw.descriptionHtml || '') || null;
+        if (settings.importInventory !== false) updateData.stock = Number(raw.totalInventory ?? 0) || 0;
+      }
+      if (categoryId) updateData.categoryId = categoryId;
+      if (settings.updatePrice !== false && !(settings.protectLockedPrice !== false && existing?.product?.priceLocked)) {
+        if (sellingPrice > 0) updateData.sellingPrice = sellingPrice;
+      }
+      await db.product.update({ where: { id: productId }, data: updateData as any });
       updated++;
-      if (sellingPrice > 0 && oldSellingPrice !== sellingPrice) {
+      const newSellingPrice = settings.updatePrice !== false && !(settings.protectLockedPrice !== false && existing?.product?.priceLocked)
+        ? sellingPrice
+        : oldSellingPrice;
+      if (newSellingPrice > 0 && oldSellingPrice !== newSellingPrice) {
         await db.productPriceHistory.create({
           data: {
             productId,
             sourceCost: cost,
             oldSellingPrice,
-            newSellingPrice: sellingPrice,
+            newSellingPrice,
             markupPercent: Number(settings.markupPercent ?? 0),
             reason: 'MARKETPLACE_IMPORT',
             changedBy: settings.changedBy ?? 'MARKETPLACE_IMPORT',
@@ -229,11 +403,13 @@ export async function importItems(integrationId: string, provider: string, items
     }
 
     let importedImages = 0;
-    if (productId) {
-      for (const url of imageUrls) {
-        const exists = await db.productImage.findFirst({ where: { productId, url } });
-        if (!exists) {
-          await db.productImage.create({ data: { productId, url, altText: item.title, sortOrder: importedImages } });
+    if (productId && settings.importImages !== false) {
+      for (const url of evaluated.imageUrls) {
+        const existsImage = await db.productImage.findFirst({ where: { productId, url } });
+        if (!existsImage) {
+          await db.productImage.create({
+            data: { productId, url, altText: item.title, sortOrder: (existing?.product?._count?.images ?? 0) + importedImages },
+          });
           importedImages++;
         }
       }
@@ -242,14 +418,23 @@ export async function importItems(integrationId: string, provider: string, items
     await db.marketplaceProduct.upsert({
       where: { integrationId_externalId: { integrationId, externalId: item.externalId } },
       update: {
-        productId, title: item.title, sourceUrl: item.sourceUrl ?? null,
-        rawData: item.rawData as any, lastSourceCost: cost,
+        productId,
+        title: item.title,
+        sourceUrl: item.sourceUrl ?? null,
+        rawData: item.rawData as any,
+        lastSourceCost: cost,
         sourceAvailability: provider === 'SHOPIFY' ? (Number(raw.totalInventory ?? 0) > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK') : 'UNKNOWN',
-        lastCheckedAt: new Date(), lastCheckError: null,
+        lastCheckedAt: new Date(),
+        lastCheckError: null,
       },
       create: {
-        integrationId, externalId: item.externalId, productId, title: item.title,
-        sourceUrl: item.sourceUrl ?? null, rawData: item.rawData as any, lastSourceCost: cost,
+        integrationId,
+        externalId: item.externalId,
+        productId,
+        title: item.title,
+        sourceUrl: item.sourceUrl ?? null,
+        rawData: item.rawData as any,
+        lastSourceCost: cost,
         sourceAvailability: provider === 'SHOPIFY' ? (Number(raw.totalInventory ?? 0) > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK') : 'UNKNOWN',
         lastCheckedAt: new Date(),
       },
@@ -257,9 +442,16 @@ export async function importItems(integrationId: string, provider: string, items
 
     await db.marketplaceImportLog.create({
       data: {
-        integrationId, productId, externalId: item.externalId, sourceUrl: item.sourceUrl ?? null,
-        title: item.title, status: action, automatic: Boolean(settings.automatic),
-        sourceCost: cost, sellingPrice: sellingPrice || null, importedImages,
+        integrationId,
+        productId,
+        externalId: item.externalId,
+        sourceUrl: item.sourceUrl ?? null,
+        title: item.title,
+        status: action,
+        automatic: Boolean(settings.automatic),
+        sourceCost: cost,
+        sellingPrice: sellingPrice || null,
+        importedImages,
       },
     });
   }
