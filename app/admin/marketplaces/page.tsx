@@ -58,13 +58,25 @@ export default function MarketplacesPage() {
       const saved = nextIntegration?.settings ?? {};
       setRules(current => ({
         ...current,
-        ...saved,
+        mode: saved.mode ?? current.mode,
+        markupPercent: saved.markupPercent ?? current.markupPercent,
+        fixedAmount: saved.fixedAmount ?? current.fixedAmount,
+        skipExisting: saved.skipExisting ?? current.skipExisting,
+        skipOutOfStock: saved.skipOutOfStock ?? current.skipOutOfStock,
+        skipWithoutImages: saved.skipWithoutImages ?? current.skipWithoutImages,
+        skipWithoutPrice: saved.skipWithoutPrice ?? current.skipWithoutPrice,
         minSourcePrice: saved.minSourcePrice === undefined ? current.minSourcePrice : String(saved.minSourcePrice),
         maxSourcePrice: saved.maxSourcePrice === undefined ? current.maxSourcePrice : String(saved.maxSourcePrice),
         minInventory: saved.minInventory === undefined ? current.minInventory : String(saved.minInventory),
+        roundingMode: saved.roundingMode ?? current.roundingMode,
         roundingValue: saved.roundingValue === undefined ? current.roundingValue : String(saved.roundingValue),
         minSellingPrice: saved.minSellingPrice === undefined ? current.minSellingPrice : String(saved.minSellingPrice),
         maxSellingPrice: saved.maxSellingPrice === undefined ? current.maxSellingPrice : String(saved.maxSellingPrice),
+        protectLockedPrice: saved.protectLockedPrice ?? current.protectLockedPrice,
+        updatePrice: saved.updatePrice ?? current.updatePrice,
+        importImages: saved.importImages ?? current.importImages,
+        importDescriptions: saved.importDescriptions ?? current.importDescriptions,
+        importInventory: saved.importInventory ?? current.importInventory,
       }));
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to load Shopify.'); }
     finally { setLoading(false); }
