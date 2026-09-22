@@ -40,6 +40,7 @@ type Settings = {
   importDescriptions?: boolean;
   importInventory?: boolean;
   changedBy?: string;
+  categoryMappings?: Record<string, string>;
 };
 
 const REQUIRED_FIELDS: Record<string, string[]> = {
@@ -330,8 +331,13 @@ export async function importItems(integrationId: string, provider: string, items
     const categoryName = provider === 'SHOPIFY'
       ? String(collections[0]?.title || raw.productType || '').trim()
       : '';
-    let categoryId: string | null = null;
-    if (categoryName) {
+    const mappedCategoryId = provider === 'SHOPIFY' && settings.categoryMappings
+      ? collections.map((x: any) => String(x?.handle || '').trim()).map((key: string) => settings.categoryMappings?.[key]).find(Boolean)
+        || settings.categoryMappings[categoryName]
+        || settings.categoryMappings[String(raw.productType || '').trim()]
+      : undefined;
+    let categoryId: string | null = mappedCategoryId ? String(mappedCategoryId) : null;
+    if (!categoryId && categoryName) {
       const slug = slugify(categoryName);
       const category = await db.category.upsert({
         where: { slug },
