@@ -5,6 +5,7 @@ import { canTransition } from '../../../../../lib/orders/status';
 import { notifyCustomer } from '../../../../../lib/email';
 import { requireAdminPermission } from '../../../../../lib/admin-access';
 import { releasePaymentReservation } from '../../../../../lib/inventory-reservations';
+import { adjustInventoryBatch } from '../../../../../lib/inventory';
 
 const statuses = new Set<OrderStatus>(['ORDERED_FROM_SOURCE','SHIPPED','DELIVERED','CANCELLED','RTO','RETURN_REQUESTED','REFUNDED']);
 const text = (v: unknown, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : '';
@@ -51,10 +52,12 @@ export async function POST(request: Request) {
       if (shouldReleaseReservation) {
         await releasePaymentReservation(tx, order, 'PAYMENT_RESERVATION_RELEASE');
       } else if (shouldRestore || shouldRestockRto) {
-        for (const item of order.items) {
-          await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
-          await tx.inventoryMovement.create({ data: { productId: item.productId, orderId: order.id, quantity: item.quantity, reason: shouldRestockRto ? 'RTO_RESTOCK' : 'CANCELLED_RESTOCK' } });
-        }
+        await adjustInventoryBatch(tx, order.items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          orderId: order.id,
+          reason: shouldRestockRto ? 'RTO_RESTOCK' : 'CANCELLED_RESTOCK',
+        })));
       }
 
       const updated = await tx.order.update({
