@@ -19,6 +19,12 @@ type Settings = {
   syncOrders?: boolean;
   syncInventory?: boolean;
   query?: string;
+  automatic?: boolean;
+  skipExisting?: boolean;
+  skipOutOfStock?: boolean;
+  skipWithoutImages?: boolean;
+  skipWithoutPrice?: boolean;
+  changedBy?: string;
 };
 
 const REQUIRED_FIELDS: Record<string, string[]> = {
@@ -94,13 +100,63 @@ export async function importItems(integrationId: string, provider: string, items
   let imported = 0;
   let updated = 0;
   let skipped = 0;
-  for (const item of items.slice(0, Math.max(1, Number(settings.maxItemsPerSync ?? 100)))) {
+  const limit = Math.max(1, Math.min(500, Number(settings.maxItemsPerSync ?? items.length)));
+
+  for (const item of items.slice(0, limit)) {
     const raw = item.rawData && typeof item.rawData === 'object' ? item.rawData as any : {};
     const cost = item.sourceCost && item.sourceCost > 0 ? item.sourceCost : null;
     const sellingPrice = priceWithMarkup(cost, settings);
+    const imageUrls = provider === 'SHOPIFY' && Array.isArray(raw.images?.nodes)
+      ? raw.images.nodes.map((x: any) => String(x?.url || '')).filter(Boolean).slice(0, 20)
+      : item.imageUrl ? [item.imageUrl] : [];
+
     const existing = await db.marketplaceProduct.findUnique({
       where: { integrationId_externalId: { integrationId, externalId: item.externalId } },
+      include: { product: { select: { id: true, sellingPrice: true } } },
     });
+
+    if (settings.skipExisting && existing?.productId) {
+      skipped++;
+      await db.marketplaceImportLog.create({
+        data: {
+          integrationId, productId: existing.productId, externalId: item.externalId,
+          sourceUrl: item.sourceUrl ?? null, title: item.title, status: 'SKIPPED',
+          automatic: Boolean(settings.automatic), sourceCost: cost, sellingPrice: sellingPrice || null,
+          importedImages: 0, error: null,
+        },
+      });
+      continue;
+    }
+    if (settings.skipOutOfStock && provider === 'SHOPIFY' && Number(raw.totalInventory ?? 0) <= 0) {
+      skipped++;
+      await db.marketplaceImportLog.create({ data: {
+        integrationId, productId: existing?.productId ?? null, externalId: item.externalId,
+        sourceUrl: item.sourceUrl ?? null, title: item.title, status: 'SKIPPED',
+        automatic: Boolean(settings.automatic), sourceCost: cost, sellingPrice: sellingPrice || null,
+        importedImages: 0, error: 'Out of stock',
+      }});
+      continue;
+    }
+    if (settings.skipWithoutImages && imageUrls.length === 0) {
+      skipped++;
+      await db.marketplaceImportLog.create({ data: {
+        integrationId, productId: existing?.productId ?? null, externalId: item.externalId,
+        sourceUrl: item.sourceUrl ?? null, title: item.title, status: 'SKIPPED',
+        automatic: Boolean(settings.automatic), sourceCost: cost, sellingPrice: sellingPrice || null,
+        importedImages: 0, error: 'No images',
+      }});
+      continue;
+    }
+    if (settings.skipWithoutPrice && !cost) {
+      skipped++;
+      await db.marketplaceImportLog.create({ data: {
+        integrationId, productId: existing?.productId ?? null, externalId: item.externalId,
+        sourceUrl: item.sourceUrl ?? null, title: item.title, status: 'SKIPPED',
+        automatic: Boolean(settings.automatic), sourceCost: null, sellingPrice: null,
+        importedImages: 0, error: 'No source price',
+      }});
+      continue;
+    }
 
     let productId = existing?.productId ?? null;
     const collections = Array.isArray(raw.collections?.nodes) ? raw.collections.nodes : [];
@@ -118,6 +174,7 @@ export async function importItems(integrationId: string, provider: string, items
       categoryId = category.id;
     }
 
+    let action: 'CREATED' | 'UPDATED' = 'CREATED';
     if (!productId) {
       const baseSlug = slugify(item.title);
       let slug = baseSlug;
@@ -142,6 +199,8 @@ export async function importItems(integrationId: string, provider: string, items
       productId = product.id;
       imported++;
     } else {
+      action = 'UPDATED';
+      const oldSellingPrice = Number(existing?.product?.sellingPrice ?? 0);
       await db.product.update({
         where: { id: productId },
         data: {
@@ -154,24 +213,55 @@ export async function importItems(integrationId: string, provider: string, items
         },
       });
       updated++;
+      if (sellingPrice > 0 && oldSellingPrice !== sellingPrice) {
+        await db.productPriceHistory.create({
+          data: {
+            productId,
+            sourceCost: cost,
+            oldSellingPrice,
+            newSellingPrice: sellingPrice,
+            markupPercent: Number(settings.markupPercent ?? 0),
+            reason: 'MARKETPLACE_IMPORT',
+            changedBy: settings.changedBy ?? 'MARKETPLACE_IMPORT',
+          },
+        });
+      }
+    }
+
+    let importedImages = 0;
+    if (productId) {
+      for (const url of imageUrls) {
+        const exists = await db.productImage.findFirst({ where: { productId, url } });
+        if (!exists) {
+          await db.productImage.create({ data: { productId, url, altText: item.title, sortOrder: importedImages } });
+          importedImages++;
+        }
+      }
     }
 
     await db.marketplaceProduct.upsert({
       where: { integrationId_externalId: { integrationId, externalId: item.externalId } },
-      update: { productId, title: item.title, sourceUrl: item.sourceUrl ?? null, rawData: item.rawData as any },
-      create: { integrationId, externalId: item.externalId, productId, title: item.title, sourceUrl: item.sourceUrl ?? null, rawData: item.rawData as any },
+      update: {
+        productId, title: item.title, sourceUrl: item.sourceUrl ?? null,
+        rawData: item.rawData as any, lastSourceCost: cost,
+        sourceAvailability: provider === 'SHOPIFY' ? (Number(raw.totalInventory ?? 0) > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK') : 'UNKNOWN',
+        lastCheckedAt: new Date(), lastCheckError: null,
+      },
+      create: {
+        integrationId, externalId: item.externalId, productId, title: item.title,
+        sourceUrl: item.sourceUrl ?? null, rawData: item.rawData as any, lastSourceCost: cost,
+        sourceAvailability: provider === 'SHOPIFY' ? (Number(raw.totalInventory ?? 0) > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK') : 'UNKNOWN',
+        lastCheckedAt: new Date(),
+      },
     });
 
-    if (productId && provider === 'SHOPIFY' && Array.isArray(raw.images?.nodes)) {
-      const urls = raw.images.nodes.map((x: any) => String(x?.url || '')).filter(Boolean);
-      for (const url of urls.slice(0, 20)) {
-        const exists = await db.productImage.findFirst({ where: { productId, url } });
-        if (!exists) await db.productImage.create({ data: { productId, url, altText: item.title } });
-      }
-    } else if (item.imageUrl && productId) {
-      const image = await db.productImage.findFirst({ where: { productId } });
-      if (!image) await db.productImage.create({ data: { productId, url: item.imageUrl, altText: item.title } });
-    }
+    await db.marketplaceImportLog.create({
+      data: {
+        integrationId, productId, externalId: item.externalId, sourceUrl: item.sourceUrl ?? null,
+        title: item.title, status: action, automatic: Boolean(settings.automatic),
+        sourceCost: cost, sellingPrice: sellingPrice || null, importedImages,
+      },
+    });
   }
   return { imported, updated, skipped };
 }
@@ -198,7 +288,7 @@ async function amazonItems(settings: Settings, credentials: Record<string, unkno
     externalId: String(x.asin || x.itemId || x.identifiers?.marketplaceASIN?.asin),
     title: x.summaries?.[0]?.itemName || x.title || 'Amazon product',
     sourceUrl: x.asin ? `https://www.amazon.in/dp/${x.asin}` : null,
-    sourceCost: Number(x.offers?.[0]?.price?.amount ?? x.salesRanks?.[0]?.rank ?? 0) || null,
+    sourceCost: Number(x.offers?.[0]?.price?.amount ?? 0) || null,
     imageUrl: x.images?.[0]?.images?.[0]?.link || x.images?.[0]?.link || null,
     rawData: x,
   })).filter((x: SyncItem) => x.externalId);
