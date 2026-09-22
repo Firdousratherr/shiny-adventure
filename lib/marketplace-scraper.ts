@@ -8,6 +8,7 @@ export type ScrapedMarketplaceProduct = {
   description: string;
   sourceCost: number;
   images: string[];
+  categoryName?: string;
   availability: 'AVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN';
 };
 
@@ -81,6 +82,56 @@ function firstNumber(values: unknown[]): number | null {
     if (Number.isFinite(n) && n > 0 && n < 100000000) return n;
   }
   return null;
+}
+
+function normalizeCategoryName(value: unknown) {
+  if (typeof value !== 'string') return '';
+  const text = cleanText(value, 120)
+    .replace(/\s*(?:›|»|→|->)\s*/g, ' > ')
+    .replace(/\s*\/\s*/g, ' > ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text || text.length < 2) return '';
+  if (/^(home|homepage|shop|products?|catalogue|catalog|all categories?)$/i.test(text)) return '';
+  return text.split(/\s*>\s*/).map(v => v.trim()).filter(Boolean).pop()?.slice(0, 80) || '';
+}
+
+function sourceCategory(provider: 'AMAZON' | 'FLIPKART' | 'MEESHO', html: string, jsonLd: any, nextData: any) {
+  const structured = [
+    jsonLd?.category,
+    jsonLd?.categoryName,
+    meta(html, 'product:category'),
+    meta(html, 'category'),
+    meta(html, 'og:category'),
+    meta(html, 'twitter:category'),
+    ...walkStrings(nextData, [
+      'categoryName',
+      'category_name',
+      'subCategoryName',
+      'subcategoryName',
+      'sub_category_name',
+      'categoryTitle',
+      'category',
+    ], 5000),
+  ];
+
+  for (const candidate of structured) {
+    const value = normalizeCategoryName(candidate);
+    if (value) return value;
+  }
+
+  const breadcrumbMatches = [
+    ...html.matchAll(/<(?:nav|div|ol|ul)[^>]*(?:breadcrumb|wayfinding)[^>]*>([\s\S]*?)<\/(?:nav|div|ol|ul)>/gi),
+  ];
+  for (const match of breadcrumbMatches) {
+    const parts = cleanText(match[1], 2000).split(/\s*(?:›|»|→|>|\/)\s*/).map(v => v.trim()).filter(Boolean);
+    for (const candidate of [...parts].reverse()) {
+      const value = normalizeCategoryName(candidate);
+      if (value) return value;
+    }
+  }
+
+  return '';
 }
 
 function uniqueImages(values: unknown[], provider?: 'AMAZON' | 'FLIPKART' | 'MEESHO') {
@@ -198,6 +249,7 @@ function parseProduct(provider: 'AMAZON' | 'FLIPKART' | 'MEESHO', url: string, h
   const product = jsonLd.find(x => x?.['@type'] === 'Product' || (Array.isArray(x?.['@type']) && x['@type'].includes('Product'))) || {};
   const offers = Array.isArray(product.offers) ? product.offers[0] : product.offers;
   const nextData = extractNextData(html);
+  const categoryName = sourceCategory(provider, html, product, nextData);
 
   const name = cleanText(product.name, 220)
     || cleanText(meta(html, 'og:title'), 220)
@@ -257,7 +309,7 @@ function parseProduct(provider: 'AMAZON' | 'FLIPKART' | 'MEESHO', url: string, h
   const available = !unavailable && /in stock|add to cart|buy now|available for purchase/.test(bodyText);
   const availability = unavailable ? 'UNAVAILABLE' : available ? 'AVAILABLE' : 'UNKNOWN';
 
-  return { provider, externalId: id, sourceUrl: url, name, description, sourceCost, images, availability };
+  return { provider, externalId: id, sourceUrl: url, name, description, sourceCost, images, categoryName: categoryName || undefined, availability };
 }
 
 export async function scrapeMarketplaceProduct(sourceUrl: string) {
