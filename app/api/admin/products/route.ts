@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { db } from '../../../../lib/db';
 import { recordAdminAudit } from '../../../../lib/admin-audit';
+import { adjustInventory } from '../../../../lib/inventory';
 
 async function admin() { return requireAdminPermission('products'); }
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
@@ -47,6 +48,7 @@ export async function PATCH(request: Request) {
     const id = typeof b.id === 'string' ? b.id : '';
     if (!id) return NextResponse.json({ error: 'Product ID is required.' }, { status: 400 });
     const data: Prisma.ProductUpdateInput = {};
+    let requestedStock: number | undefined;
     if (b.name !== undefined) { if (typeof b.name !== 'string' || !b.name.trim()) return NextResponse.json({ error: 'Product name is required.' }, { status: 400 }); data.name = b.name.trim().slice(0, 200); }
     if (b.metaTitle !== undefined) data.metaTitle = typeof b.metaTitle === 'string' ? b.metaTitle.trim().slice(0,160) || null : null;
     if (b.metaDescription !== undefined) data.metaDescription = typeof b.metaDescription === 'string' ? b.metaDescription.trim().slice(0,320) || null : null;
@@ -56,7 +58,7 @@ export async function PATCH(request: Request) {
     if (b.slug !== undefined) { const slug = slugify(String(b.slug)); if (!slug) return NextResponse.json({ error: 'Invalid slug.' }, { status: 400 }); data.slug = slug; }
     if (b.sellingPrice !== undefined) { const p = price(b.sellingPrice); if (!p) return NextResponse.json({ error: 'Invalid selling price.' }, { status: 400 }); data.sellingPrice = p; }
     if (b.sourceCost !== undefined) { const p = b.sourceCost === '' || b.sourceCost === null ? null : price(b.sourceCost); if (b.sourceCost !== '' && b.sourceCost !== null && !p) return NextResponse.json({ error: 'Invalid source cost.' }, { status: 400 }); data.sourceCost = p; }
-    if (b.stock !== undefined) { const n = Number(b.stock); if (!Number.isSafeInteger(n) || n < 0) return NextResponse.json({ error: 'Invalid stock.' }, { status: 400 }); data.stock = n; }
+    if (b.stock !== undefined) { const n = Number(b.stock); if (!Number.isSafeInteger(n) || n < 0) return NextResponse.json({ error: 'Invalid stock.' }, { status: 400 }); requestedStock = n; }
     if (b.featured !== undefined) { if (typeof b.featured !== 'boolean') return NextResponse.json({ error: 'Invalid featured value.' }, { status: 400 }); data.featured = b.featured; }
     if (b.status !== undefined) { if (!validStatus(b.status)) return NextResponse.json({ error: 'Invalid product status.' }, { status: 400 }); data.status = b.status; }
     const currentProduct = await db.product.findUnique({ where: { id }, select: { stock: true, status: true, sellingPrice: true, sourceCost: true, name: true, slug: true, description: true, metaTitle: true, metaDescription: true, canonicalUrl: true, categoryId: true, supplierId: true, featured: true } });
@@ -88,10 +90,20 @@ export async function PATCH(request: Request) {
       await recordAdminAudit({ adminId: adminAccess.id, adminEmail: adminAccess.email, action: 'PRICE_CHANGE_REQUESTED', entityType: 'PRODUCT', entityId: id, details: { approvalId: approval.id, productName: current.name } });
       return NextResponse.json({ pendingApproval: true, approvalId: approval.id, message: 'Price change submitted for Super Admin approval.' }, { status: 202 });
     }
-    const nextStock = typeof data.stock === 'number' ? data.stock : current.stock;
+    const nextStock = requestedStock ?? current.stock;
     const nextStatus = typeof data.status === 'string' ? data.status : current.status;
     if (nextStatus === 'ACTIVE' && nextStock === 0) return NextResponse.json({ error: 'An active product must have stock greater than zero.' }, { status: 400 });
-    const product = await db.product.update({ where: { id }, data });
+    const product = await db.$transaction(async tx => {
+      const updated = await tx.product.update({ where: { id }, data });
+      if (requestedStock !== undefined && requestedStock !== current.stock) {
+        await adjustInventory(tx, {
+          productId: id,
+          quantity: requestedStock - current.stock,
+          reason: 'ADMIN_ADJUSTMENT',
+        });
+      }
+      return tx.product.findUniqueOrThrow({ where: { id } });
+    });
     await db.productVersion.create({ data: { productId: product.id, changedBy: adminAccess.email, reason: actualPriceChange ? 'Pricing update' : 'Product update', snapshot: { name: product.name, slug: product.slug, description: product.description, sellingPrice: product.sellingPrice.toString(), sourceCost: product.sourceCost?.toString() ?? null, stock: product.stock, status: product.status, categoryId: product.categoryId, supplierId: product.supplierId, featured: product.featured } } });
     await recordAdminAudit({
       adminId: adminAccess.id,
