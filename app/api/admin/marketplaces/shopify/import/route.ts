@@ -82,8 +82,15 @@ export async function POST(request:Request){
       imageUrl:x.images?.nodes?.[0]?.url||null,rawData:x
     }));
     const missing=productIds.length-items.length;
+    const savedSettings = integration.settings && typeof integration.settings === 'object' && !Array.isArray(integration.settings)
+      ? integration.settings as Record<string, unknown>
+      : {};
+    const categoryMappings = savedSettings.categoryMappings && typeof savedSettings.categoryMappings === 'object' && !Array.isArray(savedSettings.categoryMappings)
+      ? savedSettings.categoryMappings as Record<string, string>
+      : undefined;
     const importSettings = {
       ...rules,
+      categoryMappings,
       maxItemsPerSync: items.length,
       automatic:false,
       changedBy:admin.email||'ADMIN',
