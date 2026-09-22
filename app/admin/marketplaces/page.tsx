@@ -53,7 +53,19 @@ export default function MarketplacesPage() {
       const r = await fetch('/api/admin/marketplaces', { cache: 'no-store' }); const j = await r.json();
       if (r.status === 403) { setForbidden(true); return; }
       if (!r.ok) throw new Error(j.error || 'Unable to load Shopify.');
-      setIntegration((j.integrations?.[0] ?? null) as Integration | null);
+      const nextIntegration = (j.integrations?.[0] ?? null) as Integration | null;
+      setIntegration(nextIntegration);
+      const saved = nextIntegration?.settings ?? {};
+      setRules(current => ({
+        ...current,
+        ...saved,
+        minSourcePrice: saved.minSourcePrice === undefined ? current.minSourcePrice : String(saved.minSourcePrice),
+        maxSourcePrice: saved.maxSourcePrice === undefined ? current.maxSourcePrice : String(saved.maxSourcePrice),
+        minInventory: saved.minInventory === undefined ? current.minInventory : String(saved.minInventory),
+        roundingValue: saved.roundingValue === undefined ? current.roundingValue : String(saved.roundingValue),
+        minSellingPrice: saved.minSellingPrice === undefined ? current.minSellingPrice : String(saved.minSellingPrice),
+        maxSellingPrice: saved.maxSellingPrice === undefined ? current.maxSellingPrice : String(saved.maxSellingPrice),
+      }));
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to load Shopify.'); }
     finally { setLoading(false); }
   };
@@ -114,6 +126,12 @@ export default function MarketplacesPage() {
     importDescriptions: rules.importDescriptions,
     importInventory: rules.importInventory,
   });
+
+  const saveRules = async () => {
+    const payload = buildRules();
+    await update({ settings: payload });
+    setMessage('Advanced import rules saved for automatic sync.');
+  };
 
   const getIdsForImport = async () => {
     if (scope === 'selected') return selectedProducts;
@@ -190,8 +208,10 @@ export default function MarketplacesPage() {
           <div className="mt-5 grid gap-3">{visible.slice(0,100).map(p=><label key={p.id} className="flex gap-3 rounded-2xl border border-white/10 bg-black/10 p-3"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={e=>setSelectedProducts(v=>e.target.checked?[...v,p.id]:v.filter(x=>x!==p.id))} className="mt-2"/><div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-900">{p.imageUrl&&<img src={p.imageUrl} alt="" className="h-full w-full object-cover"/>}</div><div className="min-w-0 flex-1"><div className="flex gap-2"><b className="truncate text-sm">{p.title}</b>{p.imported&&<span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black text-emerald-300">IMPORTED</span>}</div><p className="mt-1 truncate text-[10px] text-slate-500">{p.productType||'Uncategorized'} · {p.vendor||'No vendor'} · Stock {p.inventory}</p><p className="mt-1 text-xs font-bold">₹{p.price.toFixed(2)}</p></div></label>)}{!visible.length&&<p className="py-8 text-center text-sm text-slate-500">No products found.</p>}</div>
         </section>
         <section className="mt-5 rounded-3xl border border-white/10 bg-white/[.04] p-5 sm:p-7">
-          <p className="text-xs font-black uppercase tracking-[.18em] text-indigo-400">3 · Import rules</p>
-          <h2 className="mt-1 text-xl font-black">Pricing, protection & filters</h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div><p className="text-xs font-black uppercase tracking-[.18em] text-indigo-400">3 · Import rules</p><h2 className="mt-1 text-xl font-black">Pricing, protection & filters</h2></div>
+            <button onClick={saveRules} disabled={busy} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-black">{busy?'Saving…':'Save for automatic sync'}</button>
+          </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-[10px] font-black uppercase text-slate-500">Mode<select value={rules.mode} onChange={e=>setRule('mode',e.target.value as ImportMode)} className="mt-1.5 h-11 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 text-sm"><option value="CREATE_AND_UPDATE">Create + update</option><option value="CREATE_ONLY">Create only</option><option value="UPDATE_ONLY">Update only</option></select></label>
             <label className="text-[10px] font-black uppercase text-slate-500">Markup %<input type="number" min="0" step=".1" value={rules.markupPercent} onChange={e=>setRule('markupPercent',Number(e.target.value))} className="mt-1.5 h-11 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 text-sm"/></label>
