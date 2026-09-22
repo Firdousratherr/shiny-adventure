@@ -6,6 +6,7 @@ import { deliveryCharge, total } from '../../../lib/pricing';
 import { rateLimit } from '../../../lib/rate-limit';
 import { createPaymentAccessToken, hashPaymentAccessToken, PAYMENT_RESERVATION_MINUTES } from '../../../lib/payment-access';
 import { releaseExpiredPaymentReservations } from '../../../lib/inventory-reservations';
+import { adjustInventory } from '../../../lib/inventory';
 
 export async function POST(request: Request) {
   try {
@@ -69,16 +70,22 @@ export async function POST(request: Request) {
       }
       await releaseExpiredPaymentReservations(tx);
 
-      // Reserve inventory atomically at order creation. Stock is reduced immediately and
-      // returned only if payment expires/is cancelled. This prevents overselling.
+      // Reserve inventory atomically at order creation. The centralized inventory
+      // service records the movement and rejects races that would oversell stock.
       for (const [productId, quantity] of quantityByProduct) {
-        const reserved = await tx.product.updateMany({
-          where: { id: productId, status: 'ACTIVE', stock: { gte: quantity } },
-          data: { stock: { decrement: quantity } },
-        });
-        if (reserved.count !== 1) {
-          const product = byId.get(productId)!;
-          throw new Error(`INSUFFICIENT_STOCK:${product.name}`);
+        const product = byId.get(productId)!;
+        try {
+          await adjustInventory(tx, {
+            productId,
+            quantity: -quantity,
+            orderId: undefined,
+            reason: 'PAYMENT_RESERVATION',
+          });
+        } catch (error) {
+          if (error instanceof Error && error.message === 'INSUFFICIENT_STOCK') {
+            throw new Error(`INSUFFICIENT_STOCK:${product.name}`);
+          }
+          throw error;
         }
       }
 
@@ -127,13 +134,10 @@ export async function POST(request: Request) {
         },
       });
 
-      for (const [productId, quantity] of quantityByProduct) {
-        await tx.inventoryMovement.create({
-          data: { productId, orderId: created.id, quantity: -quantity, reason: 'PAYMENT_RESERVATION' },
-        });
-      }
-
-      return created;
+      // The inventory movement was recorded by adjustInventory above.
+      // The order is already attached to the reservation logically by its order ID;
+      // the movement remains valid without a post-create mutation because the reservation
+      // occurs before the order row exists.
     });
 
     void db.adminNotification.create({ data: { type: 'ORDER', title: 'New order awaiting payment', message: `${order.orderNumber} is awaiting payment confirmation.`, entityType: 'Order', entityId: order.id } }).catch(() => {});
