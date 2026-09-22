@@ -28,8 +28,6 @@ export default function MarketplacesPage() {
   const [scope, setScope] = useState<'selected' | 'collections' | 'all'>('selected');
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [markup, setMarkup] = useState(0);
-  const [fixed, setFixed] = useState(0);
   const [search, setSearch] = useState('');
   const [rules, setRules] = useState({
     mode: 'CREATE_AND_UPDATE' as ImportMode, markupPercent: 0, fixedAmount: 0,
@@ -165,7 +163,7 @@ export default function MarketplacesPage() {
         setMessage('Importing… ' + Math.min(i + 100, ids.length) + '/' + ids.length + ' | created ' + created + ', updated ' + updated + ', skipped ' + skipped + ', failed ' + failed);
       }
       setMessage(cancelRequested.current
-        ? 'Paused after the last completed batch. Created ' + created + ', updated ' + updated + ', skipped ' + skipped + '.'
+        ? 'Stopped after the last completed batch. Created ' + created + ', updated ' + updated + ', skipped ' + skipped + '.'
         : 'Import complete: ' + created + ' created, ' + updated + ' updated, ' + skipped + ' skipped, ' + failed + ' failed.');
       setPreview([]);
       await loadCatalog(); await load();
@@ -248,11 +246,12 @@ export default function MarketplacesPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div><p className="text-xs font-black uppercase tracking-[.18em] text-indigo-400">5 · Confirm & import</p><h2 className="mt-1 text-xl font-black">{scope==='selected'?selectedProducts.length:products.length} product(s)</h2><p className="mt-1 text-xs text-slate-500">Preview is required. The server validates the same rules again.</p></div>
             <div className="flex gap-2">
-              {importing&&<button onClick={()=>{cancelRequested.current=true;}} className="rounded-xl border border-amber-400/20 px-4 py-3 text-xs font-black text-amber-300">Pause after batch</button>}
+              {importing&&<button onClick={()=>{cancelRequested.current=true;}} className="rounded-xl border border-amber-400/20 px-4 py-3 text-xs font-black text-amber-300">Stop after batch</button>}
               <button onClick={importProducts} disabled={importing||!preview.length||(scope==='selected'&&!selectedProducts.length)} className="rounded-2xl bg-white px-6 py-3 text-xs font-black text-slate-950 disabled:opacity-30">{importing?'Importing…':'Confirm & import'}</button>
             </div>
           </div>
         </section>
+      </>}
       <section className="mt-5 rounded-3xl border border-white/10 bg-white/[.03] p-5 sm:p-7"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[.18em] text-indigo-400">Automatic sync</p><h2 className="mt-1 text-xl font-black">Keep imported products updated</h2><p className="mt-2 text-xs leading-5 text-slate-500">This is separate from the controlled importer. Use it for future product/stock updates.</p></div><button onClick={sync} disabled={busy||!ready||!integration?.enabled} className="rounded-xl bg-white px-5 py-3 text-xs font-black text-slate-950 disabled:opacity-30">{busy?'Working…':'Sync Shopify now'}</button></div><div className="mt-5 grid gap-4 sm:grid-cols-3"><label className="text-[10px] font-black uppercase text-slate-500">Markup %<input type="number" min="0" step=".1" value={settings.markupPercent??0} onChange={e=>update({settings:{...settings,markupPercent:Number(e.target.value)}})} className="mt-1.5 h-11 w-full rounded-2xl border border-white/10 bg-slate-900 px-4"/></label><label className="text-[10px] font-black uppercase text-slate-500">Fixed amount<input type="number" min="0" value={settings.fixedAmount??0} onChange={e=>update({settings:{...settings,fixedAmount:Number(e.target.value)}})} className="mt-1.5 h-11 w-full rounded-2xl border border-white/10 bg-slate-900 px-4"/></label><label className="text-[10px] font-black uppercase text-slate-500">Interval<select value={integration?.syncIntervalMinutes??1440} onChange={e=>update({syncIntervalMinutes:Number(e.target.value)})} className="mt-1.5 h-11 w-full rounded-2xl border border-white/10 bg-slate-900 px-4"><option value="60">1 hour</option><option value="180">3 hours</option><option value="360">6 hours</option><option value="720">12 hours</option><option value="1440">Daily</option></select></label></div><label className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-xs"><span><b className="block">Automatic sync</b><span className="text-[10px] text-slate-500">Uses configured server cron.</span></span><input type="checkbox" checked={Boolean(integration?.autoSync)} disabled={busy||!integration?.enabled} onChange={e=>update({autoSync:e.target.checked})}/></label></section>
     </div></main>;
 }
