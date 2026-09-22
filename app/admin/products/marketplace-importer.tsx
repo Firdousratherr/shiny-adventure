@@ -14,9 +14,18 @@ type Preview = {
   markupPercent: number;
   automatic: boolean;
   scrapeWarning?: string;
+  sourceCategoryName?: string;
+  matchedCategoryId?: string;
+  matchedCategoryName?: string;
 };
 
-export default function MarketplaceImporter() {
+type CategoryOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+export default function MarketplaceImporter({ categories }: { categories: CategoryOption[] }) {
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
   const [sourceCost, setSourceCost] = useState('');
@@ -26,6 +35,7 @@ export default function MarketplaceImporter() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
 
   const request = async (action: 'preview' | 'import') => {
     setBusy(true);
@@ -42,12 +52,14 @@ export default function MarketplaceImporter() {
           description,
           markupPercent: Number(markup),
           imageUrls: imageUrls.split(/\r?\n|,/).map(v => v.trim()).filter(Boolean),
+          categoryId: selectedCategoryId || undefined,
         }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Unable to process product.');
       if (action === 'preview') {
         setPreview(j.product);
+        setSelectedCategoryId(j.product.matchedCategoryId || '');
         if (j.product.title) setName(j.product.title);
         if (j.product.description) setDescription(j.product.description);
         if (j.product.sourceCost) setSourceCost(String(j.product.sourceCost));
@@ -123,7 +135,19 @@ export default function MarketplaceImporter() {
                 <span className="rounded-full bg-white px-3 py-1 font-bold">Zenvora ₹{Number(preview.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
               {preview.scrapeWarning && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800">{preview.scrapeWarning} Review the manually supplied fields before importing.</p>}
-              <p className="mt-3 text-xs text-slate-500">The product is created as DRAFT with stock 0. Images are copied to Vercel Blob when possible.</p>
+              <div className="mt-3 rounded-xl border bg-white p-3">
+                <label className="text-xs font-black uppercase tracking-wide text-slate-500">Zenvora category</label>
+                {preview.sourceCategoryName ? (
+                  <p className="mt-1 text-xs text-slate-600">Source category detected: <b>{preview.sourceCategoryName}</b>{preview.matchedCategoryName ? <> · matched to <b>{preview.matchedCategoryName}</b></> : ' · no matching Zenvora category found.'}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-600">Source category was not detected. Choose a category manually; no new category will be created automatically.</p>
+                )}
+                <select value={selectedCategoryId} onChange={e => setSelectedCategoryId(e.target.value)} className="mt-2 w-full rounded-xl border px-3 py-3">
+                  <option value="">Leave uncategorized</option>
+                  {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+              </div>
+              <p className="mt-3 text-xs text-slate-500">The product is created as DRAFT with stock 0. Images are copied to Vercel Blob when possible. Imports no longer create categories automatically.</p>
               <button disabled={busy} onClick={() => request('import')} className="mt-4 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">{busy ? 'Importing…' : 'Import to Zenvora'}</button>
             </div>
           </div>
