@@ -72,15 +72,17 @@ export async function POST(request: Request) {
 
       // Reserve inventory atomically at order creation. The centralized inventory
       // service records the movement and rejects races that would oversell stock.
+      const reservationMovements: string[] = [];
       for (const [productId, quantity] of quantityByProduct) {
         const product = byId.get(productId)!;
         try {
-          await adjustInventory(tx, {
+          const movement = await adjustInventory(tx, {
             productId,
             quantity: -quantity,
             orderId: undefined,
             reason: 'PAYMENT_RESERVATION',
           });
+          reservationMovements.push(movement.id);
         } catch (error) {
           if (error instanceof Error && error.message === 'INSUFFICIENT_STOCK') {
             throw new Error(`INSUFFICIENT_STOCK:${product.name}`);
@@ -134,10 +136,15 @@ export async function POST(request: Request) {
         },
       });
 
-      // The inventory movement was recorded by adjustInventory above.
-      // The order is already attached to the reservation logically by its order ID;
-      // the movement remains valid without a post-create mutation because the reservation
-      // occurs before the order row exists.
+      for (const movementId of reservationMovements) {
+        await tx.inventoryMovement.update({
+          where: { id: movementId },
+          data: { orderId: created.id },
+        });
+      }
+
+      // Inventory was reserved atomically before the order was created. Both operations
+      // are in the same transaction, so a failed order creation rolls the reservation back.
     });
 
     void db.adminNotification.create({ data: { type: 'ORDER', title: 'New order awaiting payment', message: `${order.orderNumber} is awaiting payment confirmation.`, entityType: 'Order', entityId: order.id } }).catch(() => {});
