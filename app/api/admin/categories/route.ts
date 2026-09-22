@@ -44,12 +44,49 @@ export async function DELETE(request: Request) {
   try {
     const b = await request.json();
     if (typeof b.id !== 'string' || !b.id) return NextResponse.json({ error: 'Category ID is required.' }, { status: 400 });
+
+    const category = await db.category.findUnique({ where: { id: b.id }, select: { id: true } });
+    if (!category) return NextResponse.json({ error: 'Category not found.' }, { status: 404 });
+
+    const replacementCategoryId =
+      typeof b.replacementCategoryId === 'string' && b.replacementCategoryId.trim()
+        ? b.replacementCategoryId.trim()
+        : null;
+
     const productCount = await db.product.count({ where: { categoryId: b.id } });
-    if (productCount > 0) {
-      return NextResponse.json({ error: `Cannot delete this category because ${productCount} product(s) are assigned to it. Reassign those products first.` }, { status: 409 });
+
+    if (replacementCategoryId && replacementCategoryId === b.id) {
+      return NextResponse.json({ error: 'Replacement category must be different from the category being deleted.' }, { status: 400 });
     }
-    await db.category.delete({ where: { id: b.id } });
-    return NextResponse.json({ ok: true, id: b.id });
+
+    if (productCount > 0 && !replacementCategoryId) {
+      return NextResponse.json(
+        {
+          error: `This category has ${productCount} product(s). Choose another category to move them into before deleting it.`,
+          code: 'CATEGORY_HAS_PRODUCTS',
+          productCount,
+        },
+        { status: 409 },
+      );
+    }
+
+    if (replacementCategoryId) {
+      const replacement = await db.category.findUnique({ where: { id: replacementCategoryId }, select: { id: true } });
+      if (!replacement) return NextResponse.json({ error: 'Replacement category not found.' }, { status: 404 });
+    }
+
+    const reassigned = replacementCategoryId
+      ? await db.$transaction(async tx => {
+          const result = await tx.product.updateMany({
+            where: { categoryId: b.id },
+            data: { categoryId: replacementCategoryId },
+          });
+          await tx.category.delete({ where: { id: b.id } });
+          return result.count;
+        })
+      : await db.category.delete({ where: { id: b.id } }).then(() => 0);
+
+    return NextResponse.json({ ok: true, id: b.id, reassigned });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') return NextResponse.json({ error: 'Category not found.' }, { status: 404 });
     console.error(e);
