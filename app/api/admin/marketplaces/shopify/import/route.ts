@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../../../lib/db';
-import { requireAdminPermission } from '../../../../../lib/admin-access';
-import { credentialStatus, marketplaceCredentials, importItems, previewItems, type ImportMode, type SyncItem } from '../../../../../lib/marketplaces';
-import { getShopifyAccessToken } from '../../../../../lib/shopify';
+import { db } from '../../../../../../lib/db';
+import { requireAdminPermission } from '../../../../../../lib/admin-access';
+import { credentialStatus, marketplaceCredentials, importItems, previewItems, type ImportMode, type SyncItem } from '../../../../../../lib/marketplaces';
+import { getShopifyAccessToken } from '../../../../../../lib/shopify';
 
 const QUERY='query ProductsByIds($ids:[ID!]!) { nodes(ids:$ids) { ... on Product { id title descriptionHtml vendor productType onlineStoreUrl totalInventory images(first:20){nodes{url}} variants(first:100){nodes{id title sku barcode price compareAtPrice inventoryQuantity}} collections(first:10){nodes{id title handle}} } } }';
 
@@ -90,7 +90,7 @@ export async function POST(request:Request){
     };
     if (body.preview === true) {
       const preview = await previewItems(integration.id, 'SHOPIFY', items, importSettings);
-      const summary = preview.reduce((acc, row) => {
+      const summary = preview.reduce<{ total: number; create: number; update: number; skip: number }>((acc, row) => {
         acc.total++;
         if (row.action === 'CREATE') acc.create++;
         else if (row.action === 'UPDATE') acc.update++;
