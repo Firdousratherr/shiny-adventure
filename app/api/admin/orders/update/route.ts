@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       if (target === 'RTO' && !note) throw new Error('RTO_REASON_REQUIRED');
 
       const shouldReleaseReservation = target === 'CANCELLED' && order.status === 'PAYMENT_PENDING';
-      const shouldRestore = target === 'CANCELLED' && order.status === 'CONFIRMED';
+      const shouldRestore = target === 'CANCELLED' && (order.status === 'CONFIRMED' || order.status === 'ORDERED_FROM_SOURCE');
       const shouldRestockRto = target === 'RTO' && order.status === 'SHIPPED';
       if (shouldReleaseReservation) {
         await releasePaymentReservation(tx, order, 'PAYMENT_RESERVATION_RELEASE');
