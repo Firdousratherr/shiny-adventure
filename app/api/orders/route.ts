@@ -145,6 +145,7 @@ export async function POST(request: Request) {
 
       // Inventory was reserved atomically before the order was created. Both operations
       // are in the same transaction, so a failed order creation rolls the reservation back.
+      return created;
     });
 
     void db.adminNotification.create({ data: { type: 'ORDER', title: 'New order awaiting payment', message: `${order.orderNumber} is awaiting payment confirmation.`, entityType: 'Order', entityId: order.id } }).catch(() => {});
