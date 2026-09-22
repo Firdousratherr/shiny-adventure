@@ -59,8 +59,8 @@ export async function marketplaceCredentials(provider: string) {
 export async function credentialStatus(provider: string) {
   const required = REQUIRED_FIELDS[provider] ?? [];
   const envMap = FIELD_ENV[provider] ?? {};
-  const stored = await marketplaceCredentials(provider);
-  return required.length > 0 && required.every(field => Boolean(stored[field] ?? process.env[envMap[field]]));
+  const stored: Record<string, unknown> = await marketplaceCredentials(provider);
+  return required.length > 0 && required.every(field => Boolean(stored[field] || process.env[envMap[field]]));
 }
 
 export function providerCapabilities(provider: string) {
