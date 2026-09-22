@@ -69,7 +69,13 @@ export async function PATCH(request: Request) {
       data.syncIntervalMinutes = minutes;
     }
 
-    const allowedSettings = ['markupPercent', 'fixedAmount', 'maxItemsPerSync', 'syncProducts', 'syncOrders', 'syncInventory'];
+    const allowedSettings = [
+      'markupPercent', 'fixedAmount', 'maxItemsPerSync', 'syncProducts', 'syncOrders', 'syncInventory',
+      'mode', 'skipExisting', 'skipOutOfStock', 'skipWithoutImages', 'skipWithoutPrice',
+      'minSourcePrice', 'maxSourcePrice', 'minInventory', 'roundingMode', 'roundingValue',
+      'minSellingPrice', 'maxSellingPrice', 'protectLockedPrice', 'updatePrice',
+      'importImages', 'importDescriptions', 'importInventory',
+    ];
     const settings = { ...currentSettings };
     for (const key of allowedSettings) {
       if (body.settings && Object.prototype.hasOwnProperty.call(body.settings, key)) settings[key] = body.settings[key];
