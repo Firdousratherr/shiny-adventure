@@ -32,7 +32,7 @@ export async function adjustInventory(
     throw new Error('PRODUCT_NOT_FOUND');
   }
 
-  await tx.inventoryMovement.create({
+  return tx.inventoryMovement.create({
     data: {
       productId: adjustment.productId,
       orderId: adjustment.orderId ?? null,
