@@ -28,11 +28,6 @@ type Integration = {
   capabilities: { products: boolean; orders: boolean; inventory: boolean; note: string };
 };
 
-const SHOPIFY_FIELDS = [
-  { key: 'storeDomain', label: 'Store domain', placeholder: 'your-store.myshopify.com' },
-  { key: 'clientId', label: 'Client ID', secret: true, placeholder: 'Shopify Dev Dashboard client ID' },
-  { key: 'clientSecret', label: 'Client secret', secret: true, placeholder: 'Shopify Dev Dashboard client secret' },
-] as const;
 
 export default function MarketplacesPage() {
   const [integration, setIntegration] = useState<Integration | null>(null);
@@ -41,19 +36,6 @@ export default function MarketplacesPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [forbidden, setForbidden] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(true);
-  const [credentials, setCredentials] = useState<Record<string, string>>({});
-  const [credentialFields, setCredentialFields] = useState<Record<string, boolean>>({});
-
-  const loadCredentialStatus = async () => {
-    try {
-      const r = await fetch('/api/admin/marketplaces/credentials?provider=SHOPIFY', { cache: 'no-store' });
-      const j = await r.json();
-      if (r.ok) setCredentialFields(j.fields || {});
-    } catch {
-      // Keep the main integration view usable if field metadata cannot be loaded.
-    }
-  };
 
   const load = async () => {
     setLoading(true);
@@ -77,74 +59,8 @@ export default function MarketplacesPage() {
   };
 
   useEffect(() => {
-    void Promise.all([load(), loadCredentialStatus()]);
+    void load();
   }, []);
-
-  const saveCredentials = async () => {
-    setBusy(true);
-    setError('');
-    setMessage('');
-    try {
-      const r = await fetch('/api/admin/marketplaces/credentials', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: 'SHOPIFY', credentials }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'Unable to connect Shopify.');
-      setCredentials({});
-      setCredentialFields(j.fields || {});
-      setMessage(j.detail || ('Connected to ' + (j.shopName || 'Shopify') + '.'));
-      setSettingsOpen(false);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to connect Shopify.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const testConnection = async () => {
-    setBusy(true);
-    setError('');
-    setMessage('');
-    try {
-      const r = await fetch('/api/admin/marketplaces/credentials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: 'SHOPIFY' }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'Shopify connection test failed.');
-      setMessage(j.detail || 'Shopify connection is healthy.');
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Shopify connection test failed.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const removeCredentials = async () => {
-    if (!window.confirm('Remove the saved Shopify credentials and disconnect the store?')) return;
-    setBusy(true);
-    setError('');
-    setMessage('');
-    try {
-      const r = await fetch('/api/admin/marketplaces/credentials?provider=SHOPIFY', { method: 'DELETE' });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'Unable to remove Shopify credentials.');
-      setCredentials({});
-      setCredentialFields({});
-      setMessage('Shopify credentials removed.');
-      await load();
-      setSettingsOpen(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to remove Shopify credentials.');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const update = async (patch: Record<string, unknown>) => {
     setBusy(true);
@@ -254,42 +170,22 @@ export default function MarketplacesPage() {
         ) : (
           <>
             <section className="mt-7 rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
-              <button onClick={() => setSettingsOpen(x => !x)} className="flex w-full items-center justify-between text-left">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-400">Connection</p>
-                  <h2 className="mt-1 text-xl font-black">{ready ? 'Shopify credentials saved' : 'Connect your Shopify store'}</h2>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-400">Server connection</p>
+                  <h2 className="mt-1 text-xl font-black">{ready ? 'Shopify is connected' : 'Shopify credentials not configured'}</h2>
+                  <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-500">
+                    Shopify Client ID, Client Secret, and Store Domain are read securely from Vercel server environment variables. They are never entered, stored, or displayed in the admin panel.
+                  </p>
                 </div>
-                <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">{settingsOpen ? 'Hide' : 'Configure'}</span>
-              </button>
-
-              {settingsOpen && (
-                <div className="mt-6">
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    {SHOPIFY_FIELDS.map(field => (
-                      <label key={field.key} className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                        {field.label} {credentialFields[field.key] && <span className="text-emerald-400">• saved</span>}
-                        <input
-                          type={'secret' in field && field.secret ? 'password' : 'text'}
-                          autoComplete="off"
-                          value={credentials[field.key] ?? ''}
-                          onChange={e => setCredentials(current => ({ ...current, [field.key]: e.target.value }))}
-                          placeholder={credentialFields[field.key] ? 'Saved — enter only to replace' : field.placeholder}
-                          className="mt-1.5 h-12 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 text-sm normal-case tracking-normal text-white outline-none focus:border-indigo-400/50"
-                        />
-                      </label>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border border-indigo-400/10 bg-indigo-500/5 p-4 text-xs leading-5 text-slate-400">
-                    <b className="text-slate-200">Important:</b> do not add Shopify Store Domain, Client ID, or Client Secret to Vercel for this setup. Enter them here. Zenvora stores them encrypted and requests the Shopify access token only when needed.
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <button onClick={saveCredentials} disabled={busy} className="rounded-xl bg-indigo-500 px-5 py-3 text-xs font-black text-white disabled:opacity-40">{busy ? 'Connecting…' : 'Save & connect'}</button>
-                    <button onClick={testConnection} disabled={busy || !ready} className="rounded-xl border border-white/10 px-5 py-3 text-xs font-black text-slate-200 disabled:opacity-30">Test connection</button>
-                    <button onClick={removeCredentials} disabled={busy || !ready} className="rounded-xl border border-red-400/20 px-5 py-3 text-xs font-black text-red-300 disabled:opacity-30">Disconnect</button>
-                  </div>
-                  <p className="mt-3 text-[10px] leading-5 text-slate-600">Never paste Shopify secrets into GitHub, source code, screenshots, or chat.</p>
+                <div className={ready ? 'inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black uppercase text-emerald-300' : 'inline-flex shrink-0 items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1.5 text-[10px] font-black uppercase text-amber-300'}>
+                  <span className={ready ? 'h-1.5 w-1.5 rounded-full bg-emerald-300' : 'h-1.5 w-1.5 rounded-full bg-amber-300'} />
+                  {ready ? 'ENV READY' : 'SETUP REQUIRED'}
+                </div>
+              </div>
+              {!ready && (
+                <div className="mt-5 rounded-2xl border border-amber-400/10 bg-amber-500/5 p-4 text-xs leading-5 text-amber-200/80">
+                  Add <b>SHOPIFY_STORE_DOMAIN</b>, <b>SHOPIFY_CLIENT_ID</b>, and <b>SHOPIFY_CLIENT_SECRET</b> to the Vercel Production environment, then redeploy.
                 </div>
               )}
             </section>
@@ -350,8 +246,8 @@ export default function MarketplacesPage() {
 
             <section className="mt-5 rounded-3xl border border-white/10 bg-white/[0.03] p-5 text-xs leading-6 text-slate-500 sm:p-7">
               <h2 className="font-black text-slate-200">Shopify setup</h2>
-              <p className="mt-2">Create/release the Shopify app in the Dev Dashboard, then enter the store domain, Client ID, and Client Secret above. For the client-credentials flow, the app and target store must belong to the same Shopify organization.</p>
-              <p className="mt-2">Zenvora does not need a permanent Shopify access token in Vercel. It requests a short-lived Admin API token server-side when a connection test or sync runs.</p>
+              <p className="mt-2">Configure the Shopify app in the Shopify Dev Dashboard, then add the store domain, Client ID, and Client Secret to the Vercel Production environment. For the client-credentials flow, the app and target store must belong to the same Shopify organization.</p>
+              <p className="mt-2">Zenvora requests a short-lived Shopify Admin API token server-side when a sync runs. The admin panel never handles the client secret.</p>
             </section>
           </>
         )}
