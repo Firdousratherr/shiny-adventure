@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../../../lib/db';
-import { requireAdminPermission } from '../../../../../lib/admin-access';
-import { credentialStatus, marketplaceCredentials } from '../../../../../lib/marketplaces';
-import { getShopifyAccessToken } from '../../../../../lib/shopify';
+import { db } from '../../../../../../lib/db';
+import { requireAdminPermission } from '../../../../../../lib/admin-access';
+import { credentialStatus, marketplaceCredentials } from '../../../../../../lib/marketplaces';
+import { getShopifyAccessToken } from '../../../../../../lib/shopify';
 
 export async function GET() {
  const admin=await requireAdminPermission('marketplaces'); if(!admin)return NextResponse.json({error:'Marketplace permission required.'},{status:403});
