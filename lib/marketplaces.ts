@@ -541,7 +541,7 @@ async function flipkartItems(settings: Settings, credentials: Record<string, unk
 
 async function shopifyItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
   const { domain, accessToken } = await getShopifyAccessToken(credentials);
-  const query = `query { products(first: 100) { nodes { id title descriptionHtml onlineStoreUrl totalInventory images(first: 10) { nodes { url } } variants(first: 1) { nodes { price } } } } }`;
+  const query = `query { products(first: 100) { nodes { id title descriptionHtml onlineStoreUrl totalInventory images(first: 20) { nodes { url } } variants(first: 1) { nodes { price } } } } }`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
