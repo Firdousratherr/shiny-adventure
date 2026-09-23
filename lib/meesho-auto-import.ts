@@ -25,7 +25,7 @@ function clean(value: unknown) {
 }
 
 function parseLocs(xml: string) {
-  return [...xml.matchAll(/<loc>\\s*([^<]+?)\\s*<\\/loc>/gi)].map(m => m[1].trim()).filter(Boolean);
+  return [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map(m => m[1].trim()).filter(Boolean);
 }
 
 async function scrapingBee(url: string, timeoutMs = 60000) {
@@ -60,7 +60,7 @@ async function loadSitemapShards(settings: MeeshoAutoSettings) {
   if (cached.length && Number.isFinite(freshAt) && Date.now() - freshAt < 24 * 60 * 60 * 1000) return cached;
 
   const xml = await scrapingBee(SITEMAP_INDEX);
-  const shards = parseLocs(xml).filter(url => /\\/sitemap\\/pdp\\//i.test(url));
+  const shards = parseLocs(xml).filter(url => /\/sitemap\/pdp\//i.test(url));
   if (!shards.length) throw new Error('Meesho sitemap did not return product shards.');
   return shards;
 }
@@ -105,7 +105,7 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
 
     for (const url of urls) {
       if (products.length >= maxItems) break;
-      if (!/^https?:\\/\\/www\\.meesho\\.com\\/.+\\/p\\//i.test(url)) continue;
+      if (!/^https?:\/\/www\.meesho\.com\/.+\/p\//i.test(url)) continue;
       urlsScanned++;
       try {
         const item = await scrapeMarketplaceProduct(url);
