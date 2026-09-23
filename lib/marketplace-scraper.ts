@@ -225,25 +225,44 @@ async function scraperFetch(url: string, provider: string) {
   const apiKey = process.env.SCRAPINGBEE_API_KEY?.trim();
   if (!apiKey) throw new Error('Automatic scraping is not configured. Add SCRAPINGBEE_API_KEY in Vercel, or enter title and price manually.');
 
-  const endpoint = new URL('https://app.scrapingbee.com/api/v1/');
-  endpoint.searchParams.set('url', url);
-  endpoint.searchParams.set('mode', 'auto');
-  endpoint.searchParams.set('max_cost', process.env.SCRAPINGBEE_MAX_COST?.trim() || '75');
-  endpoint.searchParams.set('country_code', 'in');
-  endpoint.searchParams.set('wait_browser', 'load');
-  endpoint.searchParams.set('wait', provider === 'AMAZON' ? '2000' : '1500');
+  let lastError = 'Automatic scraper failed.';
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const endpoint = new URL('https://app.scrapingbee.com/api/v1/');
+    endpoint.searchParams.set('url', url);
+    endpoint.searchParams.set('mode', 'auto');
+    endpoint.searchParams.set('max_cost', process.env.SCRAPINGBEE_MAX_COST?.trim() || '75');
+    endpoint.searchParams.set('country_code', 'in');
+    endpoint.searchParams.set('wait_browser', 'load');
+    endpoint.searchParams.set('wait', provider === 'AMAZON' ? '2000' : '1500');
 
-  const response = await fetchWithTimeout(endpoint.toString(), {
-    headers: { Authorization: 'Bearer ' + apiKey, Accept: 'text/html,application/xhtml+xml' },
-    cache: 'no-store',
-  }, SCRAPER_TIMEOUT_MS);
+    try {
+      const response = await fetchWithTimeout(endpoint.toString(), {
+        headers: { Authorization: 'Bearer ' + apiKey, Accept: 'text/html,application/xhtml+xml' },
+        cache: 'no-store',
+      }, SCRAPER_TIMEOUT_MS);
 
-  const body = await response.text();
-  if (!response.ok) throw new Error('Automatic scraper returned HTTP ' + response.status + (body ? ': ' + body.slice(0, 220) : '.'));
-  if (Buffer.byteLength(body, 'utf8') > MAX_HTML_BYTES) throw new Error('Scraped page is too large.');
-  return body;
+      const body = await response.text();
+      if (!response.ok) throw new Error('Automatic scraper returned HTTP ' + response.status + (body ? ': ' + body.slice(0, 220) : '.'));
+      if (Buffer.byteLength(body, 'utf8') > MAX_HTML_BYTES) throw new Error('Scraped page is too large.');
+
+      const challenged = /sec-if-cpt-container/i.test(body) || (!/__NEXT_DATA__/i.test(body) && provider !== 'AMAZON' && !/<script[^>]+application\\/ld\\+json/i.test(body));
+      if (challenged) {
+        lastError = 'Meesho returned an anti-bot challenge.';
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 700 * attempt));
+          continue;
+        }
+        throw new Error(lastError);
+      }
+      return body;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 700 * attempt));
+    }
+  }
+
+  throw new Error(lastError);
 }
-
 function parseProduct(provider: 'AMAZON' | 'FLIPKART' | 'MEESHO', url: string, html: string, id: string): ScrapedMarketplaceProduct {
   const jsonLd = parseJsonLd(html);
   const product = jsonLd.find(x => x?.['@type'] === 'Product' || (Array.isArray(x?.['@type']) && x['@type'].includes('Product'))) || {};
