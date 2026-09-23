@@ -75,7 +75,7 @@ export async function PATCH(request: Request) {
       'mode', 'skipExisting', 'skipOutOfStock', 'skipWithoutImages', 'skipWithoutPrice',
       'minSourcePrice', 'maxSourcePrice', 'minInventory', 'roundingMode', 'roundingValue',
       'minSellingPrice', 'maxSellingPrice', 'protectLockedPrice', 'updatePrice',
-      'importImages', 'importDescriptions', 'importInventory',
+      'importImages', 'importDescriptions', 'importInventory', 'keywords', 'categories', 'shardCountPerRun', 'shardCursor', 'sitemapShards', 'sitemapFetchedAt', 'importStatus',
     ];
     const settings = { ...currentSettings };
     for (const key of allowedSettings) {
