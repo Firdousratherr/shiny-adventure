@@ -115,7 +115,7 @@ export async function POST(request: Request) {
       scrapeWarning: scraped ? undefined : scrapeError,
     };
 
-    if (action === 'preview') return NextResponse.json({ product: preview });
+    if (action === 'preview') { const providerKey = parsedUrl.provider === 'AMAZON' ? 'AMAZON_MANUAL' : parsedUrl.provider === 'FLIPKART' ? 'FLIPKART_MANUAL' : 'MEESHO_URL_IMPORT'; const integration = await db.marketplaceIntegration.findUnique({ where: { provider: providerKey }, select: { id: true } }); if (integration) { const duplicate = await db.marketplaceProduct.findUnique({ where: { integrationId_externalId: { integrationId: integration.id, externalId: parsedUrl.id } }, select: { productId: true } }); if (duplicate?.productId) return NextResponse.json({ product: { ...preview, duplicateProductId: duplicate.productId }, duplicate: true }); } return NextResponse.json({ product: preview, duplicate: false }); }
 
     if (!access.isSuperAdmin && !access.permissions.includes('pricing')) {
       return NextResponse.json({ error: 'Pricing permission required to import products.' }, { status: 403 });
