@@ -1,7 +1,7 @@
 import { db } from './db';
 import { decryptMarketplaceCredentials } from './marketplace-crypto';
 import { getShopifyAccessToken } from './shopify';
-import { discoverMeeshoAutoProducts, importMeeshoProductsToShopify } from './meesho-auto-import';
+import { discoverMeeshoAutoProducts } from './meesho-auto-import';
 
 export type SyncItem = {
   externalId: string;
@@ -117,7 +117,9 @@ function numeric(value: unknown) {
 function normalizeImageUrls(provider: string, raw: any, fallback?: string | null) {
   const candidates = provider === 'SHOPIFY' && Array.isArray(raw?.images?.nodes)
     ? raw.images.nodes.map((x: any) => x?.url)
-    : [fallback];
+    : provider === 'MEESHO' && Array.isArray(raw?.images)
+      ? [...raw.images, fallback]
+      : [fallback];
 
   const seen = new Set<string>();
   const urls: string[] = [];
@@ -378,7 +380,7 @@ export async function importItems(integrationId: string, provider: string, items
           sellingPrice: sellingPrice || 0,
           stock: settings.importInventory === false ? 0 : (provider === 'SHOPIFY' ? Number(raw.totalInventory ?? 0) || 0 : 0),
           categoryId,
-          status: 'DRAFT',
+          status: provider === 'MEESHO' && settings.importStatus === 'ACTIVE' ? 'ACTIVE' : 'DRAFT',
         },
       });
       productId = product.id;
@@ -630,13 +632,26 @@ export async function syncMarketplace(integrationId: string, provider: string, r
 
   if (provider === 'MEESHO') {
     const discovery = await discoverMeeshoAutoProducts(settings);
-    const result = await importMeeshoProductsToShopify(discovery.products, settings);
-    const nextSettings = { ...(settings as Record<string, unknown>), shardCursor: discovery.shardCursor, sitemapShards: discovery.sitemapShards, sitemapFetchedAt: discovery.sitemapFetchedAt };
+    const items: SyncItem[] = discovery.products.map(product => ({
+      externalId: product.externalId,
+      title: product.title,
+      sourceUrl: product.sourceUrl,
+      sourceCost: product.sourceCost,
+      imageUrl: product.imageUrl,
+      rawData: product.rawData,
+    }));
+    const result = await importItems(integrationId, 'MEESHO', items, { ...settings, automatic: true, changedBy: settings.changedBy ?? 'MEESHO_AUTO_IMPORT' });
+    const nextSettings = {
+      ...(settings as Record<string, unknown>),
+      shardCursor: discovery.shardCursor,
+      sitemapShards: discovery.sitemapShards,
+      sitemapFetchedAt: discovery.sitemapFetchedAt,
+    };
     await db.marketplaceIntegration.update({ where: { id: integrationId }, data: { settings: nextSettings as any } });
     return {
-      importedProducts: result.created + result.updated,
+      importedProducts: result.imported + result.updated,
       updatedProducts: result.updated,
-      skippedProducts: 0,
+      skippedProducts: result.skipped,
       failedProducts: result.failed + discovery.failed,
       importedOrders: 0,
       found: discovery.products.length,
