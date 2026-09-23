@@ -17,6 +17,7 @@ type Preview = {
   sourceCategoryName?: string;
   matchedCategoryId?: string;
   matchedCategoryName?: string;
+  duplicateProductId?: string;
 };
 
 type CategoryOption = {
@@ -36,6 +37,7 @@ export default function MarketplaceImporter({ categories }: { categories: Catego
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [duplicateProductId, setDuplicateProductId] = useState('');
 
   const request = async (action: 'preview' | 'import') => {
     setBusy(true);
@@ -59,6 +61,7 @@ export default function MarketplaceImporter({ categories }: { categories: Catego
       if (!r.ok) throw new Error(j.error || 'Unable to process product.');
       if (action === 'preview') {
         setPreview(j.product);
+        setDuplicateProductId(j.product.duplicateProductId || '');
         setSelectedCategoryId(j.product.matchedCategoryId || '');
         if (j.product.title) setName(j.product.title);
         if (j.product.description) setDescription(j.product.description);
@@ -126,6 +129,7 @@ export default function MarketplaceImporter({ categories }: { categories: Catego
             <div className="text-right"><p className="text-xs text-slate-500">Your price</p><p className="text-2xl font-black">₹{Number(preview.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p></div>
           </div>
 
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">{duplicateProductId ? 'This marketplace product is already linked to an existing Zenvora product. Import is disabled to prevent duplicates.' : 'Duplicate protection is active: the same marketplace product will not be imported twice.'}</div>
           <div className="mt-4 grid gap-4 md:grid-cols-[120px_1fr]">
             {preview.images?.[0] ? <img src={preview.images[0]} alt={preview.title} className="aspect-square w-full rounded-xl object-cover" /> : <div className="aspect-square rounded-xl bg-slate-200" />}
             <div>
@@ -148,7 +152,7 @@ export default function MarketplaceImporter({ categories }: { categories: Catego
                 </select>
               </div>
               <p className="mt-3 text-xs text-slate-500">The product is created as DRAFT with stock 0. Images are copied to Vercel Blob when possible. Imports no longer create categories automatically.</p>
-              <button disabled={busy} onClick={() => request('import')} className="mt-4 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">{busy ? 'Importing…' : 'Import to Zenvora'}</button>
+              <button disabled={busy || !!duplicateProductId} onClick={() => request('import')} className="mt-4 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">{busy ? 'Importing…' : duplicateProductId ? 'Already imported' : 'Import to Zenvora'}</button>
             </div>
           </div>
         </div>
