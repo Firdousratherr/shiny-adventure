@@ -113,7 +113,7 @@ export async function POST(request: Request) {
     if (!isProvider(body.provider)) return NextResponse.json({ error: 'Unsupported marketplace provider.' }, { status: 400 });
 
     const integration = await getIntegration(body.provider);
-    if (!integration.enabled) return NextResponse.json({ error: 'Turn Shopify ON before syncing.' }, { status: 409 });
+    if (!integration.enabled) return NextResponse.json({ error: 'Turn this marketplace ON before syncing.' }, { status: 409 });
     if (body.provider === 'SHOPIFY' && !(await credentialStatus('SHOPIFY'))) return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before syncing.' }, { status: 409 });
     if (body.provider === 'MEESHO' && !process.env.SCRAPINGBEE_API_KEY) return NextResponse.json({ error: 'Add SCRAPINGBEE_API_KEY in Vercel before enabling Meesho Auto Import.' }, { status: 409 });
 
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     const run = await db.marketplaceSyncRun.create({ data: { integrationId: integration.id, type: 'MANUAL', status: 'RUNNING' } });
 
     try {
-      const result = await syncMarketplace(integration.id, 'SHOPIFY', integration.settings);
+      const result = await syncMarketplace(integration.id, body.provider, integration.settings);
       const duration = Date.now() - started;
       await db.marketplaceSyncRun.update({
         where: { id: run.id },
