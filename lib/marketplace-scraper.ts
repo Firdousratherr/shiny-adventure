@@ -245,7 +245,7 @@ async function scraperFetch(url: string, provider: string) {
       if (!response.ok) throw new Error('Automatic scraper returned HTTP ' + response.status + (body ? ': ' + body.slice(0, 220) : '.'));
       if (Buffer.byteLength(body, 'utf8') > MAX_HTML_BYTES) throw new Error('Scraped page is too large.');
 
-      const challenged = /sec-if-cpt-container/i.test(body) || (!/__NEXT_DATA__/i.test(body) && provider !== 'AMAZON' && !/<script[^>]+application\\/ld\\+json/i.test(body));
+      const challenged = /sec-if-cpt-container/i.test(body) || (!/__NEXT_DATA__/i.test(body) && provider !== 'AMAZON' && !/<script[^>]+application\/ld\+json/i.test(body));
       if (challenged) {
         lastError = 'Meesho returned an anti-bot challenge.';
         if (attempt < 3) {
