@@ -28,7 +28,7 @@ export async function GET() {
       providers: PROVIDERS,
       integrations: [
         { ...shopify, credentialsConfigured: await credentialStatus('SHOPIFY'), capabilities: providerCapabilities('SHOPIFY') },
-        { ...meesho, credentialsConfigured: Boolean(process.env.SCRAPINGBEE_API_KEY), capabilities: providerCapabilities('MEESHO') },
+        { ...meesho, credentialsConfigured: Boolean(process.env.SCRAPINGBEE_API_KEY?.trim()), capabilities: providerCapabilities('MEESHO') },
       ],
     });
   } catch (error) {
@@ -88,7 +88,7 @@ export async function PATCH(request: Request) {
       data,
     });
 
-    const credentialsConfigured = body.provider === 'MEESHO' ? Boolean(process.env.SCRAPINGBEE_API_KEY) : await credentialStatus('SHOPIFY');
+    const credentialsConfigured = body.provider === 'MEESHO' ? Boolean(process.env.SCRAPINGBEE_API_KEY?.trim()) : await credentialStatus('SHOPIFY');
     await recordAdminAudit({
       adminId: admin.id,
       adminEmail: admin.email,
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
     const integration = await getIntegration(body.provider);
     if (!integration.enabled) return NextResponse.json({ error: 'Turn this marketplace ON before syncing.' }, { status: 409 });
     if (body.provider === 'SHOPIFY' && !(await credentialStatus('SHOPIFY'))) return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before syncing.' }, { status: 409 });
-    if (body.provider === 'MEESHO' && !process.env.SCRAPINGBEE_API_KEY) return NextResponse.json({ error: 'Add SCRAPINGBEE_API_KEY in Vercel before enabling Meesho Auto Import.' }, { status: 409 });
+    if (body.provider === 'MEESHO' && !process.env.SCRAPINGBEE_API_KEY) return NextResponse.json({ error: 'Add SCRAPINGBEE_API_KEY to the Vercel Production environment and redeploy before enabling Meesho Auto Import.' }, { status: 409 });
 
     const started = Date.now();
     const run = await db.marketplaceSyncRun.create({ data: { integrationId: integration.id, type: 'MANUAL', status: 'RUNNING' } });
