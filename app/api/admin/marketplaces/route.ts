@@ -115,7 +115,7 @@ export async function POST(request: Request) {
     const integration = await getIntegration(body.provider);
     if (!integration.enabled) return NextResponse.json({ error: 'Turn this marketplace ON before syncing.' }, { status: 409 });
     if (body.provider === 'SHOPIFY' && !(await credentialStatus('SHOPIFY'))) return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before syncing.' }, { status: 409 });
-    if (body.provider === 'MEESHO' && !process.env.SCRAPINGBEE_API_KEY) return NextResponse.json({ error: 'Add SCRAPINGBEE_API_KEY to the Vercel Production environment and redeploy before enabling Meesho Auto Import.' }, { status: 409 });
+    if (body.provider === 'MEESHO' && !process.env.SCRAPINGBEE_API_KEY?.trim()) return NextResponse.json({ error: 'Add SCRAPINGBEE_API_KEY to the Vercel Production environment and redeploy before enabling Meesho Auto Import.' }, { status: 409 });
 
     const started = Date.now();
     const run = await db.marketplaceSyncRun.create({ data: { integrationId: integration.id, type: 'MANUAL', status: 'RUNNING' } });
