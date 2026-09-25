@@ -4,7 +4,13 @@ import { requireAdminPermission } from '../../../../../../lib/admin-access';
 import { credentialStatus, marketplaceCredentials, importItems, previewItems, type ImportMode, type SyncItem } from '../../../../../../lib/marketplaces';
 import { getShopifyAccessToken } from '../../../../../../lib/shopify';
 
-function graphQLErrorMessage(errors: unknown) {\n  if (Array.isArray(errors)) return errors.map((e: any) => String(e?.message || e)).join('; ');\n  if (errors && typeof errors === 'object') return Object.values(errors as Record<string, unknown>).map((e: any) => String(e?.message || e)).join('; ');\n  return '';\n}\n\nconst QUERY='query ProductsByIds($ids:[ID!]!) { nodes(ids:$ids) { ... on Product { id title descriptionHtml vendor productType onlineStoreUrl totalInventory images(first:20){nodes{url}} variants(first:100){nodes{id title sku barcode price compareAtPrice inventoryQuantity}} collections(first:10){nodes{id title handle}} } } }';
+function graphQLErrorMessage(errors: unknown) {
+  if (Array.isArray(errors)) return errors.map((e: any) => String(e?.message || e)).join('; ');
+  if (errors && typeof errors === 'object') return Object.values(errors as Record<string, unknown>).map((e: any) => String(e?.message || e)).join('; ');
+  return '';
+}
+
+const QUERY='query ProductsByIds($ids:[ID!]!) { nodes(ids:$ids) { ... on Product { id title descriptionHtml vendor productType onlineStoreUrl totalInventory images(first:20){nodes{url}} variants(first:100){nodes{id title sku barcode price compareAtPrice inventoryQuantity}} collections(first:10){nodes{id title handle}} } } }';
 
 export async function POST(request:Request){
   const admin=await requireAdminPermission('marketplaces');
