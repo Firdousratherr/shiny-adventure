@@ -36,6 +36,7 @@ export default function MarketplacesPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [shopifyApiReachable, setShopifyApiReachable] = useState<boolean | null>(null);
 
   const load = async () => {
     try {
@@ -60,7 +61,9 @@ export default function MarketplacesPage() {
       if (!r.ok) throw new Error(j.error || 'Unable to load Shopify products.');
       setProducts(j.products || []);
       setSelected([]);
+      setShopifyApiReachable(true);
     } catch (e) {
+      setShopifyApiReachable(false);
       setError(e instanceof Error ? e.message : 'Unable to load Shopify products.');
     } finally {
       setBusy(false);
@@ -166,7 +169,7 @@ export default function MarketplacesPage() {
               <p className="mt-2 text-xs text-slate-400">Choose products from Shopify and add them to your Zenvora store.</p>
             </div>
             <span className={shopify?.credentialsConfigured ? 'rounded-full bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black text-emerald-300' : 'rounded-full bg-amber-500/10 px-3 py-1.5 text-[10px] font-black text-amber-300'}>
-              {shopify?.credentialsConfigured ? 'CONNECTED' : 'CONNECT SHOPIFY'}
+              {!shopify?.credentialsConfigured ? 'CONNECT SHOPIFY' : shopifyApiReachable === false ? 'API ERROR' : shopifyApiReachable === true ? 'CONNECTED' : 'CONFIGURED'}
             </span>
           </div>
 
