@@ -4,7 +4,7 @@ import { requireAdminPermission } from '../../../../../../lib/admin-access';
 import { credentialStatus, marketplaceCredentials, importItems, previewItems, type ImportMode, type SyncItem } from '../../../../../../lib/marketplaces';
 import { getShopifyAccessToken } from '../../../../../../lib/shopify';
 
-const QUERY='query ProductsByIds($ids:[ID!]!) { nodes(ids:$ids) { ... on Product { id title descriptionHtml vendor productType onlineStoreUrl totalInventory images(first:20){nodes{url}} variants(first:100){nodes{id title sku barcode price compareAtPrice inventoryQuantity}} collections(first:10){nodes{id title handle}} } } }';
+function graphQLErrorMessage(errors: unknown) {\n  if (Array.isArray(errors)) return errors.map((e: any) => String(e?.message || e)).join('; ');\n  if (errors && typeof errors === 'object') return Object.values(errors as Record<string, unknown>).map((e: any) => String(e?.message || e)).join('; ');\n  return '';\n}\n\nconst QUERY='query ProductsByIds($ids:[ID!]!) { nodes(ids:$ids) { ... on Product { id title descriptionHtml vendor productType onlineStoreUrl totalInventory images(first:20){nodes{url}} variants(first:100){nodes{id title sku barcode price compareAtPrice inventoryQuantity}} collections(first:10){nodes{id title handle}} } } }';
 
 export async function POST(request:Request){
   const admin=await requireAdminPermission('marketplaces');
@@ -73,7 +73,7 @@ export async function POST(request:Request){
         cache:'no-store'
       });
       j=await r.json();
-      if(!r.ok||j.errors?.length)throw new Error(j.errors?.map((e:any)=>e.message).join('; ')||'Shopify request failed');
+      if(!r.ok||j.errors)throw new Error(graphQLErrorMessage(j.errors)||'Shopify request failed');
     }finally{clearTimeout(timer);}
 
     const items:SyncItem[]=(j.data?.nodes||[]).filter(Boolean).map((x:any)=>({
