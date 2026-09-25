@@ -58,7 +58,7 @@ export async function GET(request: Request) {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36',
           Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-          Referer: 'https://www.meesho.com/',
+          Referer: isAllowedRemote && /(^|\\.)meesho\\.com$/i.test(source.hostname) ? 'https://www.meesho.com/' : 'https://www.shopify.com/',
         },
         cache: 'no-store',
       });
