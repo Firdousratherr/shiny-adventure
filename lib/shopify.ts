@@ -114,7 +114,7 @@ export async function getShopifyAccessToken(credentials: Record<string, unknown>
 }
 
 export async function testShopifyConnection(credentials: Record<string, unknown>) {
-  const { domain, accessToken, expiresIn } = await getShopifyAccessToken(credentials);
+  const { domain, expiresIn } = await getShopifyAccessToken(credentials);
   const { data } = await shopifyGraphQL<{ shop?: { id?: string; name?: string; myshopifyDomain?: string } }>(credentials, '{ shop { id name myshopifyDomain } }');
   const shop = data?.shop;
   if (!shop?.name) throw new Error('Shopify authenticated but did not return store information.');
