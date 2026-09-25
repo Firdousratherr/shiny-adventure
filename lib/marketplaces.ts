@@ -644,6 +644,7 @@ export async function syncMarketplace(integrationId: string, provider: string, r
       found: discovery.products.length,
       shardsScanned: discovery.shardsScanned,
       urlsScanned: discovery.urlsScanned,
+      failureDetails: discovery.failureDetails,
     };
   }
 
