@@ -1,6 +1,7 @@
 import { db } from './db';
 import { decryptMarketplaceCredentials } from './marketplace-crypto';
 import { getShopifyAccessToken } from './shopify';
+import { discoverMeeshoAutoProducts } from './meesho-auto-import';
 
 export type SyncItem = {
   externalId: string;
@@ -41,6 +42,13 @@ type Settings = {
   importInventory?: boolean;
   changedBy?: string;
   categoryMappings?: Record<string, string>;
+  keywords?: string;
+  categories?: string;
+  shardCountPerRun?: number;
+  shardCursor?: number;
+  sitemapShards?: string[];
+  sitemapFetchedAt?: string;
+  importStatus?: 'DRAFT' | 'ACTIVE';
 };
 
 const REQUIRED_FIELDS: Record<string, string[]> = {
@@ -89,7 +97,7 @@ export function providerCapabilities(provider: string) {
   return {
     AMAZON: { products: true, orders: true, inventory: true, note: 'Amazon SP-API' },
     FLIPKART: { products: true, orders: true, inventory: true, note: 'Flipkart Seller API v3' },
-    MEESHO: { products: false, orders: false, inventory: false, note: 'Official partner access required; no public seller API configured' },
+    MEESHO: { products: true, orders: false, inventory: false, note: 'Public catalogue discovery via ScrapingBee; supplier/order APIs are not used.' },
     EBAY: { products: true, orders: false, inventory: false, note: 'eBay Browse API catalog import' },
     ETSY: { products: true, orders: true, inventory: true, note: 'Etsy Open API v3' },
     SHOPIFY: { products: true, orders: true, inventory: true, note: 'Shopify Admin GraphQL API' },
@@ -109,7 +117,9 @@ function numeric(value: unknown) {
 function normalizeImageUrls(provider: string, raw: any, fallback?: string | null) {
   const candidates = provider === 'SHOPIFY' && Array.isArray(raw?.images?.nodes)
     ? raw.images.nodes.map((x: any) => x?.url)
-    : [fallback];
+    : provider === 'MEESHO' && Array.isArray(raw?.images)
+      ? [...raw.images, fallback]
+      : [fallback];
 
   const seen = new Set<string>();
   const urls: string[] = [];
@@ -370,7 +380,7 @@ export async function importItems(integrationId: string, provider: string, items
           sellingPrice: sellingPrice || 0,
           stock: settings.importInventory === false ? 0 : (provider === 'SHOPIFY' ? Number(raw.totalInventory ?? 0) || 0 : 0),
           categoryId,
-          status: 'DRAFT',
+          status: provider === 'MEESHO' && settings.importStatus === 'ACTIVE' ? 'ACTIVE' : 'DRAFT',
         },
       });
       productId = product.id;
@@ -619,6 +629,37 @@ async function ebayItems(settings: Settings, credentials: Record<string, unknown
 
 export async function syncMarketplace(integrationId: string, provider: string, rawSettings: unknown) {
   const settings = settingsOf(rawSettings);
+
+  if (provider === 'MEESHO') {
+    const discovery = await discoverMeeshoAutoProducts(settings);
+    const items: SyncItem[] = discovery.products.map(product => ({
+      externalId: product.externalId,
+      title: product.title,
+      sourceUrl: product.sourceUrl,
+      sourceCost: product.sourceCost,
+      imageUrl: product.imageUrl,
+      rawData: product.rawData,
+    }));
+    const result = await importItems(integrationId, 'MEESHO', items, { ...settings, automatic: true, changedBy: settings.changedBy ?? 'MEESHO_AUTO_IMPORT' });
+    const nextSettings = {
+      ...(settings as Record<string, unknown>),
+      shardCursor: discovery.shardCursor,
+      sitemapShards: discovery.sitemapShards,
+      sitemapFetchedAt: discovery.sitemapFetchedAt,
+    };
+    await db.marketplaceIntegration.update({ where: { id: integrationId }, data: { settings: nextSettings as any } });
+    return {
+      importedProducts: result.imported + result.updated,
+      updatedProducts: result.updated,
+      skippedProducts: result.skipped,
+      failedProducts: result.failed + discovery.failed,
+      importedOrders: 0,
+      found: discovery.products.length,
+      shardsScanned: discovery.shardsScanned,
+      urlsScanned: discovery.urlsScanned,
+    };
+  }
+
   const credentials = await marketplaceCredentials(provider);
   if (!(await credentialStatus(provider))) throw new Error('Required official API credentials are not configured.');
   if (!providerCapabilities(provider).products) throw new Error(providerCapabilities(provider).note);
@@ -630,7 +671,7 @@ export async function syncMarketplace(integrationId: string, provider: string, r
     case 'SHOPIFY': items = await shopifyItems(settings, credentials); break;
     case 'ETSY': items = await etsyItems(credentials); break;
     case 'EBAY': items = await ebayItems(settings, credentials); break;
-    case 'MEESHO': throw new Error('Meesho official partner API access is required; scraping is intentionally disabled.');
+    case 'MEESHO': throw new Error('Meesho is handled by the automatic importer above.');
     default: throw new Error('Unsupported marketplace provider.');
   }
 

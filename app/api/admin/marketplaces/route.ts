@@ -7,13 +7,14 @@ import { credentialStatus, providerCapabilities, syncMarketplace } from '../../.
 
 const PROVIDERS = [
   { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify app + client credentials' },
+  { key: 'MEESHO', name: 'Meesho', description: 'Automatic public catalogue discovery via ScrapingBee', setup: 'ScrapingBee API key' },
 ] as const;
 
-async function getIntegration() {
+async function getIntegration(provider: 'SHOPIFY' | 'MEESHO') {
   return db.marketplaceIntegration.upsert({
-    where: { provider: 'SHOPIFY' },
+    where: { provider },
     update: {},
-    create: { provider: 'SHOPIFY' },
+    create: { provider },
   });
 }
 
@@ -21,14 +22,14 @@ export async function GET() {
   const admin = await requireAdminPermission('marketplaces');
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
   try {
-    const integration = await getIntegration();
+    const shopify = await getIntegration('SHOPIFY');
+    const meesho = await getIntegration('MEESHO');
     return NextResponse.json({
       providers: PROVIDERS,
-      integrations: [{
-        ...integration,
-        credentialsConfigured: await credentialStatus('SHOPIFY'),
-        capabilities: providerCapabilities('SHOPIFY'),
-      }],
+      integrations: [
+        { ...shopify, credentialsConfigured: await credentialStatus('SHOPIFY'), capabilities: providerCapabilities('SHOPIFY') },
+        { ...meesho, credentialsConfigured: Boolean(process.env.SCRAPINGBEE_API_KEY), capabilities: providerCapabilities('MEESHO') },
+      ],
     });
   } catch (error) {
     console.error('marketplace integration load failed', error);
@@ -36,8 +37,8 @@ export async function GET() {
   }
 }
 
-function isShopify(provider: unknown): provider is 'SHOPIFY' {
-  return typeof provider === 'string' && provider.toUpperCase() === 'SHOPIFY';
+function isProvider(provider: unknown): provider is 'SHOPIFY' | 'MEESHO' {
+  return provider === 'SHOPIFY' || provider === 'MEESHO';
 }
 
 export async function PATCH(request: Request) {
@@ -45,9 +46,9 @@ export async function PATCH(request: Request) {
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
   try {
     const body = await request.json();
-    if (!isShopify(body.provider)) return NextResponse.json({ error: 'Only Shopify is available in Marketplace Center.' }, { status: 400 });
+    if (!isProvider(body.provider)) return NextResponse.json({ error: 'Unsupported marketplace provider.' }, { status: 400 });
 
-    const current = await getIntegration();
+    const current = await getIntegration(body.provider);
     const currentSettings = current.settings && typeof current.settings === 'object' && !Array.isArray(current.settings)
       ? current.settings as Record<string, unknown>
       : {};
@@ -74,7 +75,7 @@ export async function PATCH(request: Request) {
       'mode', 'skipExisting', 'skipOutOfStock', 'skipWithoutImages', 'skipWithoutPrice',
       'minSourcePrice', 'maxSourcePrice', 'minInventory', 'roundingMode', 'roundingValue',
       'minSellingPrice', 'maxSellingPrice', 'protectLockedPrice', 'updatePrice',
-      'importImages', 'importDescriptions', 'importInventory',
+      'importImages', 'importDescriptions', 'importInventory', 'keywords', 'categories', 'shardCountPerRun', 'shardCursor', 'sitemapShards', 'sitemapFetchedAt', 'importStatus',
     ];
     const settings = { ...currentSettings };
     for (const key of allowedSettings) {
@@ -87,17 +88,17 @@ export async function PATCH(request: Request) {
       data,
     });
 
-    const credentialsConfigured = await credentialStatus('SHOPIFY');
+    const credentialsConfigured = body.provider === 'MEESHO' ? Boolean(process.env.SCRAPINGBEE_API_KEY) : await credentialStatus('SHOPIFY');
     await recordAdminAudit({
       adminId: admin.id,
       adminEmail: admin.email,
-      action: 'SHOPIFY_MARKETPLACE_SETTINGS_UPDATED',
+      action: body.provider + '_MARKETPLACE_SETTINGS_UPDATED',
       entityType: 'MARKETPLACE',
       entityId: integration.id,
-      details: { provider: 'SHOPIFY', changes: data, credentialsConfigured },
+      details: { provider: body.provider, changes: data, credentialsConfigured },
     });
 
-    return NextResponse.json({ integration, credentialsConfigured, capabilities: providerCapabilities('SHOPIFY') });
+    return NextResponse.json({ integration, credentialsConfigured, capabilities: providerCapabilities(body.provider) });
   } catch (error) {
     console.error('shopify marketplace update failed', error);
     return NextResponse.json({ error: 'Unable to update Shopify marketplace settings.' }, { status: 500 });
@@ -109,17 +110,18 @@ export async function POST(request: Request) {
   if (!admin) return NextResponse.json({ error: 'Marketplace permission required.' }, { status: 403 });
   try {
     const body = await request.json();
-    if (!isShopify(body.provider)) return NextResponse.json({ error: 'Only Shopify is available in Marketplace Center.' }, { status: 400 });
+    if (!isProvider(body.provider)) return NextResponse.json({ error: 'Unsupported marketplace provider.' }, { status: 400 });
 
-    const integration = await getIntegration();
-    if (!integration.enabled) return NextResponse.json({ error: 'Turn Shopify ON before syncing.' }, { status: 409 });
-    if (!(await credentialStatus('SHOPIFY'))) return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before syncing.' }, { status: 409 });
+    const integration = await getIntegration(body.provider);
+    if (!integration.enabled) return NextResponse.json({ error: 'Turn this marketplace ON before syncing.' }, { status: 409 });
+    if (body.provider === 'SHOPIFY' && !(await credentialStatus('SHOPIFY'))) return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before syncing.' }, { status: 409 });
+    if (body.provider === 'MEESHO' && !process.env.SCRAPINGBEE_API_KEY) return NextResponse.json({ error: 'Add SCRAPINGBEE_API_KEY in Vercel before enabling Meesho Auto Import.' }, { status: 409 });
 
     const started = Date.now();
     const run = await db.marketplaceSyncRun.create({ data: { integrationId: integration.id, type: 'MANUAL', status: 'RUNNING' } });
 
     try {
-      const result = await syncMarketplace(integration.id, 'SHOPIFY', integration.settings);
+      const result = await syncMarketplace(integration.id, body.provider, integration.settings);
       const duration = Date.now() - started;
       await db.marketplaceSyncRun.update({
         where: { id: run.id },
@@ -140,10 +142,10 @@ export async function POST(request: Request) {
       await recordAdminAudit({
         adminId: admin.id,
         adminEmail: admin.email,
-        action: 'SHOPIFY_MARKETPLACE_SYNC_SUCCESS',
+        action: body.provider + '_MARKETPLACE_SYNC_SUCCESS',
         entityType: 'MARKETPLACE',
         entityId: integration.id,
-        details: { provider: 'SHOPIFY', runId: run.id, ...result, duration },
+        details: { provider: body.provider, runId: run.id, ...result, duration },
       });
       return NextResponse.json({ success: true, runId: run.id, ...result, duration });
     } catch (error) {
@@ -160,10 +162,10 @@ export async function POST(request: Request) {
       await recordAdminAudit({
         adminId: admin.id,
         adminEmail: admin.email,
-        action: 'SHOPIFY_MARKETPLACE_SYNC_FAILED',
+        action: body.provider + '_MARKETPLACE_SYNC_FAILED',
         entityType: 'MARKETPLACE',
         entityId: integration.id,
-        details: { provider: 'SHOPIFY', runId: run.id, error: message, duration },
+        details: { provider: body.provider, runId: run.id, error: message, duration },
       });
       return NextResponse.json({ error: message, runId: run.id }, { status: 502 });
     }
