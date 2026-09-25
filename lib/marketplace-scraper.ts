@@ -222,7 +222,7 @@ async function directFetch(url: string) {
 }
 
 async function scraperFetch(url: string, provider: string) {
-  const apiKey = process.env.SCRAPINGBEE_API_KEY?.trim();
+  const apiKey = (process.env.SCRAPINGBEE_API_KEY ?? process.env.SCRAPINGBEE_API_TOKEN ?? '').replace(/^['"]|['"]$/g, '').trim();
   if (!apiKey) throw new Error('Automatic scraping is not configured. Add SCRAPINGBEE_API_KEY in Vercel, or enter title and price manually.');
 
   let lastError = 'Automatic scraper failed.';
