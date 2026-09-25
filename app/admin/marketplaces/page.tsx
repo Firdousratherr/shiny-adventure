@@ -168,7 +168,7 @@ export default function MarketplacesPage() {
               <h1 className="mt-1 text-2xl font-black">Import to Zenvora</h1>
               <p className="mt-2 text-xs text-slate-400">Choose products from Shopify and add them to your Zenvora store.</p>
             </div>
-            <span className={shopify?.credentialsConfigured ? 'rounded-full bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black text-emerald-300' : 'rounded-full bg-amber-500/10 px-3 py-1.5 text-[10px] font-black text-amber-300'}>
+            <span className={!shopify?.credentialsConfigured ? 'rounded-full bg-amber-500/10 px-3 py-1.5 text-[10px] font-black text-amber-300' : shopifyApiReachable === false ? 'rounded-full bg-red-500/10 px-3 py-1.5 text-[10px] font-black text-red-300' : 'rounded-full bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black text-emerald-300'}>
               {!shopify?.credentialsConfigured ? 'CONNECT SHOPIFY' : shopifyApiReachable === false ? 'API ERROR' : shopifyApiReachable === true ? 'CONNECTED' : 'CONFIGURED'}
             </span>
           </div>
@@ -197,7 +197,8 @@ export default function MarketplacesPage() {
                     {product.imported && <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-black text-emerald-300">IMPORTED</span>}
                   </label>
                 ))}
-                {!visible.length && <div className="rounded-2xl border border-white/10 p-8 text-center text-xs text-slate-500">No Shopify products found.</div>}
+                {!visible.length && !error && <div className="rounded-2xl border border-white/10 p-8 text-center text-xs text-slate-500">No Shopify products found.</div>}
+                {error && shopifyApiReachable === false && <div className="rounded-2xl border border-red-400/20 bg-red-500/5 p-5 text-center text-xs text-slate-400">Products cannot be displayed until Shopify becomes available.</div>}
               </div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
@@ -206,7 +207,7 @@ export default function MarketplacesPage() {
                 </label>
                 <div className="flex items-end gap-2">
                   <button onClick={() => void importProducts()} disabled={busy || !selected.length} className="rounded-2xl bg-white px-6 py-3 text-xs font-black text-slate-950 disabled:opacity-40">{busy ? 'Importing…' : 'Import selected'}</button>
-                  <label className="flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-xs"><input type="checkbox" checked={autoSync} disabled={busy} onChange={e => void toggleAuto(e.target.checked)} /> Auto update</label>
+                  <label className="flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-xs"><input type="checkbox" checked={autoSync} disabled={busy || shopifyApiReachable === false} onChange={e => void toggleAuto(e.target.checked)} /> Auto update</label>
                 </div>
               </div>
               <p className="mt-2 text-[10px] text-slate-500">Images, descriptions and stock are imported automatically.</p>
