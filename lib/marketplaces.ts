@@ -562,9 +562,18 @@ async function shopifyItems(settings: Settings, credentials: Record<string, unkn
       signal: controller.signal,
       cache: 'no-store',
     });
-    if (!response.ok) throw new Error(`Shopify request failed (${response.status})`);
-    const data: any = await response.json();
-    if (data.errors?.length) throw new Error(data.errors.map((e: any) => e.message).join('; '));
+    const raw = await response.text();
+    let data: any = {};
+    try { data = raw ? JSON.parse(raw) : {}; } catch { throw new Error(`Shopify returned a non-JSON response (${response.status}).`); }
+    if (data.errors) {
+      const detail = Array.isArray(data.errors)
+        ? data.errors.map((e: any) => String(e?.message || e)).join('; ')
+        : typeof data.errors === 'object'
+          ? Object.values(data.errors as Record<string, unknown>).map((e: any) => String(e?.message || e)).join('; ')
+          : String(data.errors);
+      throw new Error(detail || `Shopify GraphQL request failed (${response.status}).`);
+    }
+    if (!response.ok) throw new Error(`Shopify request failed (${response.status})${data?.error ? ': ' + String(data.error) : ''}`);
     return (data.data?.products?.nodes ?? []).map((x: any) => ({
       externalId: x.id,
       title: x.title,
