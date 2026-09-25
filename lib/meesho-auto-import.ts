@@ -29,42 +29,6 @@ function parseLocs(xml: string) {
   return [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map(m => m[1].trim()).filter(Boolean);
 }
 
-function extractProductUrls(text: string) {
-  const urls = new Set<string>();
-  const decoded = text
-    .replace(/\\u002F/g, '/')
-    .replace(/\\\//g, '/')
-    .replace(/&amp;/g, '&');
-
-  const candidates = decoded.match(/https?:\\/\\/(?:www\\.)?meesho\\.com[^\\s"'<>]+/gi) ?? [];
-  for (const candidate of candidates) {
-    try {
-      const url = new URL(candidate.replace(/[),.;]+$/, ''));
-      if (/\\/(?:s\\/)?p\\/[a-z0-9]+(?:$|\\?|#)/i.test(url.pathname)
-        || /\\/[^/]+\\/p\\/[a-z0-9]+(?:$|\\?|#)/i.test(url.pathname)) {
-        url.search = '';
-        url.hash = '';
-        urls.add(url.toString());
-      }
-    } catch {}
-  }
-
-  for (const match of decoded.matchAll(/href=["']([^"']+)["']/gi)) {
-    try {
-      const url = new URL(match[1], 'https://www.meesho.com');
-      if (url.hostname.endsWith('meesho.com')
-        && (/\\/(?:s\\/)?p\\/[a-z0-9]+(?:$|\\?|#)/i.test(url.pathname)
-          || /\\/[^/]+\\/p\\/[a-z0-9]+(?:$|\\?|#)/i.test(url.pathname))) {
-        url.search = '';
-        url.hash = '';
-        urls.add(url.toString());
-      }
-    } catch {}
-  }
-
-  return [...urls];
-}
-
 async function scrapingBee(url: string, timeoutMs = 60000) {
   const key = getScrapingBeeApiKey();
   if (!key) throw new Error('Add SCRAPINGBEE_API_KEY in Vercel before enabling Meesho Auto Import.');
