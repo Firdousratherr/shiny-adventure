@@ -79,7 +79,10 @@ export default function MeeshoAutoImport() {
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Meesho import failed.');
-      setMessage(`Imported ${j.importedProducts ?? 0} products into Zenvora. ${j.failedProducts ?? 0} failed.`);
+      const summary = `Found ${j.found ?? 0}, imported ${j.importedProducts ?? 0}, skipped ${j.skippedProducts ?? 0}, failed ${j.failedProducts ?? 0}.`;
+      const detail = Array.isArray(j.failureDetails) && j.failureDetails.length ? ` ${j.failureDetails[0]}` : '';
+      if (!j.importedProducts && j.failedProducts) setError(summary + detail);
+      else setMessage(summary + detail);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Meesho import failed.');
