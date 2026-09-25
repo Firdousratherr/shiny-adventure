@@ -69,8 +69,17 @@ export async function testShopifyConnection(credentials: Record<string, unknown>
   });
 
   const data: any = await response.json().catch(() => ({}));
-  if (!response.ok || data.errors?.length) {
-    throw new Error(data.errors?.map((e: any) => e.message).join('; ') || ('Shopify Admin API failed (HTTP ' + response.status + ').'));
+  if (data.errors) {
+    const reason = Array.isArray(data.errors)
+      ? data.errors.map((e: any) => String(e?.message || e)).join('; ')
+      : typeof data.errors === 'object'
+        ? Object.values(data.errors as Record<string, unknown>).map((e: any) => String(e?.message || e)).join('; ')
+        : String(data.errors);
+    throw new Error(reason || ('Shopify Admin API failed (HTTP ' + response.status + ').'));
+  }
+  if (!response.ok) {
+    const reason = typeof data?.error === 'string' ? data.error : typeof data?.message === 'string' ? data.message : '';
+    throw new Error('Shopify Admin API failed (HTTP ' + response.status + ')' + (reason ? ': ' + reason : '.'));
   }
 
   const shop = data.data?.shop;
