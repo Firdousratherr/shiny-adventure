@@ -1,6 +1,6 @@
 import { db } from './db';
 import { decryptMarketplaceCredentials } from './marketplace-crypto';
-import { getShopifyAccessToken } from './shopify';
+import { shopifyGraphQL } from './shopify';
 import { discoverMeeshoAutoProducts } from './meesho-auto-import';
 
 export type SyncItem = {
@@ -550,39 +550,17 @@ async function flipkartItems(settings: Settings, credentials: Record<string, unk
 
 
 async function shopifyItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
-  const { domain, accessToken } = await getShopifyAccessToken(credentials);
+  void settings;
   const query = `query { products(first: 100) { nodes { id title descriptionHtml onlineStoreUrl totalInventory images(first: 20) { nodes { url } } variants(first: 1) { nodes { price } } } } }`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
-  try {
-    const response = await fetch(`https://${domain}/admin/api/2026-07/graphql.json`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': accessToken },
-      body: JSON.stringify({ query }),
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-    const raw = await response.text();
-    let data: any = {};
-    try { data = raw ? JSON.parse(raw) : {}; } catch { throw new Error(`Shopify returned a non-JSON response (${response.status}).`); }
-    if (data.errors) {
-      const detail = Array.isArray(data.errors)
-        ? data.errors.map((e: any) => String(e?.message || e)).join('; ')
-        : typeof data.errors === 'object'
-          ? Object.values(data.errors as Record<string, unknown>).map((e: any) => String(e?.message || e)).join('; ')
-          : String(data.errors);
-      throw new Error(detail || `Shopify GraphQL request failed (${response.status}).`);
-    }
-    if (!response.ok) throw new Error(`Shopify request failed (${response.status})${data?.error ? ': ' + String(data.error) : ''}`);
-    return (data.data?.products?.nodes ?? []).map((x: any) => ({
-      externalId: x.id,
-      title: x.title,
-      sourceUrl: x.onlineStoreUrl || null,
-      sourceCost: Number(x.variants?.nodes?.[0]?.price ?? 0) || null,
-      imageUrl: x.images?.nodes?.[0]?.url || null,
-      rawData: x,
-    }));
-  } finally { clearTimeout(timer); }
+  const { data } = await shopifyGraphQL<{ products?: { nodes?: any[] } }>(credentials, query, undefined, 20000);
+  return (data.products?.nodes ?? []).map((x: any) => ({
+    externalId: x.id,
+    title: x.title,
+    sourceUrl: x.onlineStoreUrl || null,
+    sourceCost: Number(x.variants?.nodes?.[0]?.price ?? 0) || null,
+    imageUrl: x.images?.nodes?.[0]?.url || null,
+    rawData: x,
+  }));
 }
 
 async function etsyItems(credentials: Record<string, unknown>): Promise<SyncItem[]> {
