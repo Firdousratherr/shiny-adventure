@@ -2,13 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '../../../../../../lib/db';
 import { requireAdminPermission } from '../../../../../../lib/admin-access';
 import { credentialStatus, marketplaceCredentials, importItems, previewItems, type ImportMode, type SyncItem } from '../../../../../../lib/marketplaces';
-import { getShopifyAccessToken } from '../../../../../../lib/shopify';
-
-function graphQLErrorMessage(errors: unknown) {
-  if (Array.isArray(errors)) return errors.map((e: any) => String(e?.message || e)).join('; ');
-  if (errors && typeof errors === 'object') return Object.values(errors as Record<string, unknown>).map((e: any) => String(e?.message || e)).join('; ');
-  return '';
-}
+import { shopifyGraphQL } from '../../../../../../lib/shopify';
 
 const QUERY='query ProductsByIds($ids:[ID!]!) { nodes(ids:$ids) { ... on Product { id title descriptionHtml vendor productType onlineStoreUrl totalInventory images(first:20){nodes{url}} variants(first:100){nodes{id title sku barcode price compareAtPrice inventoryQuantity}} collections(first:10){nodes{id title handle}} } } }';
 
@@ -66,22 +60,9 @@ export async function POST(request:Request){
     }
 
     const integration=await db.marketplaceIntegration.upsert({where:{provider:'SHOPIFY'},update:{},create:{provider:'SHOPIFY'}});
-    const {domain,accessToken}=await getShopifyAccessToken(await marketplaceCredentials('SHOPIFY'));
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),20000);
-    let j:any;
-    try{
-      const r=await fetch('https://'+domain+'/admin/api/2026-07/graphql.json',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-Shopify-Access-Token':accessToken},
-        body:JSON.stringify({query:QUERY,variables:{ids:productIds}}),
-        signal:controller.signal,
-        cache:'no-store'
-      });
-      j=await r.json();
-      if(j.errors)throw new Error(graphQLErrorMessage(j.errors)||'Shopify GraphQL request failed');
-      if(!r.ok){const reason=typeof j?.error==='string'?j.error:typeof j?.message==='string'?j.message:'';throw new Error('Shopify Admin API returned HTTP '+r.status+(reason?': '+reason:''));}
-    }finally{clearTimeout(timer);}
+    const credentials=await marketplaceCredentials('SHOPIFY');
+    const { data } = await shopifyGraphQL<{ nodes:any[] }>(credentials,QUERY,{ids:productIds});
+    const j:any={data};
 
     const items:SyncItem[]=(j.data?.nodes||[]).filter(Boolean).map((x:any)=>({
       externalId:x.id,title:x.title,sourceUrl:x.onlineStoreUrl||null,
