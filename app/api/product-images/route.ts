@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { get } from '@vercel/blob';
 
-const PRIVATE_BLOB_HOST = /(^|\\.)private\\.blob\\.vercel-storage\\.com$/i;
-const REMOTE_IMAGE_HOST = /(^|\\.)meesho\\.com$/i;
+const PRIVATE_BLOB_HOST = /(^|\.)private\.blob\.vercel-storage\.com$/i;
+const REMOTE_IMAGE_HOST = /(^|\.)meesho\.com$/i;
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export async function GET(request: Request) {
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
   try {
     if (isPrivateBlob) {
-      const pathname = decodeURIComponent(source.pathname.replace(/^\\/+/, ''));
+      const pathname = decodeURIComponent(source.pathname.replace(/^\/+/, ''));
       if (!pathname) return new NextResponse('Image path is required.', { status: 400 });
 
       const result = await get(pathname, { access: 'private' });
