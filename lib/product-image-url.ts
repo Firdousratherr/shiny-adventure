@@ -1,4 +1,4 @@
-const PROXIED_IMAGE_HOSTS = /(^|\\.)meesho\\.com$/i;
+const PROXIED_IMAGE_HOSTS = /(^|\\.)(meesho\\.com|cdn\\.shopify\\.com|myshopify\\.com)$/i;
 
 export function productImageUrl(url: string | null | undefined) {
   if (!url) return undefined;
