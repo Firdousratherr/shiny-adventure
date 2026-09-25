@@ -79,7 +79,8 @@ export async function POST(request:Request){
         cache:'no-store'
       });
       j=await r.json();
-      if(!r.ok||j.errors)throw new Error(graphQLErrorMessage(j.errors)||'Shopify request failed');
+      if(j.errors)throw new Error(graphQLErrorMessage(j.errors)||'Shopify GraphQL request failed');
+      if(!r.ok){const reason=typeof j?.error==='string'?j.error:typeof j?.message==='string'?j.message:'';throw new Error('Shopify Admin API returned HTTP '+r.status+(reason?': '+reason:''));}
     }finally{clearTimeout(timer);}
 
     const items:SyncItem[]=(j.data?.nodes||[]).filter(Boolean).map((x:any)=>({
