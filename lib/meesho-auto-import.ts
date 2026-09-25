@@ -1,5 +1,6 @@
 import { scrapeMarketplaceProduct } from './marketplace-scraper';
 import { getShopifyAccessToken } from './shopify';
+import { getScrapingBeeApiKey } from './scrapingbee';
 
 export type MeeshoAutoSettings = {
   maxItemsPerSync?: number;
@@ -29,14 +30,14 @@ function parseLocs(xml: string) {
 }
 
 async function scrapingBee(url: string, timeoutMs = 60000) {
-  const key = clean(process.env.SCRAPINGBEE_API_KEY);
+  const key = getScrapingBeeApiKey();
   if (!key) throw new Error('Add SCRAPINGBEE_API_KEY in Vercel before enabling Meesho Auto Import.');
 
   const endpoint = new URL('https://app.scrapingbee.com/api/v1/');
   endpoint.searchParams.set('url', url);
   endpoint.searchParams.set('mode', 'auto');
   endpoint.searchParams.set('country_code', 'in');
-  endpoint.searchParams.set('max_cost', process.env.SCRAPINGBEE_MAX_COST?.trim() || '75');
+  endpoint.searchParams.set('max_cost', (process.env.SCRAPINGBEE_MAX_COST ?? '75').trim() || '75');
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
