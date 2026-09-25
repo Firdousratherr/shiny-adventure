@@ -1,4 +1,5 @@
 import { URL } from 'url';
+import { getScrapingBeeApiKey } from './scrapingbee';
 
 export type ScrapedMarketplaceProduct = {
   provider: 'AMAZON' | 'FLIPKART' | 'MEESHO';
@@ -222,7 +223,7 @@ async function directFetch(url: string) {
 }
 
 async function scraperFetch(url: string, provider: string) {
-  const apiKey = (process.env.SCRAPINGBEE_API_KEY ?? process.env.SCRAPINGBEE_API_TOKEN ?? '').replace(/^['"]|['"]$/g, '').trim();
+  const apiKey = getScrapingBeeApiKey();
   if (!apiKey) throw new Error('Automatic scraping is not configured. Add SCRAPINGBEE_API_KEY in Vercel, or enter title and price manually.');
 
   let lastError = 'Automatic scraper failed.';
