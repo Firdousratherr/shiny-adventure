@@ -29,6 +29,31 @@ function parseLocs(xml: string) {
   return [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map(m => m[1].trim()).filter(Boolean);
 }
 
+function extractProductUrls(text: string) {
+  const urls = new Set<string>();
+  const decoded = text.replace(/\\u002F/g, '/').replace(/\\\//g, '/').replace(/&amp;/g, '&');
+  for (const match of decoded.matchAll(/https?:\\/\\/(?:www\\.)?meesho\\.com(?:[^"'\\s<>)]*)?\\/(?:s\\/)?p\\/([a-z0-9]+)/gi)) {
+    const raw = match[0].replace(/[\\.,;]+$/, '');
+    try {
+      const url = new URL(raw);
+      url.search = '';
+      url.hash = '';
+      urls.add(url.toString());
+    } catch {}
+  }
+  for (const match of decoded.matchAll(/href=["']([^"']*?(?:\\/s)?\\/p\\/[a-z0-9]+[^"']*)["']/gi)) {
+    try {
+      const url = new URL(match[1], 'https://www.meesho.com');
+      if (url.hostname.endsWith('meesho.com')) {
+        url.search = '';
+        url.hash = '';
+        urls.add(url.toString());
+      }
+    } catch {}
+  }
+  return [...urls];
+}
+
 async function scrapingBee(url: string, timeoutMs = 60000) {
   const key = getScrapingBeeApiKey();
   if (!key) throw new Error('Add SCRAPINGBEE_API_KEY in Vercel before enabling Meesho Auto Import.');
@@ -55,6 +80,17 @@ async function scrapingBee(url: string, timeoutMs = 60000) {
   }
 }
 
+async function discoverKeywordUrls(keyword: string) {
+  if (!keyword.trim()) return [];
+  const searchUrl = 'https://www.meesho.com/search?q=' + encodeURIComponent(keyword.trim());
+  try {
+    const html = await scrapingBee(searchUrl, 60000);
+    return extractProductUrls(html);
+  } catch {
+    return [];
+  }
+}
+
 async function loadSitemapShards(settings: MeeshoAutoSettings) {
   const cached = Array.isArray(settings.sitemapShards) ? settings.sitemapShards.filter(Boolean) : [];
   const freshAt = settings.sitemapFetchedAt ? Date.parse(settings.sitemapFetchedAt) : 0;
@@ -77,11 +113,28 @@ function matchesFilters(item: { name: string; categoryName?: string }, settings:
 }
 
 export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
-  const shards = await loadSitemapShards(settings);
-  const cursor = Math.max(0, Number(settings.shardCursor ?? 0)) % shards.length;
-  const shardCount = Math.max(1, Math.min(5, Number(settings.shardCountPerRun ?? DEFAULT_SHARD_COUNT)));
   const maxItems = Math.max(1, Math.min(50, Number(settings.maxItemsPerSync ?? DEFAULT_MAX_ITEMS)));
-  const selected = Array.from({ length: Math.min(shardCount, shards.length) }, (_, i) => shards[(cursor + i) % shards.length]);
+  const keyword = clean(settings.keywords);
+  let urls = await discoverKeywordUrls(keyword);
+  let shards: string[] = [];
+  let cursor = 0;
+  let selected: string[] = [];
+
+  if (!urls.length) {
+    shards = await loadSitemapShards(settings);
+    cursor = Math.max(0, Number(settings.shardCursor ?? 0)) % shards.length;
+    const shardCount = Math.max(1, Math.min(5, Number(settings.shardCountPerRun ?? DEFAULT_SHARD_COUNT)));
+    selected = Array.from({ length: Math.min(shardCount, shards.length) }, (_, i) => shards[(cursor + i) % shards.length]);
+    for (const shard of selected) {
+      try {
+        urls.push(...parseLocs(await scrapingBee(shard)));
+      } catch {}
+    }
+  }
+
+  urls = [...new Set(urls)]
+    .filter(url => /^https?:\/\/(?:www\.)?meesho\.com\/.+\/p\//i.test(url))
+    .slice(0, Math.min(100, Math.max(maxItems * 4, maxItems)));
 
   const products: Array<{
     externalId: string;
@@ -91,53 +144,42 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
     imageUrl: string | null;
     rawData: Record<string, unknown>;
   }> = [];
-  let urlsScanned = 0;
   let failed = 0;
+  const failureDetails: string[] = [];
 
-  for (const shard of selected) {
+  for (const url of urls) {
     if (products.length >= maxItems) break;
-    let urls: string[] = [];
     try {
-      urls = parseLocs(await scrapingBee(shard));
-    } catch {
+      const item = await scrapeMarketplaceProduct(url);
+      if (item.provider !== 'MEESHO' || !matchesFilters(item, settings)) continue;
+      products.push({
+        externalId: item.externalId,
+        title: item.name,
+        sourceUrl: item.sourceUrl,
+        sourceCost: item.sourceCost,
+        imageUrl: item.images[0] ?? null,
+        rawData: {
+          descriptionHtml: item.description ? '<p>' + item.description.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\n/g, '<br>') + '</p>' : '',
+          images: item.images,
+          categoryName: item.categoryName ?? '',
+          availability: item.availability,
+        },
+      });
+    } catch (error) {
       failed++;
-      continue;
-    }
-
-    for (const url of urls) {
-      if (products.length >= maxItems) break;
-      if (!/^https?:\/\/www\.meesho\.com\/.+\/p\//i.test(url)) continue;
-      urlsScanned++;
-      try {
-        const item = await scrapeMarketplaceProduct(url);
-        if (item.provider !== 'MEESHO' || !matchesFilters(item, settings)) continue;
-        products.push({
-          externalId: item.externalId,
-          title: item.name,
-          sourceUrl: item.sourceUrl,
-          sourceCost: item.sourceCost,
-          imageUrl: item.images[0] ?? null,
-          rawData: {
-            descriptionHtml: item.description ? '<p>' + item.description.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\n/g, '<br>') + '</p>' : '',
-            images: item.images,
-            categoryName: item.categoryName ?? '',
-            availability: item.availability,
-          },
-        });
-      } catch {
-        failed++;
-      }
+      if (failureDetails.length < 3) failureDetails.push(error instanceof Error ? error.message : 'Product scrape failed.');
     }
   }
 
   return {
     products,
-    shardCursor: (cursor + selected.length) % shards.length,
+    shardCursor: shards.length ? (cursor + selected.length) % shards.length : 0,
     sitemapShards: shards,
-    sitemapFetchedAt: new Date().toISOString(),
+    sitemapFetchedAt: shards.length ? new Date().toISOString() : settings.sitemapFetchedAt,
     shardsScanned: selected.length,
-    urlsScanned,
+    urlsScanned: urls.length,
     failed,
+    failureDetails,
   };
 }
 
