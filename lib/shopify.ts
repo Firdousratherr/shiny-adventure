@@ -22,6 +22,62 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 1500
   }
 }
 
+function graphQLErrorMessage(errors: unknown) {
+  if (Array.isArray(errors)) return errors.map((e: any) => String(e?.message || e)).join('; ');
+  if (errors && typeof errors === 'object') return Object.values(errors as Record<string, unknown>).map((e: any) => String(e?.message || e)).join('; ');
+  return String(errors ?? '');
+}
+
+function shopUnavailableError(status: number, message: string) {
+  if (/Unavailable Shop|shop is unavailable|shop_unavailable|PAYMENT_REQUIRED/i.test(message) || status === 402 || status === 423) {
+    return new Error('Shopify reports that this store is unavailable. Check Shopify Admin for billing, frozen/inactive store status, or an account restriction, then retry.');
+  }
+  return null;
+}
+
+export async function shopifyGraphQL<T = any>(
+  credentials: Record<string, unknown>,
+  query: string,
+  variables?: Record<string, unknown>,
+  timeoutMs = 20000,
+) {
+  const { domain, accessToken } = await getShopifyAccessToken(credentials);
+  const response = await fetchWithTimeout('https://' + domain + '/admin/api/' + SHOPIFY_API_VERSION + '/graphql.json', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': accessToken,
+    },
+    body: JSON.stringify({ query, variables }),
+  }, timeoutMs);
+
+  const raw = await response.text();
+  let payload: any = {};
+  try {
+    payload = raw ? JSON.parse(raw) : {};
+  } catch {
+    throw new Error('Shopify returned a non-JSON response (HTTP ' + response.status + ').');
+  }
+
+  if (payload.errors) {
+    const detail = graphQLErrorMessage(payload.errors) || 'Unknown Shopify GraphQL error.';
+    throw shopUnavailableError(response.status, detail) ?? new Error('Shopify GraphQL error: ' + detail);
+  }
+
+  if (!response.ok) {
+    const reason = typeof payload?.error === 'string'
+      ? payload.error
+      : typeof payload?.message === 'string'
+        ? payload.message
+        : '';
+    const message = 'Shopify Admin API returned HTTP ' + response.status + (reason ? ': ' + reason : '.');
+    throw shopUnavailableError(response.status, message) ?? new Error(message);
+  }
+
+  if (!payload.data) throw new Error('Shopify returned no GraphQL data.');
+  return { domain, data: payload.data as T };
+}
+
 export async function getShopifyAccessToken(credentials: Record<string, unknown>) {
   const domain = validateShopifyDomain(credentials.storeDomain);
   const clientId = String(credentials.clientId ?? '').trim();
@@ -59,30 +115,8 @@ export async function getShopifyAccessToken(credentials: Record<string, unknown>
 
 export async function testShopifyConnection(credentials: Record<string, unknown>) {
   const { domain, accessToken, expiresIn } = await getShopifyAccessToken(credentials);
-  const response = await fetchWithTimeout('https://' + domain + '/admin/api/' + SHOPIFY_API_VERSION + '/graphql.json', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': accessToken,
-    },
-    body: JSON.stringify({ query: '{ shop { id name myshopifyDomain } }' }),
-  });
-
-  const data: any = await response.json().catch(() => ({}));
-  if (data.errors) {
-    const reason = Array.isArray(data.errors)
-      ? data.errors.map((e: any) => String(e?.message || e)).join('; ')
-      : typeof data.errors === 'object'
-        ? Object.values(data.errors as Record<string, unknown>).map((e: any) => String(e?.message || e)).join('; ')
-        : String(data.errors);
-    throw new Error(reason || ('Shopify Admin API failed (HTTP ' + response.status + ').'));
-  }
-  if (!response.ok) {
-    const reason = typeof data?.error === 'string' ? data.error : typeof data?.message === 'string' ? data.message : '';
-    throw new Error('Shopify Admin API failed (HTTP ' + response.status + ')' + (reason ? ': ' + reason : '.'));
-  }
-
-  const shop = data.data?.shop;
+  const { data } = await shopifyGraphQL<{ shop?: { id?: string; name?: string; myshopifyDomain?: string } }>(credentials, '{ shop { id name myshopifyDomain } }');
+  const shop = data?.shop;
   if (!shop?.name) throw new Error('Shopify authenticated but did not return store information.');
 
   return {
