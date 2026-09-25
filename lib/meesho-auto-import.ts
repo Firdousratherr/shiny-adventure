@@ -91,17 +91,6 @@ async function scrapingBee(url: string, timeoutMs = 60000) {
   }
 }
 
-async function discoverKeywordUrls(keyword: string) {
-  if (!keyword.trim()) return [];
-  const searchUrl = 'https://www.meesho.com/search?q=' + encodeURIComponent(keyword.trim());
-  try {
-    const html = await scrapingBee(searchUrl, 60000);
-    return extractProductUrls(html);
-  } catch {
-    return [];
-  }
-}
-
 async function loadSitemapShards(settings: MeeshoAutoSettings) {
   const cached = Array.isArray(settings.sitemapShards) ? settings.sitemapShards.filter(Boolean) : [];
   const freshAt = settings.sitemapFetchedAt ? Date.parse(settings.sitemapFetchedAt) : 0;
@@ -126,25 +115,58 @@ function matchesFilters(item: { name: string; categoryName?: string }, settings:
 export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
   const maxItems = Math.max(1, Math.min(50, Number(settings.maxItemsPerSync ?? DEFAULT_MAX_ITEMS)));
   const keyword = clean(settings.keywords);
-  let urls = await discoverKeywordUrls(keyword);
-  let shards: string[] = [];
-  let cursor = 0;
-  let selected: string[] = [];
+  const keywordTokens = keyword
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map(token => token.trim())
+    .filter(token => token.length >= 2);
 
-  if (!urls.length) {
-    shards = await loadSitemapShards(settings);
-    cursor = Math.max(0, Number(settings.shardCursor ?? 0)) % shards.length;
-    const shardCount = Math.max(1, Math.min(5, Number(settings.shardCountPerRun ?? DEFAULT_SHARD_COUNT)));
-    selected = Array.from({ length: Math.min(shardCount, shards.length) }, (_, i) => shards[(cursor + i) % shards.length]);
-    for (const shard of selected) {
-      try {
-        urls.push(...parseLocs(await scrapingBee(shard)));
-      } catch {}
+  const shards = await loadSitemapShards(settings);
+  const cursor = Math.max(0, Number(settings.shardCursor ?? 0)) % shards.length;
+  const configuredShardCount = Math.max(
+    1,
+    Math.min(10, Number(settings.shardCountPerRun ?? DEFAULT_SHARD_COUNT)),
+  );
+
+  const selected: string[] = [];
+  const urls: string[] = [];
+  let shardOffset = 0;
+
+  // Meesho's public search page does not expose its product grid reliably.
+  // Use the product sitemap as the discovery index, then filter product slugs
+  // by the requested keyword before spending credits on individual pages.
+  for (
+    ;
+    shardOffset < Math.min(configuredShardCount, shards.length) && urls.length < maxItems * 4;
+    shardOffset++
+  ) {
+    const shard = shards[(cursor + shardOffset) % shards.length];
+    selected.push(shard);
+
+    try {
+      const shardUrls = parseLocs(await scrapingBee(shard))
+        .filter(url => /^https?:\\/\\/(?:www\\.)?meesho\\.com\\/[^?#]+\\/p\\/[a-z0-9]+(?:[?#]|$)/i.test(url));
+
+      const matched = keywordTokens.length
+        ? shardUrls.filter(url => {
+            try {
+              const path = decodeURIComponent(new URL(url).pathname).toLowerCase();
+              const haystack = path.replace(/[-_]+/g, ' ');
+              return keywordTokens.some(token => haystack.includes(token));
+            } catch {
+              return false;
+            }
+          })
+        : shardUrls;
+
+      urls.push(...matched);
+    } catch {
+      // Continue to the next shard; one unavailable sitemap shard must not
+      // stop the whole import.
     }
   }
 
-  urls = [...new Set(urls)]
-    .filter(url => /^https?:\/\/(?:www\.)?meesho\.com\/.+\/p\//i.test(url))
+  const uniqueUrls = [...new Set(urls)]
     .slice(0, Math.min(100, Math.max(maxItems * 4, maxItems)));
 
   const products: Array<{
@@ -158,11 +180,13 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
   let failed = 0;
   const failureDetails: string[] = [];
 
-  for (const url of urls) {
+  for (const url of uniqueUrls) {
     if (products.length >= maxItems) break;
+
     try {
       const item = await scrapeMarketplaceProduct(url);
       if (item.provider !== 'MEESHO' || !matchesFilters(item, settings)) continue;
+
       products.push({
         externalId: item.externalId,
         title: item.name,
@@ -170,7 +194,9 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
         sourceCost: item.sourceCost,
         imageUrl: item.images[0] ?? null,
         rawData: {
-          descriptionHtml: item.description ? '<p>' + item.description.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\n/g, '<br>') + '</p>' : '',
+          descriptionHtml: item.description
+            ? '<p>' + item.description.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\n/g, '<br>') + '</p>'
+            : '',
           images: item.images,
           categoryName: item.categoryName ?? '',
           availability: item.availability,
@@ -178,17 +204,27 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
       });
     } catch (error) {
       failed++;
-      if (failureDetails.length < 3) failureDetails.push(error instanceof Error ? error.message : 'Product scrape failed.');
+      if (failureDetails.length < 3) {
+        failureDetails.push(error instanceof Error ? error.message.slice(0, 1000) : 'Product scrape failed.');
+      }
     }
+  }
+
+  if (!products.length && !failed) {
+    failureDetails.push(
+      keyword
+        ? 'No matching Meesho products were found in the scanned sitemap shard(s). Try the import again; the importer advances to the next shard.'
+        : 'No Meesho product URLs were found in the scanned sitemap shard(s).',
+    );
   }
 
   return {
     products,
-    shardCursor: shards.length ? (cursor + selected.length) % shards.length : 0,
+    shardCursor: (cursor + Math.max(1, selected.length)) % shards.length,
     sitemapShards: shards,
-    sitemapFetchedAt: shards.length ? new Date().toISOString() : settings.sitemapFetchedAt,
+    sitemapFetchedAt: settings.sitemapFetchedAt ?? new Date().toISOString(),
     shardsScanned: selected.length,
-    urlsScanned: urls.length,
+    urlsScanned: uniqueUrls.length,
     failed,
     failureDetails,
   };
