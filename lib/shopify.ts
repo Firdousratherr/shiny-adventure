@@ -35,13 +35,13 @@ function shopUnavailableError(status: number, message: string) {
   return null;
 }
 
-export async function shopifyGraphQL<T = any>(
-  credentials: Record<string, unknown>,
+export async function shopifyGraphQLWithToken<T = any>(
+  domain: string,
+  accessToken: string,
   query: string,
   variables?: Record<string, unknown>,
   timeoutMs = 20000,
 ) {
-  const { domain, accessToken } = await getShopifyAccessToken(credentials);
   const response = await fetchWithTimeout('https://' + domain + '/admin/api/' + SHOPIFY_API_VERSION + '/graphql.json', {
     method: 'POST',
     headers: {
@@ -76,6 +76,16 @@ export async function shopifyGraphQL<T = any>(
 
   if (!payload.data) throw new Error('Shopify returned no GraphQL data.');
   return { domain, data: payload.data as T };
+}
+
+export async function shopifyGraphQL<T = any>(
+  credentials: Record<string, unknown>,
+  query: string,
+  variables?: Record<string, unknown>,
+  timeoutMs = 20000,
+) {
+  const { domain, accessToken } = await getShopifyAccessToken(credentials);
+  return shopifyGraphQLWithToken<T>(domain, accessToken, query, variables, timeoutMs);
 }
 
 export async function getShopifyAccessToken(credentials: Record<string, unknown>) {
