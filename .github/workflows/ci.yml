@@ -4,9 +4,9 @@ name: CI
 
 on:
   push:
-    branches: ["build/admin-order-management-final4", "build/dropshipping-store", "fix/meesho-product-image-extraction", "feature/meesho-auto-shopify-import"]
+    branches: ["main", "build/admin-order-management-final4", "build/dropshipping-store", "fix/meesho-product-image-extraction", "feature/meesho-auto-shopify-import"]
   pull_request:
-    branches: ["build/dropshipping-store", "build/admin-order-management-final4", "fix/meesho-product-image-extraction"]
+    branches: ["main", "build/dropshipping-store", "build/admin-order-management-final4", "fix/meesho-product-image-extraction"]
   workflow_dispatch:
 
 jobs:
