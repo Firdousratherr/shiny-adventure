@@ -5,6 +5,10 @@ const PRIVATE_BLOB_HOST = /(^|\.)private\.blob\.vercel-storage\.com$/i;
 const REMOTE_IMAGE_HOST = /(^|\.)meesho\.com$/i;
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
 
+function blobToken() {
+  return process.env.BLOB_READ_WRITE_TOKEN?.trim() || '';
+}
+
 export async function GET(request: Request) {
   const raw = new URL(request.url).searchParams.get('url');
   if (!raw) return NextResponse.json({ error: 'Image URL is required.' }, { status: 400 });
@@ -27,7 +31,13 @@ export async function GET(request: Request) {
       const pathname = decodeURIComponent(source.pathname.replace(/^\/+/, ''));
       if (!pathname) return new NextResponse('Image path is required.', { status: 400 });
 
-      const result = await get(pathname, { access: 'private' });
+      const token = blobToken();
+      if (!token) {
+        console.error('Private Blob image requested but BLOB_READ_WRITE_TOKEN is unavailable at runtime.');
+        return new NextResponse('Image storage is not configured.', { status: 503 });
+      }
+
+      const result = await get(pathname, { access: 'private', token });
       if (!result) return new NextResponse('Image not found.', { status: 404 });
 
       return new Response(result.stream, {
