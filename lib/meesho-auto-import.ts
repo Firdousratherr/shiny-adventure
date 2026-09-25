@@ -32,19 +32,21 @@ function parseLocs(xml: string) {
 function extractProductUrls(text: string) {
   const urls = new Set<string>();
   const decoded = text.replace(/\\u002F/g, '/').replace(/\\\//g, '/').replace(/&amp;/g, '&');
-  for (const match of decoded.matchAll(/https?:\\/\\/(?:www\\.)?meesho\\.com(?:[^"'\\s<>)]*)?\\/(?:s\\/)?p\\/([a-z0-9]+)/gi)) {
-    const raw = match[0].replace(/[\\.,;]+$/, '');
+  const candidates = decoded.match(/https?:\\/\\/(?:www\\.)?meesho\\.com[^\\s"'<>]+/gi) ?? [];
+  for (const candidate of candidates) {
     try {
-      const url = new URL(raw);
-      url.search = '';
-      url.hash = '';
-      urls.add(url.toString());
+      const url = new URL(candidate.replace(/[),.;]+$/, ''));
+      if (/\\/(?:s\\/)?p\\/[a-z0-9]+(?:$|\\?|#)/i.test(url.pathname)) {
+        url.search = '';
+        url.hash = '';
+        urls.add(url.toString());
+      }
     } catch {}
   }
-  for (const match of decoded.matchAll(/href=["']([^"']*?(?:\\/s)?\\/p\\/[a-z0-9]+[^"']*)["']/gi)) {
+  for (const match of decoded.matchAll(/href=["']([^"']+)["']/gi)) {
     try {
       const url = new URL(match[1], 'https://www.meesho.com');
-      if (url.hostname.endsWith('meesho.com')) {
+      if (url.hostname.endsWith('meesho.com') && /\\/(?:s\\/)?p\\/[a-z0-9]+(?:$|\\?|#)/i.test(url.pathname)) {
         url.search = '';
         url.hash = '';
         urls.add(url.toString());
