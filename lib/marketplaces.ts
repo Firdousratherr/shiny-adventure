@@ -291,6 +291,7 @@ export async function importItems(integrationId: string, provider: string, items
   let updated = 0;
   let skipped = 0;
   let failed = 0;
+  const failureDetails: string[] = [];
   const limit = Math.max(1, Math.min(500, Number(settings.maxItemsPerSync ?? items.length)));
 
   const existingRows = await db.marketplaceProduct.findMany({
@@ -474,6 +475,8 @@ export async function importItems(integrationId: string, provider: string, items
     });
     } catch (error) {
       failed++;
+      const failureMessage = error instanceof Error ? error.message.slice(0, 1000) : 'Marketplace import failed.';
+      if (failureDetails.length < 3) failureDetails.push(failureMessage);
       await db.marketplaceImportLog.create({
         data: {
           integrationId,
@@ -486,12 +489,12 @@ export async function importItems(integrationId: string, provider: string, items
           sourceCost: numeric(item.sourceCost),
           sellingPrice: null,
           importedImages: 0,
-          error: error instanceof Error ? error.message.slice(0, 1000) : 'Marketplace import failed.',
+          error: failureMessage,
         },
       });
     }
   }
-  return { imported, updated, skipped, failed };
+  return { imported, updated, skipped, failed, failureDetails };
 }
 async function amazonItems(settings: Settings, credentials: Record<string, unknown>): Promise<SyncItem[]> {
   const mod: any = await import('amazon-sp-api');
@@ -644,7 +647,7 @@ export async function syncMarketplace(integrationId: string, provider: string, r
       found: discovery.products.length,
       shardsScanned: discovery.shardsScanned,
       urlsScanned: discovery.urlsScanned,
-      failureDetails: discovery.failureDetails,
+      failureDetails: [...(discovery.failureDetails ?? []), ...(result.failureDetails ?? [])].slice(0, 3),
     };
   }
 
