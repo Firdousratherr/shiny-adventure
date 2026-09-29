@@ -175,12 +175,6 @@ function matchesFilters(item: { name: string; categoryName?: string }, settings:
 export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
   const maxItems = Math.max(1, Math.min(50, Number(settings.maxItemsPerSync ?? DEFAULT_MAX_ITEMS)));
   const keyword = clean(settings.keywords);
-  const keywordTokens = keyword
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .map(token => token.trim())
-    .filter(token => token.length >= 2);
-
   const shards = await loadSitemapShards(settings);
   const cursor = Math.max(0, Number(settings.shardCursor ?? 0)) % shards.length;
   const configuredShardCount = Math.max(
