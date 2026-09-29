@@ -1,14 +1,49 @@
 import Link from 'next/link';
 import { auth, signOut } from '../../auth';
 import { db } from '../../lib/db';
+import StoreHeader from '../../components/store-header';
+import StoreFooter from '../../components/store-footer';
 
 export default async function Account() {
-  const session = await auth();
-  if (session?.user?.role !== 'customer') return <main className="min-h-screen bg-slate-950 p-8 text-white"><div className="mx-auto max-w-lg rounded-3xl bg-white/5 p-8 text-center"><h1 className="text-3xl font-black">Please sign in</h1><Link href="/login" className="mt-6 inline-flex rounded-xl bg-violet-600 px-6 py-3 font-bold">Sign in</Link></div></main>;
-  const email = session.user.email ?? undefined;
-  if (!email) return <main className="min-h-screen bg-slate-950 p-8 text-white"><div className="mx-auto max-w-lg rounded-3xl bg-white/5 p-8 text-center"><h1 className="text-3xl font-black">Account unavailable</h1><p className="mt-3 text-slate-400">Your account session is missing an email address. Please sign in again.</p><Link href="/login" className="mt-6 inline-flex rounded-xl bg-violet-600 px-6 py-3 font-bold">Sign in</Link></div></main>;
-  const customer = await db.customerUser.findUnique({ where: { email }, select: { name:true,email:true,createdAt:true } });
-  const orders = await db.order.findMany({ where:{email}, orderBy:{createdAt:'desc'}, take:10, select:{orderNumber:true,status:true,totalAmount:true,createdAt:true} });
-  return <main className="min-h-screen bg-[#070b16] text-white"><header className="border-b border-white/10 bg-[#090e1c]/90 backdrop-blur"><div className="container flex h-16 items-center justify-between"><Link href="/" className="text-2xl font-black">🛍️ Zenvora<span className="text-fuchsia-400">.</span></Link><div className="flex items-center gap-2"><Link href="/products" className="rounded-xl px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/5">Shop</Link><form action={async()=>{'use server';await signOut({redirectTo:'/'})}}><button className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/5">Logout</button></form></div></div></header>
-  <div className="container py-8 sm:py-12"><div className="grid gap-6 lg:grid-cols-[260px_1fr]"><aside className="rounded-3xl border border-white/10 bg-white/5 p-5"><p className="text-xs font-black uppercase tracking-widest text-fuchsia-400">My account</p><h1 className="mt-2 text-2xl font-black">{customer?.name||session.user.name||'Customer'}</h1><p className="mt-1 break-all text-sm text-slate-400">{customer?.email||email}</p><nav className="mt-7 space-y-1 text-sm font-bold"><Link href="/account" className="block rounded-xl bg-violet-600/20 px-4 py-3 text-violet-200">Overview</Link><Link href="/account/profile" className="block rounded-xl px-4 py-3 text-slate-300 hover:bg-white/5">Edit profile</Link><Link href="/account/addresses" className="block rounded-xl px-4 py-3 text-slate-300 hover:bg-white/5">Saved addresses</Link><Link href="/products" className="block rounded-xl px-4 py-3 text-slate-300 hover:bg-white/5">Continue shopping</Link></nav></aside><section><div className="rounded-3xl border border-white/10 bg-gradient-to-br from-violet-700/40 to-fuchsia-600/20 p-6 sm:p-8"><p className="text-sm font-bold text-violet-200">Welcome back</p><h2 className="mt-1 text-3xl font-black">Your Zenvora account</h2><p className="mt-2 text-sm text-slate-300">Track your recent purchases and keep shopping.</p></div><div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-7"><div className="flex items-center justify-between"><h2 className="text-xl font-black">My Orders</h2><Link href="/track" className="text-sm font-bold text-fuchsia-400">Track order →</Link></div>{orders.length===0?<p className="mt-8 rounded-2xl bg-black/20 p-8 text-center text-sm text-slate-400">Your orders will appear here after checkout.</p>:<div className="mt-5 space-y-3">{orders.map(o=><div key={o.orderNumber} className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black">#{o.orderNumber}</p><p className="text-xs text-slate-500">{o.createdAt.toLocaleDateString('en-IN')}</p></div><span className="w-fit rounded-full bg-violet-500/15 px-3 py-1 text-xs font-bold text-violet-200">{o.status.replaceAll('_',' ')}</span><p className="font-black">₹{Number(o.totalAmount).toLocaleString('en-IN',{minimumFractionDigits:2})}</p></div>)}</div>}</div></section></div></div></main>;
+  const session=await auth();
+  if(session?.user?.role!=='customer') return (
+    <main className="store-shell min-h-screen"><StoreHeader /><div className="store-container py-16"><div className="store-auth-card mx-auto max-w-lg text-center"><div className="store-auth-icon">◎</div><h1 className="mt-5 text-3xl font-black text-slate-950">Sign in to your account</h1><p className="mt-3 text-sm leading-6 text-slate-500">Access your orders, saved addresses and profile details.</p><Link href="/login" className="store-primary-btn mt-6">Sign in <span>→</span></Link></div></div><StoreFooter /></main>
+  );
+  const email=session.user.email??undefined;
+  if(!email) return (
+    <main className="store-shell min-h-screen"><StoreHeader /><div className="store-container py-16"><div className="store-auth-card mx-auto max-w-lg text-center"><div className="store-auth-icon">!</div><h1 className="mt-5 text-3xl font-black text-slate-950">Account unavailable</h1><p className="mt-3 text-sm leading-6 text-slate-500">Please sign in again to continue.</p><Link href="/login" className="store-primary-btn mt-6">Sign in <span>→</span></Link></div></div><StoreFooter /></main>
+  );
+
+  const customer=await db.customerUser.findUnique({where:{email},select:{name:true,email:true,createdAt:true}});
+  const orders=await db.order.findMany({where:{email},orderBy:{createdAt:'desc'},take:10,select:{orderNumber:true,status:true,totalAmount:true,createdAt:true}});
+  return (
+    <main id="main-content" className="store-shell">
+      <StoreHeader loggedIn />
+      <div className="store-container pb-12 pt-7 sm:pt-10">
+        <div className="grid gap-5 lg:grid-cols-[270px_1fr]">
+          <aside className="store-account-sidebar">
+            <div className="store-avatar">{(customer?.name||session.user.name||'C').slice(0,1).toUpperCase()}</div>
+            <p className="mt-4 text-xl font-black text-slate-950">{customer?.name||session.user.name||'Customer'}</p>
+            <p className="mt-1 break-all text-xs leading-5 text-slate-500">{customer?.email||email}</p>
+            <nav className="mt-7 space-y-1">
+              <Link href="/account" className="store-account-link is-active">Overview</Link>
+              <Link href="/account/profile" className="store-account-link">Edit profile</Link>
+              <Link href="/account/addresses" className="store-account-link">Saved addresses</Link>
+              <Link href="/products" className="store-account-link">Continue shopping</Link>
+            </nav>
+            <form action={async()=>{'use server';await signOut({redirectTo:'/'})}} className="mt-5 border-t border-slate-200 pt-5"><button className="store-account-link w-full text-left text-rose-500">Sign out</button></form>
+          </aside>
+          <section>
+            <div className="store-account-hero"><div><p className="store-kicker">Account overview</p><h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Welcome back.</h1><p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">Everything you need to keep track of your Zenvora orders in one place.</p></div><div className="store-account-hero-art" aria-hidden="true"><span>↗</span><small>Orders</small></div></div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">{[['Orders',String(orders.length),'/account'],['Profile','Ready','/account/profile'],['Addresses','Saved','/account/addresses']].map(([label,value,href])=><Link key={label} href={href} className="store-account-stat"><span>{label}</span><strong>{value}</strong><small>Open →</small></Link>)}</div>
+            <div className="store-panel mt-5">
+              <div className="flex items-center justify-between gap-3"><div><p className="store-kicker">Recent activity</p><h2 className="mt-1 text-xl font-black text-slate-950">My orders</h2></div><Link href="/track" className="store-text-link">Track an order →</Link></div>
+              {orders.length===0?<div className="store-empty mt-5 py-12"><div className="store-empty-icon">⌂</div><h3>No orders yet</h3><p>Your orders will appear here after checkout.</p><Link href="/products" className="store-primary-btn mt-5">Start shopping <span>→</span></Link></div>:<div className="mt-5 divide-y divide-slate-100">{orders.map(order=><div key={order.orderNumber} className="store-order-row"><div className="min-w-0"><p className="font-extrabold text-slate-900">#{order.orderNumber}</p><p className="mt-1 text-xs text-slate-400">{order.createdAt.toLocaleDateString('en-IN')}</p></div><span className="store-status">{order.status.replaceAll('_',' ')}</span><strong className="text-sm text-slate-950">₹{Number(order.totalAmount).toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>)}</div>}
+            </div>
+          </section>
+        </div>
+      </div>
+      <StoreFooter />
+    </main>
+  );
 }
