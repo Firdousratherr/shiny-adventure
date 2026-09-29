@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../auth';
 import { db } from '../../../lib/db';
-import { rateLimit } from '../../../lib/rate-limit';
+import { securityRateLimit } from '../../../lib/rate-limit';
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -9,9 +9,9 @@ export async function POST(request: Request) {
   const sessionId = typeof body.sessionId === 'string' ? body.sessionId.slice(0, 128) : '';
   if (!productId || !sessionId) return NextResponse.json({ error: 'Product and session are required.' }, { status: 400 });
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
-  const limited = await rateLimit('recently-viewed:'+sessionId, 60, 600);
-  const ipLimited = await rateLimit('recently-viewed-ip:'+ip, 240, 600);
-  if (process.env.NODE_ENV === 'production' && (!limited.configured || !ipLimited.configured)) {
+  const limited = await securityRateLimit('recently-viewed:'+sessionId, 60, 600);
+  const ipLimited = await securityRateLimit('recently-viewed-ip:'+ip, 240, 600);
+  if (limited.securityUnavailable || ipLimited.securityUnavailable) {
     return NextResponse.json({ error: 'Recently viewed tracking is temporarily unavailable.' }, { status: 503 });
   }
   if (limited.limited || ipLimited.limited) return NextResponse.json({ error: 'Too many recently-viewed events.' }, { status: 429, headers: { 'Retry-After': '600' } });

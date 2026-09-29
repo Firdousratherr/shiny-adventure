@@ -46,8 +46,16 @@ export async function DELETE(request:Request){
     const c=await customer(); if(!c)return NextResponse.json({error:'Unauthorized'},{status:401});
     const id=String((await request.json()).id||''); const existing=await db.customerAddress.findFirst({where:{id,customerId:c.id}});
     if(!existing)return NextResponse.json({error:'Address not found.'},{status:404});
-    await db.customerAddress.delete({where:{id}});
-    if(existing.isDefault){const next=await db.customerAddress.findFirst({where:{customerId:c.id},orderBy:{createdAt:'desc'}});if(next)await db.customerAddress.update({where:{id:next.id},data:{isDefault:true}});}
+    await db.$transaction(async tx => {
+      await tx.customerAddress.delete({ where: { id } });
+      if (existing.isDefault) {
+        const next = await tx.customerAddress.findFirst({
+          where: { customerId: c.id },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (next) await tx.customerAddress.update({ where: { id: next.id }, data: { isDefault: true } });
+      }
+    });
     return NextResponse.json({ok:true});
   }catch(e){console.error('address delete failed',e);return NextResponse.json({error:'Unable to delete address.'},{status:500});}
 }

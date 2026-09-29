@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/db';
 import { trackingSchema } from '../../../../lib/validation';
-import { rateLimit } from '../../../../lib/rate-limit';
+import { securityRateLimit } from '../../../../lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
     const parsed = trackingSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: 'Enter a valid order number and phone number.' }, { status: 400 });
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
-    const key = `track:${ip}:${parsed.data.orderNumber.toUpperCase()}:${parsed.data.phone}`;
-    const limited = await rateLimit(key, 10, 600);
-    if (limited.limited) return NextResponse.json({ error: 'Too many tracking attempts. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
+    const globalLimit = await securityRateLimit(`track:ip:${ip}`, 30, 600);
+    const orderLimit = await securityRateLimit(`track:order:${ip}:${parsed.data.orderNumber.toUpperCase()}`, 10, 600);
+    if (globalLimit.securityUnavailable || orderLimit.securityUnavailable) {
+      return NextResponse.json({ error: 'Tracking is temporarily unavailable. Please try again shortly.' }, { status: 503 });
+    }
+    if (globalLimit.limited || orderLimit.limited) {
+      return NextResponse.json({ error: 'Too many tracking attempts. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
+    }
 
     const order = await db.order.findFirst({
       where: { orderNumber: parsed.data.orderNumber.toUpperCase(), phone: parsed.data.phone },

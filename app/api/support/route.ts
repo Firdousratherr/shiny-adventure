@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../auth';
 import { db } from '../../../lib/db';
-import { rateLimit } from '../../../lib/rate-limit';
+import { securityRateLimit } from '../../../lib/rate-limit';
 export async function GET() {
   const session=await auth(); if(session?.user?.role!=='customer'||!session.user.email)return NextResponse.json({error:'Unauthorized'},{status:401});
   const customer=await db.customerUser.findUnique({where:{email:session.user.email},select:{id:true}}); if(!customer)return NextResponse.json({error:'Unauthorized'},{status:401});
@@ -10,8 +10,8 @@ export async function GET() {
 export async function POST(request:Request) {
   const session=await auth(); if(session?.user?.role!=='customer'||!session.user.email)return NextResponse.json({error:'Unauthorized'},{status:401});
   const customer=await db.customerUser.findUnique({where:{email:session.user.email},select:{id:true}}); if(!customer)return NextResponse.json({error:'Unauthorized'},{status:401});
-  const limited=await rateLimit('support:'+customer.id,8,600);
-  if(limited.limited)return NextResponse.json({error:'Too many support requests. Please try again later.'},{status:429,headers:{'Retry-After':'600'}});
+  const limited=await securityRateLimit('support:'+customer.id,8,600);
+  if(limited.securityUnavailable)return NextResponse.json({error:'This security service is temporarily unavailable.'},{status:503});if(limited.limited)return NextResponse.json({error:'Too many support requests. Please try again later.'},{status:429,headers:{'Retry-After':'600'}});
 
   const body=await request.json().catch(()=>({}));
   const subject=typeof body.subject==='string'?body.subject.trim().slice(0,120):'';

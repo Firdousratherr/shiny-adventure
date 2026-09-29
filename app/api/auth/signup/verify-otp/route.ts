@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { db } from '../../../../../lib/db';
-import { rateLimit } from '../../../../../lib/rate-limit';
+import { securityRateLimit } from '../../../../../lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
@@ -14,10 +14,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Enter the 6-digit verification code.' }, { status: 400 });
     }
 
-    const limited = await rateLimit('signup-verify:' + email, 10, 600);
+    const limited = await securityRateLimit('signup-verify:' + email, 10, 600);
     if (process.env.NODE_ENV === 'production' && !limited.configured) {
       return NextResponse.json({ error: 'Verification is temporarily unavailable.' }, { status: 503 });
     }
+    if (limited.securityUnavailable) return NextResponse.json({ error: 'This security service is temporarily unavailable.' }, { status: 503 });
     if (limited.limited) return NextResponse.json({ error: 'Too many verification attempts. Please wait 10 minutes.' }, { status: 429 });
 
     const pending = await db.signupOtp.findUnique({ where: { email } });

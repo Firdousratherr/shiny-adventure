@@ -7,7 +7,7 @@ export function productImageUrl(url: string | null | undefined) {
   try {
     const parsed = new URL(url);
     if (
-      parsed.hostname.endsWith('.private.blob.vercel-storage.com') ||
+      /(^|\.)private\.blob\.vercel-storage\.com$/i.test(parsed.hostname) ||
       PROXIED_IMAGE_HOSTS.test(parsed.hostname)
     ) {
       return `/api/product-images?url=${encodeURIComponent(url)}`;

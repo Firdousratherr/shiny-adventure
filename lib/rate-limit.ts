@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { Redis } from '@upstash/redis';
 
 let redis: Redis | null = null;
@@ -8,6 +10,14 @@ function getRedis() {
   if (!url || !token) return null;
   redis = new Redis({ url, token });
   return redis;
+}
+
+export async function securityRateLimit(key: string, limit = 10, windowSeconds = 600) {
+  const result = await rateLimit(key, limit, windowSeconds);
+  if (process.env.NODE_ENV === 'production' && !result.configured) {
+    return { ...result, limited: true, securityUnavailable: true };
+  }
+  return { ...result, securityUnavailable: false };
 }
 
 export async function rateLimit(key: string, limit = 10, windowSeconds = 600) {

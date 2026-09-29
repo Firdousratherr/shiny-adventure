@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { auth, signOut } from '../auth';
+import { auth } from '../auth';
 import { db } from '../lib/db';
-import { productImageUrl } from '../lib/product-image-url';
+import StoreHeader from '../components/store-header';
+import ProductCard from '../components/product-card';
 
 function safeBannerHref(value: string | null) {
   if (!value) return '/products';
@@ -15,32 +16,242 @@ function safeBannerHref(value: string | null) {
   }
 }
 
+const categories = [
+  ['📱', 'Electronics', 'electronics'],
+  ['🎧', 'Audio', 'audio'],
+  ['👕', 'Fashion', 'fashion'],
+  ['🏠', 'Home', 'home'],
+  ['💄', 'Beauty', 'beauty'],
+  ['🎮', 'Toys & Games', 'toys-games'],
+  ['🏃', 'Sports', 'sports'],
+  ['👜', 'Bags', 'bags'],
+] as const;
 
 export default async function Home() {
   const session = await auth();
   const loggedIn = !!session?.user?.email;
-  const banners = await db.storeBanner.findMany({ where: { enabled: true, OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }], AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }] }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }], take: 5 });
-  const products = await db.product.findMany({ where:{status:'ACTIVE'}, orderBy:{createdAt:'desc'}, take:8, select:{id:true,name:true,slug:true,sellingPrice:true,images:{orderBy:{sortOrder:'asc'},take:1,select:{url:true,altText:true}}} });
-  return <main className="min-h-screen bg-[#070b16] text-white">
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070b16]/90 backdrop-blur-xl">
-      <div className="container flex h-16 items-center gap-5">
-        <Link href="/" className="shrink-0 text-2xl font-black tracking-tight">🛍️ Zenvora<span className="text-fuchsia-400">.</span></Link>
-        <form action="/products" className="hidden min-w-0 flex-1 md:block"><input name="q" placeholder="Search for products, brands and more..." className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500"/></form>
-        <nav className="hidden items-center gap-5 text-sm font-semibold text-slate-300 lg:flex"><Link href="/products" className="hover:text-white">Shop</Link><Link href="/products" className="hover:text-white">Categories</Link><Link href="/products?sort=price-desc" className="hover:text-white">Deals</Link><Link href="/track" className="hover:text-white">Track Order</Link></nav>
-        <div className="ml-auto flex items-center gap-2">
-          {loggedIn ? <><Link href="/account" className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-white/5">My Account</Link><form action={async()=>{'use server';await signOut({redirectTo:'/'})}}><button className="hidden rounded-xl px-3 py-2 text-sm font-bold text-slate-400 hover:text-white sm:inline-flex">Logout</button></form></> : <><Link href="/login" className="hidden rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-white/5 sm:inline-flex">Login</Link><Link href="/signup" className="rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 py-2 text-sm font-black shadow-lg shadow-violet-900/20">Sign Up</Link></>}
-          <Link href="/cart" className="rounded-xl px-2 py-2 text-xl">🛒</Link>
+  const now = new Date();
+
+  const [banners, products] = await Promise.all([
+    db.storeBanner.findMany({
+      where: {
+        enabled: true,
+        OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+        AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }],
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+      take: 3,
+    }),
+    db.product.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        sellingPrice: true,
+        stock: true,
+        category: { select: { name: true } },
+        images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true, altText: true } },
+      },
+    }),
+  ]);
+
+  return (
+    <main className="store-dark min-h-screen overflow-x-hidden bg-[#070b16] text-white">
+      <StoreHeader loggedIn={loggedIn} />
+
+      <section className="zenvora-home-hero relative isolate overflow-hidden">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_34%,rgba(168,85,247,.28),transparent_28%),radial-gradient(circle_at_12%_8%,rgba(59,130,246,.18),transparent_25%),linear-gradient(180deg,#070b16_0%,#090d1a_100%)]" />
+        <div className="absolute -right-28 top-12 -z-10 h-80 w-80 rounded-full bg-fuchsia-500/10 blur-3xl animate-pulse" />
+        <div className="absolute -left-24 bottom-0 -z-10 h-72 w-72 rounded-full bg-violet-600/10 blur-3xl" />
+
+        <div className="container grid min-h-[650px] items-center gap-10 py-14 lg:grid-cols-[1.03fr_.97fr] lg:py-20">
+          <div className="zenvora-reveal max-w-2xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/25 bg-fuchsia-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[.24em] text-fuchsia-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-fuchsia-300 shadow-[0_0_14px_rgba(232,121,249,.9)]" />
+              Premium finds · Made for India
+            </span>
+
+            <h1 className="mt-6 text-[3.35rem] font-black leading-[.97] tracking-[-.055em] sm:text-6xl lg:text-[5.55rem]">
+              Shop smarter.
+              <span className="block bg-gradient-to-r from-white via-fuchsia-200 to-violet-400 bg-clip-text text-transparent">
+                Live better.
+              </span>
+            </h1>
+
+            <p className="mt-6 max-w-xl text-sm leading-7 text-slate-300 sm:text-lg">
+              Discover useful, stylish products at prices that make everyday shopping feel effortless.
+              Fast delivery, secure checkout and a marketplace built around trust.
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/products" className="zenvora-primary-btn inline-flex items-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-black">
+                Explore products <span>→</span>
+              </Link>
+              <Link href="/products?sort=price-desc" className="inline-flex items-center gap-2 rounded-2xl border border-white/12 bg-white/[.045] px-6 py-3.5 text-sm font-black text-white hover:bg-white/[.08]">
+                View deals <span className="text-fuchsia-300">✦</span>
+              </Link>
+            </div>
+
+            <div className="mt-10 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                ['🚚', 'Fast delivery', 'Across India'],
+                ['🔒', 'Secure payments', 'Protected checkout'],
+                ['↻', 'Easy returns', '7-day support'],
+                ['💬', 'Human support', 'We are here'],
+              ].map(([icon, title, detail]) => (
+                <div key={title} className="zenvora-mini-stat">
+                  <span className="text-lg">{icon}</span>
+                  <p className="mt-2 text-xs font-black text-white">{title}</p>
+                  <p className="mt-1 text-[10px] text-slate-500">{detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative hidden min-h-[530px] items-center justify-center lg:flex">
+            <div className="absolute h-96 w-96 rounded-full bg-violet-600/20 blur-3xl" />
+            <div className="zenvora-showcase-card relative h-[455px] w-full max-w-[540px] overflow-hidden rounded-[38px] border border-white/10 bg-gradient-to-br from-violet-700/30 via-fuchsia-500/10 to-white/[.03] p-8 shadow-2xl shadow-violet-950/40">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,.08),transparent_30%)]" />
+              <div className="relative flex h-full flex-col justify-between">
+                <div className="flex items-start justify-between">
+                  <span className="rounded-full border border-white/10 bg-black/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.18em] text-white/70">Zenvora edit</span>
+                  <span className="rounded-full bg-fuchsia-300 px-3 py-1.5 text-[10px] font-black text-slate-950 shadow-lg shadow-fuchsia-500/20">UP TO 50% OFF</span>
+                </div>
+                <div className="relative mx-auto w-full max-w-[360px]">
+                  <div className="absolute inset-0 rounded-full bg-fuchsia-400/15 blur-3xl" />
+                  <div className="relative grid place-items-center">
+                    <div className="text-[8.5rem] drop-shadow-[0_24px_35px_rgba(0,0,0,.35)]">🎧</div>
+                    <div className="-mt-8 text-[6rem] drop-shadow-[0_24px_35px_rgba(0,0,0,.35)]">👟</div>
+                  </div>
+                </div>
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[.18em] text-fuchsia-200">Fresh picks</p>
+                    <p className="mt-2 text-2xl font-black">Everyday upgrades</p>
+                  </div>
+                  <Link href="/products" className="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/10 text-xl hover:bg-white/15">↗</Link>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </header>
-    <section className="container pt-4 md:hidden"><form action="/products" className="zenvora-glass flex items-center gap-2 rounded-2xl p-2"><span className="pl-2 text-lg">⌕</span><input name="q" placeholder="Search Zenvora..." className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm outline-none placeholder:text-slate-500"/><button className="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-950">Search</button></form></section>
-    <section className="container overflow-x-auto py-4 [scrollbar-width:none]"><div className="flex min-w-max gap-2">{[['📱','Electronics','electronics'],['🎧','Audio','audio'],['👕','Fashion','fashion'],['🏠','Home','home'],['💄','Beauty','beauty'],['🎮','Toys & Games','toys-games'],['🏃','Sports','sports'],['👜','Bags','bags']].map(([icon,label,slug])=><Link key={label} href={`/products?category=${slug}`} className="zenvora-pill flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-white/10"><span>{icon}</span>{label}</Link>)}</div></section>
-    {banners.length>0&&<section className="container pt-5"><div className="grid gap-4">{banners.map(b=><Link key={b.id} href={safeBannerHref(b.linkUrl)} className="relative min-h-48 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-r from-violet-900/70 to-fuchsia-900/60 p-7 shadow-xl">{b.imageUrl&&<img src={b.imageUrl} alt={b.title} className="absolute inset-0 h-full w-full object-cover opacity-35"/>}<div className="relative max-w-2xl"><p className="text-2xl font-black sm:text-4xl">{b.title}</p>{b.subtitle&&<p className="mt-2 text-sm text-slate-200 sm:text-base">{b.subtitle}</p>}{b.buttonText&&<span className="mt-4 inline-flex rounded-xl bg-white px-4 py-2 text-sm font-black text-slate-950">{b.buttonText} →</span>}</div></Link>)}</div></section>}<section className="relative overflow-hidden zenvora-gradient-motion"><div className="zenvora-hero-glow absolute inset-0 bg-[radial-gradient(circle_at_75%_45%,rgba(168,85,247,.30),transparent_35%),radial-gradient(circle_at_20%_10%,rgba(99,102,241,.20),transparent_30%)]"/><div className="container relative grid min-h-[560px] items-center gap-10 py-14 lg:grid-cols-[1fr_1.1fr] lg:py-20">
-      <div className="zenvora-reveal"><span className="inline-flex rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-4 py-2 text-xs font-black uppercase tracking-[.22em] text-fuchsia-300">Premium products · Better living</span><h1 className="mt-6 max-w-xl text-5xl font-black leading-[1.02] tracking-tight sm:text-6xl lg:text-7xl">Discover a <span className="bg-gradient-to-r from-white via-fuchsia-300 to-violet-400 bg-clip-text text-transparent">better you.</span></h1><p className="mt-6 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">Trendy products for everyday life, quality you can trust and fast delivery across India.</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/products" className="rounded-2xl bg-white px-7 py-3.5 font-black text-slate-950 shadow-xl hover:-translate-y-0.5">Shop Now →</Link><Link href="/products?sort=price-desc" className="rounded-2xl border border-white/15 bg-white/5 px-7 py-3.5 font-black text-white hover:bg-white/10">Explore Deals</Link></div><div className="mt-10 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">{[['🚚','Fast Delivery'],['🛡️','Secure Payments'],['♧','24/7 Support'],['↻','Easy Returns']].map(([i,t])=><div key={t} className="rounded-2xl border border-white/10 bg-white/5 p-3"><span className="text-xl">{i}</span><p className="mt-2 text-xs font-bold text-slate-200">{t}</p><p className="mt-1 text-[10px] text-slate-500">Across India</p></div>)}</div></div>
-      <div className="zenvora-reveal zenvora-reveal-delay-2 relative hidden min-h-[450px items-center justify-center lg:flex"><div className="absolute h-80 w-80 rounded-full bg-violet-600/25 blur-3xl"/><div className="zenvora-float relative grid h-[410px] w-[520px] place-items-center rounded-[3rem] border border-white/10 bg-gradient-to-br from-violet-700/30 via-fuchsia-500/10 to-white/5 shadow-2xl shadow-violet-950/50"><div className="text-center"><div className="text-8xl">🎧</div><div className="mt-2 text-7xl">👟</div><span className="absolute right-8 top-8 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-4 py-2 text-sm font-black text-fuchsia-200">UP TO 50% OFF</span></div></div></div>
-    </div></section>
-    <section className="border-y border-white/10 bg-white/[.02]"><div className="container grid grid-cols-2 gap-3 py-6 sm:grid-cols-4">{[['⚡','Fast & Reliable','Delivery across India'],['🔒','Secure Payments','100% safe & encrypted'],['↻','Easy Returns','7 days hassle free'],['💬','24/7 Support','We are here to help']].map(([i,t,d])=><div key={t} className="flex items-center gap-3 rounded-2xl p-3"><span className="text-2xl">{i}</span><div><p className="text-sm font-black">{t}</p><p className="text-xs text-slate-500">{d}</p></div></div>)}</div></section>
-    <section className="container py-14 sm:py-20 zenvora-reveal zenvora-reveal-delay-2"><div className="flex items-end justify-between"><div><p className="text-xs font-black uppercase tracking-[.22em] text-fuchsia-400">Curated for you</p><h2 className="mt-2 text-3xl font-black sm:text-4xl">Trending products</h2></div><Link href="/products" className="text-sm font-bold text-fuchsia-400">View all →</Link></div><div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{products.map(p=><Link key={p.id} href={`/product/${p.slug}`} className="zenvora-card group overflow-hidden"><div className="flex h-56 items-center justify-center overflow-hidden bg-gradient-to-br from-white/5 to-violet-900/20">{p.images[0]?<img src={productImageUrl(p.images[0].url) || ''} alt={p.images[0].altText||p.name} className="h-full w-full object-contain p-3 transition duration-500 group-hover:scale-105"/>:<span className="text-6xl">🛍️</span>}</div><div className="p-5"><h3 className="line-clamp-2 min-h-12 font-bold">{p.name}</h3><p className="mt-3 text-xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN',{minimumFractionDigits:2})}</p><span className="mt-4 inline-flex rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-slate-300">View product →</span></div></Link>)}{!products.length&&<div className="col-span-full rounded-3xl border border-dashed border-white/15 p-12 text-center text-slate-500">Products will appear here once they are published.</div>}</div></section>
-    <footer className="border-t border-white/10 bg-[#050812]"><div className="container grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4"><div><Link href="/" className="text-2xl font-black">🛍️ Zenvora<span className="text-fuchsia-400">.</span></Link><p className="mt-3 text-sm text-slate-500">Shop smart. Live better.</p></div><div><h3 className="font-black">Shop</h3><div className="mt-3 space-y-2 text-sm text-slate-500"><Link className="block hover:text-white" href="/products">All Products</Link><Link className="block hover:text-white" href="/products">Categories</Link><Link className="block hover:text-white" href="/products">Deals</Link></div></div><div><h3 className="font-black">Account</h3><div className="mt-3 space-y-2 text-sm text-slate-500">{loggedIn?<><Link className="block hover:text-white" href="/account">My Account</Link><form action={async()=>{'use server';await signOut({redirectTo:'/'})}}><button className="hover:text-white">Logout</button></form></>:<><Link className="block hover:text-white" href="/login">Customer Login</Link><Link className="block hover:text-white" href="/signup">Create Account</Link></>}<Link className="block hover:text-white" href="/track">Track Order</Link></div></div><div><h3 className="font-black">Admin</h3><Link className="mt-3 block text-sm text-slate-500 hover:text-white" href="/admin/login">Administrator Login</Link></div></div><div className="container border-t border-white/10 py-5 text-xs text-slate-600">© 2026 Zenvora. All rights reserved.</div></footer>
-  </main>;
+      </section>
+
+      <section className="border-y border-white/10 bg-white/[.018]">
+        <div className="container overflow-x-auto py-4 [scrollbar-width:none]">
+          <div className="flex min-w-max gap-2.5">
+            {categories.map(([icon, label, slug]) => (
+              <Link key={slug} href={'/products?category=' + slug} className="zenvora-category-pill">
+                <span>{icon}</span>
+                <span>{label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {banners.length > 0 ? (
+        <section className="container pt-7">
+          <div className="grid gap-4 md:grid-cols-3">
+            {banners.map((banner, index) => (
+              <Link key={banner.id} href={safeBannerHref(banner.linkUrl)} className={'zenvora-promo-card ' + (index === 0 ? 'md:col-span-2 min-h-[250px]' : 'min-h-[250px]')}>
+                {banner.imageUrl ? <img src={banner.imageUrl} alt={banner.title} className="absolute inset-0 h-full w-full object-cover opacity-35" /> : null}
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-950/85 via-violet-900/40 to-fuchsia-950/60" />
+                <div className="relative mt-auto max-w-xl">
+                  <span className="text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-200">Limited offer</span>
+                  <h2 className="mt-2 text-2xl font-black">{banner.title}</h2>
+                  {banner.subtitle ? <p className="mt-2 max-w-md text-sm text-slate-200/80">{banner.subtitle}</p> : null}
+                  {banner.buttonText ? <span className="mt-5 inline-flex rounded-xl bg-white px-4 py-2.5 text-xs font-black text-slate-950">{banner.buttonText} →</span> : null}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="container py-16 sm:py-20">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[.24em] text-fuchsia-400">Curated for you</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Trending right now</h2>
+            <p className="mt-2 text-sm text-slate-500">Fresh arrivals picked from the Zenvora marketplace.</p>
+          </div>
+          <Link href="/products" className="hidden rounded-xl border border-white/10 bg-white/[.035] px-4 py-2.5 text-xs font-black text-slate-200 hover:bg-white/[.07] sm:inline-flex">
+            View all →
+          </Link>
+        </div>
+
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {products.map((product) => <ProductCard key={product.id} product={product} />)}
+          {!products.length ? (
+            <div className="zenvora-empty-state col-span-full">
+              <div className="text-5xl">🛍️</div>
+              <p className="mt-4 text-lg font-black">Your catalog is getting ready</p>
+              <p className="mt-2 text-sm text-slate-500">Published products will appear here.</p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-7 text-center sm:hidden">
+          <Link href="/products" className="inline-flex rounded-xl border border-white/10 bg-white/[.035] px-5 py-3 text-xs font-black">
+            View all products →
+          </Link>
+        </div>
+      </section>
+
+      <section className="container pb-16">
+        <div className="zenvora-trust-band">
+          {[
+            ['01', 'Thoughtful selection', 'Products chosen for everyday value.'],
+            ['02', 'Transparent checkout', 'Clear pricing before you pay.'],
+            ['03', 'Support when needed', 'Real help when something goes wrong.'],
+          ].map(([n, title, detail]) => (
+            <div key={n} className="flex gap-4 border-white/10 py-4 first:pt-0 last:pb-0 md:border-r md:px-7 md:first:pl-0 md:last:border-r-0 md:py-0">
+              <span className="font-mono text-xs text-fuchsia-400">{n}</span>
+              <div>
+                <p className="text-sm font-black">{title}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <footer className="border-t border-white/10 bg-[#050812]">
+        <div className="container grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <Link href="/" className="text-2xl font-black tracking-[-.04em]">zenvora<span className="text-fuchsia-400">.</span></Link>
+            <p className="mt-3 max-w-xs text-sm leading-6 text-slate-500">Shop smart. Discover better everyday products and a cleaner way to buy online.</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-black">Shop</h3>
+            <div className="mt-4 space-y-2 text-sm text-slate-500">
+              <Link className="block hover:text-white" href="/products">All products</Link>
+              <Link className="block hover:text-white" href="/products?sort=price-desc">Deals</Link>
+              <Link className="block hover:text-white" href="/track">Track order</Link>
+            </div>
+          </div>
+          <div>
+            <h3 className="text-sm font-black">Account</h3>
+            <div className="mt-4 space-y-2 text-sm text-slate-500">
+              {loggedIn ? <Link className="block hover:text-white" href="/account">My account</Link> : <><Link className="block hover:text-white" href="/login">Customer login</Link><Link className="block hover:text-white" href="/signup">Create account</Link></>}
+              <Link className="block hover:text-white" href="/cart">Shopping cart</Link>
+            </div>
+          </div>
+          <div>
+            <h3 className="text-sm font-black">Zenvora</h3>
+            <div className="mt-4 space-y-2 text-sm text-slate-500">
+              <Link className="block hover:text-white" href="/privacy">Privacy</Link>
+              <Link className="block hover:text-white" href="/terms">Terms</Link>
+              <Link className="block hover:text-white" href="/admin/login">Administrator login</Link>
+            </div>
+          </div>
+        </div>
+        <div className="container border-t border-white/10 py-5 text-xs text-slate-600">© 2026 Zenvora. All rights reserved.</div>
+      </footer>
+    </main>
+  );
 }

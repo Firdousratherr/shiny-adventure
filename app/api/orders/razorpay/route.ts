@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/db';
 import { getRazorpay } from '../../../../lib/razorpay';
-import { rateLimit } from '../../../../lib/rate-limit';
+import { securityRateLimit } from '../../../../lib/rate-limit';
 import { verifyPaymentAccessToken } from '../../../../lib/payment-access';
 import { releaseExpiredPaymentReservations } from '../../../../lib/inventory-reservations';
 
@@ -13,7 +13,8 @@ async function getSetting(key: string) {
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
-    const limited = await rateLimit(`razorpay-create:${ip}`, 20, 600);
+    const limited = await securityRateLimit(`razorpay-create:${ip}`, 20, 600);
+    if (limited.securityUnavailable) return NextResponse.json({ error: 'Payment service is temporarily unavailable. Please try again shortly.' }, { status: 503 });
     if (limited.limited) return NextResponse.json({ error: 'Too many payment attempts. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
 
     const enabled = (await getSetting('razorpayEnabled')) === 'true';

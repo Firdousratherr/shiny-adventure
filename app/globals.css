@@ -155,3 +155,75 @@ main.bg-slate-100 .category-edit-button:hover{background:#f1f5f9!important}
 @media (prefers-reduced-motion:reduce) {
   .zenvora-hero-glow,.zenvora-float,.zenvora-gradient-motion,.zenvora-reveal { animation:none!important }
 }
+
+/* Zenvora premium storefront redesign v4 */
+.zenvora-store-header{box-shadow:0 12px 45px rgba(0,0,0,.16)}
+.zenvora-primary-btn{color:#fff;background:linear-gradient(135deg,#7c3aed 0%,#d946ef 100%);box-shadow:0 16px 35px rgba(109,40,217,.25);transition:transform .2s ease,box-shadow .2s ease,filter .2s ease}
+.zenvora-primary-btn:hover{transform:translateY(-2px);box-shadow:0 20px 45px rgba(109,40,217,.34);filter:saturate(1.06)}
+.zenvora-mini-stat{min-height:104px;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:rgba(255,255,255,.035);padding:13px;backdrop-filter:blur(12px);transition:transform .2s ease,border-color .2s ease,background-color .2s ease}
+.zenvora-mini-stat:hover{transform:translateY(-2px);border-color:rgba(167,139,250,.25);background:rgba(255,255,255,.055)}
+.zenvora-category-pill{display:inline-flex;align-items:center;gap:9px;border:1px solid rgba(255,255,255,.09);border-radius:999px;background:rgba(255,255,255,.035);padding:11px 15px;color:#cbd5e1;font-size:.75rem;font-weight:800;white-space:nowrap;transition:transform .2s ease,border-color .2s ease,background-color .2s ease,color .2s ease}
+.zenvora-category-pill:hover{transform:translateY(-2px);border-color:rgba(167,139,250,.34);background:rgba(124,58,237,.10);color:#fff}
+.zenvora-showcase-card{animation:zenvora-showcase-float 6s ease-in-out infinite}
+@keyframes zenvora-showcase-float{0%,100%{transform:translateY(0) rotate(-.35deg)}50%{transform:translateY(-9px) rotate(.35deg)}}
+.zenvora-promo-card{position:relative;isolation:isolate;display:flex;overflow:hidden;border:1px solid rgba(255,255,255,.1);border-radius:26px;padding:24px;transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
+.zenvora-promo-card:hover{transform:translateY(-3px);border-color:rgba(167,139,250,.35);box-shadow:0 24px 55px rgba(0,0,0,.2)}
+.zenvora-trust-band{display:grid;gap:0;border:1px solid rgba(255,255,255,.09);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.02));padding:20px 22px}
+.zenvora-page-hero{position:relative;overflow:hidden;display:flex;align-items:end;justify-content:space-between;gap:24px;min-height:200px;padding:6px 0}
+.zenvora-page-hero-orb{position:absolute;right:7%;top:-32px;height:185px;width:185px;border-radius:999px;background:radial-gradient(circle,rgba(139,92,246,.25),rgba(217,70,239,.08) 42%,transparent 70%);filter:blur(.2px);animation:zenvora-pulse-glow 5s ease-in-out infinite}
+.zenvora-page-hero-orb span{position:absolute;right:32px;top:25px;font-size:28px;color:#e9d5ff}
+.zenvora-filter-panel{border:1px solid rgba(255,255,255,.09);border-radius:24px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.025));padding:18px;box-shadow:0 16px 40px rgba(0,0,0,.12)}
+.zenvora-product-card{border:1px solid rgba(255,255,255,.09);border-radius:26px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.022));box-shadow:0 18px 50px rgba(0,0,0,.15);transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
+.zenvora-product-card:hover{transform:translateY(-5px);border-color:rgba(167,139,250,.32);box-shadow:0 28px 65px rgba(0,0,0,.24)}
+.zenvora-product-card:focus-within{border-color:rgba(167,139,250,.42);box-shadow:0 28px 65px rgba(0,0,0,.24)}
+.zenvora-product-gallery{box-shadow:0 26px 80px rgba(0,0,0,.16)}
+.zenvora-detail-panel{border:1px solid rgba(255,255,255,.09);border-radius:30px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.022));padding:20px;box-shadow:0 24px 65px rgba(0,0,0,.16)}
+.zenvora-cart-item{display:flex;gap:14px;border:1px solid rgba(255,255,255,.09);border-radius:24px;background:linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.022));padding:12px;transition:border-color .2s ease,transform .2s ease,background-color .2s ease}
+.zenvora-cart-item:hover{transform:translateY(-2px);border-color:rgba(167,139,250,.26);background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.026))}
+.zenvora-order-summary{border:1px solid rgba(255,255,255,.1);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.03));padding:20px;box-shadow:0 22px 55px rgba(0,0,0,.17)}
+.zenvora-account-nav{border:1px solid rgba(255,255,255,.09);border-radius:26px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.02));padding:18px;height:max-content}
+.zenvora-account-link,.zenvora-account-link-active{display:flex;align-items:center;justify-content:space-between;border-radius:14px;padding:11px 12px;font-size:.8rem;font-weight:800;transition:background-color .18s ease,color .18s ease,transform .18s ease}
+.zenvora-account-link{color:#94a3b8}
+.zenvora-account-link:hover{background:rgba(255,255,255,.05);color:#fff;transform:translateX(2px)}
+.zenvora-account-link-active{background:linear-gradient(90deg,rgba(124,58,237,.2),rgba(217,70,239,.08));color:#ede9fe;border:1px solid rgba(167,139,250,.15)}
+.zenvora-account-stat{border:1px solid rgba(255,255,255,.09);border-radius:20px;background:rgba(255,255,255,.035);padding:16px}
+.zenvora-account-stat span{display:block;font-size:.67rem;font-weight:800;color:#64748b}
+.zenvora-account-stat strong{display:block;margin-top:7px;font-size:1.35rem;font-weight:900;letter-spacing:-.02em}
+.zenvora-account-stat small{display:block;margin-top:5px;font-size:.65rem;color:#64748b}
+.zenvora-account-panel{border:1px solid rgba(255,255,255,.09);border-radius:26px;background:linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.02));padding:20px}
+.zenvora-order-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:14px;border:1px solid rgba(255,255,255,.07);border-radius:18px;background:rgba(0,0,0,.13);padding:13px 14px;transition:background-color .18s ease,border-color .18s ease}
+.zenvora-order-row:hover{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.12)}
+.zenvora-checkout-steps{display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.09);border-radius:20px;background:rgba(255,255,255,.035);padding:11px 14px}
+.zenvora-checkout-steps span{display:inline-flex;align-items:center;gap:8px;color:#64748b;font-size:.72rem;font-weight:800}
+.zenvora-checkout-steps span.is-active{color:#fff}
+.zenvora-checkout-steps b{display:grid;height:26px;width:26px;place-items:center;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);font-size:.68rem}
+.zenvora-checkout-steps span.is-active b{border-color:rgba(167,139,250,.35);background:linear-gradient(135deg,#7c3aed,#d946ef);color:#fff}
+.zenvora-checkout-steps i{height:1px;flex:0 1 70px;background:rgba(255,255,255,.1)}
+.zenvora-checkout-panel{border:1px solid rgba(255,255,255,.09);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.022));padding:18px;box-shadow:0 20px 55px rgba(0,0,0,.15)}
+.zenvora-field{display:block;font-size:.76rem;font-weight:800;color:#cbd5e1}
+.zenvora-field input,.zenvora-field select,.zenvora-field textarea{margin-top:7px;display:block;width:100%;min-height:46px;border:1px solid rgba(255,255,255,.1);border-radius:13px;background:rgba(255,255,255,.025);padding:10px 12px;color:#fff;outline:none}
+.zenvora-field input:focus,.zenvora-field select:focus,.zenvora-field textarea:focus{border-color:rgba(167,139,250,.62);box-shadow:0 0 0 3px rgba(167,139,250,.11)}
+
+@media(max-width:767px){
+  .zenvora-page-hero{min-height:0}
+  .zenvora-trust-band{padding:18px}
+  .zenvora-detail-panel,.zenvora-order-summary,.zenvora-checkout-panel,.zenvora-account-panel{border-radius:22px;padding:16px}
+  .zenvora-account-nav{border-radius:22px}
+  .zenvora-cart-item{gap:11px;border-radius:20px;padding:10px}
+  .zenvora-order-row{grid-template-columns:1fr auto}
+  .zenvora-order-row p:last-child{grid-column:1 / -1}
+  .zenvora-checkout-steps i{flex:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .zenvora-showcase-card,.zenvora-page-hero-orb{animation:none!important}
+}
+
+/* Admin application shell */
+.admin-dark{background:#070b16;color:#f8fafc}
+.admin-panel{border:1px solid rgba(255,255,255,.09);border-radius:24px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.022));box-shadow:0 20px 60px rgba(0,0,0,.14)}
+.admin-kpi-card{border:1px solid rgba(255,255,255,.09);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.025));box-shadow:0 16px 45px rgba(0,0,0,.14);transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.admin-kpi-card:hover{transform:translateY(-3px);border-color:rgba(167,139,250,.28);box-shadow:0 24px 60px rgba(0,0,0,.2)}
+.admin-dark .zenvora-card{border:1px solid rgba(255,255,255,.09);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.02));box-shadow:0 16px 45px rgba(0,0,0,.14);color:#f8fafc}
+.admin-dark .zenvora-card:hover{border-color:rgba(167,139,250,.28);background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.03))}
+.zenvora-sticky-action{bottom:76px}
+@media(max-width:639px){.zenvora-sticky-action{bottom:74px}.admin-panel{border-radius:20px}.admin-kpi-card{border-radius:19px}}

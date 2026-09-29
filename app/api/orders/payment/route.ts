@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { put, del } from '@vercel/blob';
 import { db } from '../../../../lib/db';
 import { paymentSchema } from '../../../../lib/validation';
-import { rateLimit } from '../../../../lib/rate-limit';
+import { securityRateLimit } from '../../../../lib/rate-limit';
 import { verifyPaymentAccessToken } from '../../../../lib/payment-access';
 import { releaseExpiredPaymentReservations } from '../../../../lib/inventory-reservations';
 
@@ -18,7 +18,8 @@ function matchesMagicBytes(type: string, bytes: Uint8Array) {
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
-    const limited = await rateLimit(`payment-proof:${ip}`, 10, 600);
+    const limited = await securityRateLimit(`payment-proof:${ip}`, 10, 600);
+    if (limited.securityUnavailable) return NextResponse.json({ error: 'Payment submission is temporarily unavailable. Please try again shortly.' }, { status: 503 });
     if (limited.limited) return NextResponse.json({ error: 'Too many payment submissions. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
 
     const fd = await request.formData();

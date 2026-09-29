@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { db } from '../../../lib/db';
 import { checkoutSchema } from '../../../lib/validation';
 import { deliveryCharge, total } from '../../../lib/pricing';
-import { rateLimit } from '../../../lib/rate-limit';
+import { securityRateLimit } from '../../../lib/rate-limit';
 import { createPaymentAccessToken, hashPaymentAccessToken, PAYMENT_RESERVATION_MINUTES } from '../../../lib/payment-access';
 import { releaseExpiredPaymentReservations } from '../../../lib/inventory-reservations';
 import { adjustInventory } from '../../../lib/inventory';
@@ -11,7 +11,8 @@ import { adjustInventory } from '../../../lib/inventory';
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
-    const limited = await rateLimit(`checkout:${ip}`, 20, 600);
+    const limited = await securityRateLimit(`checkout:${ip}`, 20, 600);
+    if (limited.securityUnavailable) return NextResponse.json({ error: 'Checkout is temporarily unavailable. Please try again shortly.' }, { status: 503 });
     if (limited.limited) return NextResponse.json({ error: 'Too many checkout attempts. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
 
     const parsed = checkoutSchema.safeParse(await request.json());

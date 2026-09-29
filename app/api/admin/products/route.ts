@@ -35,7 +35,9 @@ export async function POST(request: Request) {
     const product = await db.product.create({ data: { name, slug, description, sellingPrice, sourceCost, stock, supplierId: typeof b.supplierId === 'string' && b.supplierId ? b.supplierId : null, categoryId: typeof b.categoryId === 'string' && b.categoryId ? b.categoryId : null, metaTitle, metaDescription, canonicalUrl, featured: b.featured === true, status } });
     await recordAdminAudit({ adminId: adminAccess.id, adminEmail: adminAccess.email, action: 'PRODUCT_CREATED', entityType: 'PRODUCT', entityId: product.id, details: { name: product.name, sellingPrice: product.sellingPrice.toString(), stock: product.stock } });
     return NextResponse.json({ product }, { status: 201 });
-  } catch (e) { if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return NextResponse.json({ error: 'A product with this slug already exists.' }, { status: 409 }); console.error(e); return NextResponse.json({ error: 'Unable to create product.' }, { status: 500 }); }
+  } catch (e) {
+    if (e instanceof Error && e.message === 'ACTIVE_REQUIRES_STOCK') return NextResponse.json({ error: 'An active product must have stock greater than zero.' }, { status: 400 });
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return NextResponse.json({ error: 'A product with this slug already exists.' }, { status: 409 }); console.error(e); return NextResponse.json({ error: 'Unable to create product.' }, { status: 500 }); }
 }
 
 export async function PATCH(request: Request) {
@@ -94,15 +96,25 @@ export async function PATCH(request: Request) {
     const nextStatus = typeof data.status === 'string' ? data.status : current.status;
     if (nextStatus === 'ACTIVE' && nextStock === 0) return NextResponse.json({ error: 'An active product must have stock greater than zero.' }, { status: 400 });
     const product = await db.$transaction(async tx => {
-      const updated = await tx.product.update({ where: { id }, data });
-      if (requestedStock !== undefined && requestedStock !== current.stock) {
+      // Serialize stock edits so concurrent admin changes cannot calculate from stale stock.
+      const locked = await tx.$queryRaw<Array<{ stock: number }>>(
+        Prisma.sql`SELECT "stock" FROM "Product" WHERE "id" = ${id} FOR UPDATE`,
+      );
+      if (!locked[0]) throw new Error('PRODUCT_NOT_FOUND');
+      const lockedStock = Number(locked[0].stock);
+      const lockedNextStock = requestedStock ?? lockedStock;
+      const lockedNextStatus = typeof data.status === 'string' ? data.status : current.status;
+      if (lockedNextStatus === 'ACTIVE' && lockedNextStock === 0) {
+        throw new Error('ACTIVE_REQUIRES_STOCK');
+      }
+      if (requestedStock !== undefined && requestedStock !== lockedStock) {
         await adjustInventory(tx, {
           productId: id,
-          quantity: requestedStock - current.stock,
+          quantity: requestedStock - lockedStock,
           reason: 'ADMIN_ADJUSTMENT',
         });
       }
-      return tx.product.findUniqueOrThrow({ where: { id } });
+      return tx.product.update({ where: { id }, data });
     });
     await db.productVersion.create({ data: { productId: product.id, changedBy: adminAccess.email, reason: actualPriceChange ? 'Pricing update' : 'Product update', snapshot: { name: product.name, slug: product.slug, description: product.description, sellingPrice: product.sellingPrice.toString(), sourceCost: product.sourceCost?.toString() ?? null, stock: product.stock, status: product.status, categoryId: product.categoryId, supplierId: product.supplierId, featured: product.featured } } });
     await recordAdminAudit({

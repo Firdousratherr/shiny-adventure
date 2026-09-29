@@ -20,8 +20,8 @@ const groups = [
 export default function AdminNav({ active }: { active: Active }) {
   const [open,setOpen]=useState(false);
   return <>
-    <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 flex-col border-r border-white/10 bg-[#090e1d]/95 text-white backdrop-blur-2xl lg:flex">
-      <div className="flex h-20 items-center border-b border-white/10 px-5">
+    <aside className="fixed inset-y-0 left-0 z-50 hidden w-[272px] flex-col border-r border-white/10 bg-[#070b16]/95 text-white backdrop-blur-2xl lg:flex shadow-[20px_0_70px_rgba(0,0,0,.18)]">
+      <div className="flex h-20 items-center border-b border-white/10 px-5 bg-white/[.02]">
         <Link href="/admin/dashboard" className="text-2xl font-black tracking-tight">zenvora<span className="text-fuchsia-400">.</span><span className="ml-2 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[9px] uppercase tracking-[.18em] text-slate-400">Admin</span></Link>
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-4">
@@ -36,7 +36,7 @@ export default function AdminNav({ active }: { active: Active }) {
       </div>
     </aside>
 
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#090e1d]/90 text-white backdrop-blur-2xl lg:ml-64">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070b16]/90 text-white backdrop-blur-2xl lg:ml-[272px] shadow-[0_12px_45px_rgba(0,0,0,.14)]">
       <div className="flex min-h-16 items-center gap-3 px-3 sm:px-5">
         <button type="button" aria-label="Open admin menu" onClick={()=>setOpen(true)} className="rounded-xl border border-white/10 px-3 py-2 lg:hidden">☰</button>
         <div className="min-w-0 flex-1"><AdminCommandPalette /></div>

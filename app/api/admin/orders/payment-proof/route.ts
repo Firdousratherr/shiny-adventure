@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../../auth';
 import { db } from '../../../../../lib/db';
+import { requireAdminPermission } from '../../../../../lib/admin-access';
 import { get } from '@vercel/blob';
 
 export async function GET(request:Request){
- const session=await auth(); if(session?.user?.role!=='admin')return NextResponse.json({error:'Unauthorized'},{status:401});
+ const admin=await requireAdminPermission('payments'); if(!admin)return NextResponse.json({error:'Payments permission required.'},{status:403});
  const url=new URL(request.url); const orderNumber=url.searchParams.get('orderNumber')||'';
  if(!/^ORD-\d{4}-\d{4,}$/i.test(orderNumber))return NextResponse.json({error:'Invalid order number.'},{status:400});
  const order=await db.order.findUnique({where:{orderNumber:orderNumber.toUpperCase()},select:{paymentScreenshotUrl:true}});

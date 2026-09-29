@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { auth } from '../../auth';
 import { db } from '../../lib/db';
-import AddToCart from '../../components/add-to-cart';
-import { productImageUrl } from '../../lib/product-image-url';
+import StoreHeader from '../../components/store-header';
+import ProductCard from '../../components/product-card';
 
 export default async function Products({ searchParams }: { searchParams: { q?: string; sort?: string; page?: string; category?: string } }) {
   const session = await auth();
@@ -11,12 +11,24 @@ export default async function Products({ searchParams }: { searchParams: { q?: s
   const size = 12;
   const q = searchParams.q?.trim();
   const category = searchParams.category?.trim();
+
   const where = {
     status: 'ACTIVE' as const,
-    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' as const } }, { description: { contains: q, mode: 'insensitive' as const } }, { category: { name: { contains: q, mode: 'insensitive' as const } } }] } : {}),
+    ...(q ? {
+      OR: [
+        { name: { contains: q, mode: 'insensitive' as const } },
+        { description: { contains: q, mode: 'insensitive' as const } },
+        { category: { name: { contains: q, mode: 'insensitive' as const } } },
+      ],
+    } : {}),
     ...(category ? { category: { slug: category } } : {}),
   };
-  const orderBy = searchParams.sort === 'price-asc' ? { sellingPrice: 'asc' as const } : searchParams.sort === 'price-desc' ? { sellingPrice: 'desc' as const } : { createdAt: 'desc' as const };
+
+  const orderBy =
+    searchParams.sort === 'price-asc' ? { sellingPrice: 'asc' as const } :
+    searchParams.sort === 'price-desc' ? { sellingPrice: 'desc' as const } :
+    { createdAt: 'desc' as const };
+
   const [items, count, categories] = await Promise.all([
     db.product.findMany({
       where,
@@ -36,112 +48,109 @@ export default async function Products({ searchParams }: { searchParams: { q?: s
     db.product.count({ where }),
     db.category.findMany({ orderBy: { name: 'asc' }, select: { name: true, slug: true }, take: 30 }),
   ]);
+
   const pages = Math.ceil(count / size);
   const query = (extra: Record<string, string | undefined> = {}) => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (searchParams.sort) params.set('sort', searchParams.sort);
     if (category) params.set('category', category);
-    for (const [k, v] of Object.entries(extra)) if (v) params.set(k, v);
+    for (const [key, value] of Object.entries(extra)) if (value) params.set(key, value);
     return params.toString();
   };
 
   return (
-    <main className="min-h-screen bg-[#070b16] pb-24 text-white sm:pb-0">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070b16]/95 backdrop-blur-xl">
-        <div className="container flex h-14 items-center gap-2 sm:h-16 sm:gap-4">
-          <Link href="/" className="shrink-0 text-lg font-black tracking-tight sm:text-2xl">🛍️ Zenvora<span className="text-fuchsia-400">.</span></Link>
-          <form action="/products" className="hidden min-w-0 flex-1 md:block">
-            <label className="relative block">
-              <span className="sr-only">Search products</span>
-              <input name="q" defaultValue={q} placeholder="Search products, brands and more..." className="h-11 w-full rounded-2xl border border-white/10 bg-white/[.045] px-4 text-sm outline-none placeholder:text-slate-500 focus:border-violet-400/70 focus:bg-white/[.06]"/>
-            </label>
-          </form>
-          <nav className="hidden gap-5 text-sm font-bold text-slate-300 lg:flex">
-            <Link href="/products" className="hover:text-white">Shop</Link>
-            <Link href="/track" className="hover:text-white">Track Order</Link>
-          </nav>
-          <div className="ml-auto flex items-center gap-1.5">
-            {loggedIn ? <Link href="/account" className="rounded-xl border border-white/10 bg-white/[.03] px-2.5 py-1.5 text-xs font-bold hover:bg-white/[.06] sm:px-3 sm:py-2 sm:text-sm">Account</Link> : <Link href="/login" className="rounded-xl border border-white/10 bg-white/[.03] px-2.5 py-1.5 text-xs font-bold hover:bg-white/[.06] sm:px-3 sm:py-2 sm:text-sm">Login</Link>}
-            <Link href="/cart" className="rounded-xl px-2 py-1 text-lg hover:bg-white/5" aria-label="View cart">🛒</Link>
-          </div>
-        </div>
-      </header>
+    <main className="store-dark min-h-screen bg-[#070b16] pb-28 text-white sm:pb-0">
+      <StoreHeader loggedIn={loggedIn} searchValue={q || ''} />
 
-      <div className="container py-6 sm:py-10">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="container py-7 sm:py-10">
+        <div className="zenvora-page-hero">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[.22em] text-fuchsia-400">Premium products</p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-5xl">Discover your next find</h1>
-            <p className="mt-2 text-xs text-slate-400 sm:text-sm">{count} products available</p>
+            <span className="inline-flex rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-violet-200">The Zenvora catalog</span>
+            <h1 className="mt-4 text-4xl font-black tracking-[-.04em] sm:text-5xl">Find something you’ll love.</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">{count} products available{q ? ' for "' + q + '"' : ''}. Browse by category, refine the price or sort by what’s new.</p>
           </div>
-          <form action="/products" className="zenvora-glass grid grid-cols-[1fr_auto_auto] gap-2 rounded-2xl p-2">
-            <label>
-              <span className="sr-only">Search</span>
-              <input name="q" defaultValue={q} placeholder="Search..." className="min-w-0 rounded-xl border border-white/10 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-slate-500 sm:w-56"/>
-            </label>
-            <select name="category" defaultValue={category || ''} className="max-w-[130px] rounded-xl border border-white/10 bg-[#101729] px-2 py-2.5 text-xs outline-none">
-              <option value="">All categories</option>
-              {categories.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
-            </select>
-            <select name="sort" defaultValue={searchParams.sort || ''} className="max-w-[120px] rounded-xl border border-white/10 bg-[#101729] px-2 py-2.5 text-xs outline-none">
-              <option value="">Newest</option>
-              <option value="price-asc">Price low → high</option>
-              <option value="price-desc">Price high → low</option>
-            </select>
-            <button className="col-span-3 min-h-11 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-slate-950 hover:-translate-y-0.5 sm:col-span-1">Apply filters</button>
-          </form>
+          <div className="zenvora-page-hero-orb hidden sm:block"><span>✦</span></div>
         </div>
 
-        {items.length === 0 ? (
-          <div className="zenvora-empty-state mt-8">
-            <div className="text-5xl">⌕</div>
-            <p className="mt-4 text-lg font-black">No products found</p>
-            <p className="mt-2 text-sm text-slate-500">Try another search term or choose a different category.</p>
-            <Link href="/products" className="mt-5 inline-flex rounded-xl bg-white px-5 py-3 text-sm font-black text-slate-950">Clear filters</Link>
-          </div>
-        ) : (
-          <div className="mt-6 grid gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map(p => (
-              <article key={p.id} className="zenvora-card group overflow-hidden">
-                <Link href={"/product/" + p.slug} className="block">
-                  <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-white/[.06] via-white/[.025] to-violet-900/20">
-                    {p.images[0] ? (
-                      <div className="flex h-full w-full items-center justify-center p-3 sm:p-5">
-                        <img src={productImageUrl(p.images[0].url) || ''} alt={p.images[0].altText || p.name} className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.04]"/>
-                      </div>
-                    ) : (
-                      <div className="grid h-full place-items-center text-6xl">🛍️</div>
-                    )}
-                    <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
-                      <span className="rounded-full border border-white/10 bg-[#070b16]/75 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-fuchsia-200 backdrop-blur-md">{p.category?.name || 'Zenvora'}</span>
-                      {p.stock > 0 && p.stock <= 5 && <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[9px] font-black text-slate-950">Only {p.stock} left</span>}
-                    </div>
-                  </div>
-                  <div className="p-4 sm:p-5">
-                    <h2 className="line-clamp-2 min-h-11 text-sm font-bold leading-5 sm:text-base">{p.name}</h2>
-                    <div className="mt-3 flex items-end justify-between gap-3">
-                      <div>
-                        <p className="text-xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                        <p className={`mt-1 text-[10px] font-semibold ${p.stock > 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{p.stock > 0 ? 'In stock' : 'Out of stock'}</p>
-                      </div>
-                      <span className="rounded-xl border border-white/10 bg-white/[.035] px-3 py-2 text-[10px] font-bold text-slate-300 transition group-hover:border-violet-400/30 group-hover:text-white">View →</span>
-                    </div>
-                  </div>
-                </Link>
-                <div className="border-t border-white/10 p-3 sm:p-4">
-                  <AddToCart product={{ id: p.id, name: p.name, price: Number(p.sellingPrice), image: productImageUrl(p.images[0]?.url), stock: p.stock }}/>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+        <div className="mt-8 grid gap-5 lg:grid-cols-[240px_1fr]">
+          <aside className="zenvora-filter-panel h-fit lg:sticky lg:top-24">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-black">Refine</h2>
+              <Link href="/products" className="text-[10px] font-bold text-violet-300 hover:text-white">Reset</Link>
+            </div>
 
-        {pages > 1 && (
-          <div className="mt-8 flex flex-wrap justify-center gap-2">
-            {Array.from({ length: pages }, (_, i) => i + 1).map(n => <Link key={n} href={"/products?" + query({ page: String(n) })} className={"rounded-xl px-3.5 py-2.5 text-xs font-bold " + (n === page ? 'bg-violet-600 text-white shadow-lg shadow-violet-950/25' : 'border border-white/10 bg-white/[.035] text-slate-300 hover:bg-white/[.07]')}>{n}</Link>)}
-          </div>
-        )}
+            <form action="/products" className="mt-5 space-y-4">
+              <label className="block text-xs font-bold text-slate-400">
+                Search
+                <input name="q" defaultValue={q} placeholder="Search products..." className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/[.035] px-3 text-sm outline-none focus:border-violet-400/60" />
+              </label>
+
+              <label className="block text-xs font-bold text-slate-400">
+                Category
+                <select name="category" defaultValue={category || ''} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#101729] px-3 text-sm outline-none focus:border-violet-400/60">
+                  <option value="">All categories</option>
+                  {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+                </select>
+              </label>
+
+              <label className="block text-xs font-bold text-slate-400">
+                Sort by
+                <select name="sort" defaultValue={searchParams.sort || ''} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#101729] px-3 text-sm outline-none focus:border-violet-400/60">
+                  <option value="">Newest</option>
+                  <option value="price-asc">Price: low → high</option>
+                  <option value="price-desc">Price: high → low</option>
+                </select>
+              </label>
+
+              <button className="w-full rounded-xl bg-white px-4 py-3 text-xs font-black text-slate-950 shadow-xl shadow-black/10 hover:-translate-y-0.5">Apply filters</button>
+            </form>
+
+            <div className="mt-5 border-t border-white/10 pt-5">
+              <p className="text-[10px] font-black uppercase tracking-[.2em] text-slate-500">Why Zenvora</p>
+              <div className="mt-3 space-y-3 text-xs text-slate-300">
+                <p><span className="mr-2 text-emerald-300">✓</span>Secure checkout</p>
+                <p><span className="mr-2 text-emerald-300">✓</span>Clear product pricing</p>
+                <p><span className="mr-2 text-emerald-300">✓</span>Support when needed</p>
+              </div>
+            </div>
+          </aside>
+
+          <section className="min-w-0">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <p className="text-xs font-bold text-slate-500"><span className="text-slate-200">{count}</span> results</p>
+              <div className="h-px flex-1 bg-white/10" />
+              {category ? <span className="rounded-full border border-white/10 bg-white/[.03] px-3 py-1.5 text-[10px] font-bold text-slate-300">#{category}</span> : null}
+            </div>
+
+            {items.length === 0 ? (
+              <div className="zenvora-empty-state mt-4">
+                <div className="text-5xl">⌕</div>
+                <p className="mt-4 text-lg font-black">No products found</p>
+                <p className="mt-2 text-sm text-slate-500">Try a different search term or clear your filters.</p>
+                <Link href="/products" className="mt-5 inline-flex rounded-xl bg-white px-5 py-3 text-sm font-black text-slate-950">Clear filters</Link>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {items.map((product) => <ProductCard key={product.id} product={product} />)}
+              </div>
+            )}
+
+            {pages > 1 ? (
+              <div className="mt-9 flex flex-wrap justify-center gap-2">
+                {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
+                  <Link
+                    key={n}
+                    href={'/products?' + query({ page: String(n) })}
+                    className={'grid h-10 min-w-10 place-items-center rounded-xl text-xs font-bold ' + (n === page ? 'bg-violet-600 text-white shadow-lg shadow-violet-950/25' : 'border border-white/10 bg-white/[.035] text-slate-300 hover:bg-white/[.07]')}
+                  >
+                    {n}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        </div>
       </div>
     </main>
   );

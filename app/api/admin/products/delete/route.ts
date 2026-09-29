@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { del } from '@vercel/blob';
 import { db } from '../../../../../lib/db';
 import { requireAdminPermission } from '../../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../../lib/admin-audit';
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
         name: true,
         orderItems: { select: { id: true }, take: 1 },
         inventoryMovements: { select: { id: true }, take: 1 },
+        images: { select: { url: true } },
       },
     });
     if (!product) return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
@@ -36,10 +38,22 @@ export async function POST(request: Request) {
       );
     }
 
+    const imageUrls = product.images.map(image => image.url);
     await db.$transaction(async tx => {
       await tx.productImage.deleteMany({ where: { productId: id } });
       await tx.product.delete({ where: { id } });
     });
+
+    for (const url of imageUrls) {
+      try {
+        const parsed = new URL(url);
+        if (/(^|\\.)private\\.blob\\.vercel-storage\\.com$/i.test(parsed.hostname)) {
+          await del(url);
+        }
+      } catch (error) {
+        console.error('product image blob cleanup failed', error);
+      }
+    }
 
     await recordAdminAudit({ adminId: admin.id, adminEmail: admin.email, action: 'PRODUCT_DELETED', entityType: 'PRODUCT', entityId: id, details: { name: product.name } });
     return NextResponse.json({ ok: true, id, action: 'DELETED' });

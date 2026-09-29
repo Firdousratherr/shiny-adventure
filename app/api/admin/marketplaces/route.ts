@@ -8,7 +8,8 @@ import { recordAdminAudit } from '../../../../lib/admin-audit';
 import { credentialStatus, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
 import { getScrapingAntApiKey, getScrapingAntUsage, hasScrapingAntApiKey } from '../../../../lib/scrapingant';
 import { productImageUrl } from '../../../../lib/product-image-url';
-import { rateLimit } from '../../../../lib/rate-limit';
+import { securityRateLimit } from '../../../../lib/rate-limit';
+import { acquireMarketplaceSyncLock, releaseMarketplaceSyncLock } from '../../../../lib/marketplace-lock';
 
 const PROVIDERS = [
   { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify app + client credentials' },
@@ -212,7 +213,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     if (!isProvider(body.provider)) return NextResponse.json({ error: 'Unsupported marketplace provider.' }, { status: 400 });
 
-    const syncRate = await rateLimit(`marketplace-sync:${admin.id}`, 2, 60);
+    const syncRate = await securityRateLimit(`marketplace-sync:${admin.id}`, 2, 60);
+    if (syncRate.securityUnavailable) return NextResponse.json({ error: 'Marketplace sync is temporarily unavailable because rate limiting is not configured.' }, { status: 503 });
     if (syncRate.limited) {
       return NextResponse.json({ error: 'Too many marketplace sync requests. Please wait a minute before starting another sync.' }, { status: 429 });
     }
@@ -250,6 +252,11 @@ export async function POST(request: Request) {
         startedAt: activeRun.startedAt,
         hint: 'If nothing is running, refresh once; stale locks older than 10 minutes are cleared automatically.',
       }, { status: 409 });
+    }
+
+    const lockToken = await acquireMarketplaceSyncLock(integration.id);
+    if (!lockToken) {
+      return NextResponse.json({ error: 'A marketplace import is already running.' }, { status: 409 });
     }
 
     const started = Date.now();
@@ -306,6 +313,8 @@ export async function POST(request: Request) {
         details: { provider: body.provider, runId: run.id, error: message, duration },
       });
       return NextResponse.json({ error: message, runId: run.id }, { status: 502 });
+    } finally {
+      await releaseMarketplaceSyncLock(integration.id, lockToken);
     }
   } catch (error) {
     console.error('shopify marketplace sync failed', error);
