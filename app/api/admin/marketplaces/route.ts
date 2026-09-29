@@ -4,7 +4,7 @@ import { db } from '../../../../lib/db';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../lib/admin-audit';
 import { credentialStatus, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
-import { getScrapingAntApiKey, hasScrapingAntApiKey } from '../../../../lib/scrapingbee';
+import { getScrapingAntApiKey, hasScrapingAntApiKey } from '../../../../lib/scrapingant';
 
 const PROVIDERS = [
   { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify app + client credentials' },
