@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../auth';
 import { db } from '../../../lib/db';
+import { rateLimit } from '../../../lib/rate-limit';
 
 export async function GET() {
   const session = await auth();
@@ -42,6 +43,8 @@ export async function POST(request: Request) {
   if (session?.user?.role !== 'customer' || !session.user.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const user = await db.customerUser.findUnique({ where: { email: session.user.email }, select: { id: true } });
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const limited = await rateLimit('wishlist:' + user.id, 30, 600);
+  if (limited.limited) return NextResponse.json({ error: 'Too many wishlist changes. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
   const body = await request.json().catch(() => ({}));
   const productId = typeof body.productId === 'string' ? body.productId : '';
   if (!productId) return NextResponse.json({ error: 'Product ID is required.' }, { status: 400 });
@@ -56,6 +59,8 @@ export async function DELETE(request: Request) {
   if (session?.user?.role !== 'customer' || !session.user.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const user = await db.customerUser.findUnique({ where: { email: session.user.email }, select: { id: true } });
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const limited = await rateLimit('wishlist:' + user.id, 30, 600);
+  if (limited.limited) return NextResponse.json({ error: 'Too many wishlist changes. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
   const productId = new URL(request.url).searchParams.get('productId') || '';
   if (!productId) return NextResponse.json({ error: 'Product ID is required.' }, { status: 400 });
   await db.wishlist.deleteMany({ where: { userId: user.id, productId } });
