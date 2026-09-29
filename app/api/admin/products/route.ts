@@ -35,7 +35,9 @@ export async function POST(request: Request) {
     const product = await db.product.create({ data: { name, slug, description, sellingPrice, sourceCost, stock, supplierId: typeof b.supplierId === 'string' && b.supplierId ? b.supplierId : null, categoryId: typeof b.categoryId === 'string' && b.categoryId ? b.categoryId : null, metaTitle, metaDescription, canonicalUrl, featured: b.featured === true, status } });
     await recordAdminAudit({ adminId: adminAccess.id, adminEmail: adminAccess.email, action: 'PRODUCT_CREATED', entityType: 'PRODUCT', entityId: product.id, details: { name: product.name, sellingPrice: product.sellingPrice.toString(), stock: product.stock } });
     return NextResponse.json({ product }, { status: 201 });
-  } catch (e) { if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return NextResponse.json({ error: 'A product with this slug already exists.' }, { status: 409 }); console.error(e); return NextResponse.json({ error: 'Unable to create product.' }, { status: 500 }); }
+  } catch (e) {
+    if (e instanceof Error && e.message === 'ACTIVE_REQUIRES_STOCK') return NextResponse.json({ error: 'An active product must have stock greater than zero.' }, { status: 400 });
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return NextResponse.json({ error: 'A product with this slug already exists.' }, { status: 409 }); console.error(e); return NextResponse.json({ error: 'Unable to create product.' }, { status: 500 }); }
 }
 
 export async function PATCH(request: Request) {
@@ -100,6 +102,11 @@ export async function PATCH(request: Request) {
       );
       if (!locked[0]) throw new Error('PRODUCT_NOT_FOUND');
       const lockedStock = Number(locked[0].stock);
+      const lockedNextStock = requestedStock ?? lockedStock;
+      const lockedNextStatus = typeof data.status === 'string' ? data.status : current.status;
+      if (lockedNextStatus === 'ACTIVE' && lockedNextStock === 0) {
+        throw new Error('ACTIVE_REQUIRES_STOCK');
+      }
       if (requestedStock !== undefined && requestedStock !== lockedStock) {
         await adjustInventory(tx, {
           productId: id,
