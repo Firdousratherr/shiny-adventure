@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import AdminNav from '../../../components/admin-nav';
 import { useEffect, useState } from 'react';
 
 type Log = {
@@ -32,16 +33,8 @@ export default function AuditPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <header className="sticky top-0 z-30 border-b bg-white">
-        <div className="container flex min-h-16 items-center justify-between">
-          <Link href="/admin/dashboard" className="text-xl font-black">
-            zenvora<span className="text-indigo-600">.</span>
-            <span className="ml-2 text-xs uppercase tracking-widest text-slate-400">Owner</span>
-          </Link>
-          <Link href="/admin/dashboard" className="rounded-xl px-3 py-2 text-sm font-bold">← Dashboard</Link>
-        </div>
-      </header>
+    <main className="min-h-screen bg-slate-100"><AdminNav active="audit"/>
+
 
       <div className="container py-8">
         {forbidden ? (
