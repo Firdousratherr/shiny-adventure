@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import MeeshoAutoImport from '../../../components/admin/meesho-auto-import';
+import AdminNav from '../../../components/admin-nav';
 
 type ShopifyProduct = {
   id: string;
@@ -152,15 +153,9 @@ export default function MarketplacesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-white/10 bg-slate-950/90">
-        <div className="mx-auto flex min-h-20 max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
-          <div><Link href="/admin/dashboard" className="text-xl font-black">zenvora<span className="text-indigo-400">.</span></Link><p className="text-[9px] font-black uppercase tracking-[.2em] text-slate-500">Product import</p></div>
-          <Link href="/admin/dashboard" className="rounded-xl bg-white px-4 py-2 text-xs font-black text-slate-950">Dashboard</Link>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6">
+    <main className="min-h-screen bg-slate-100 text-slate-100">
+      <AdminNav active="marketplaces" />
+      <div className="container py-6 lg:py-8">
         <section className="rounded-3xl border border-white/10 bg-white/[.04] p-5 sm:p-7">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
