@@ -12,7 +12,7 @@
   --z-primary-2: #7c3aed;
   --z-accent: #c026d3;
   --z-cyan: #06b6d4;
-  --z-soft: #f6f7fb;
+  --z-soft: #eef0f7;
 }
 
 * { box-sizing: border-box; }
@@ -264,7 +264,7 @@ input, select, textarea {
 }
 
 .zenvora-header-nav {
-  background: linear-gradient(90deg, #fafaff, #fff);
+  background: linear-gradient(90deg, #f4f5f9, #fbfbfd);
   border-top: 1px solid #eef0f5;
 }
 
@@ -820,3 +820,23 @@ main.bg-slate-900 .bg-violet-50 { background: #f1edff !important; }
 @media (prefers-reduced-motion: reduce) {
   .zenvora-product-card:hover,.zenvora-category-card:hover,.zenvora-kpi-card:hover,.admin-kpi-card:hover { transform:none!important; }
 }
+
+
+/* v3 visual depth + signature brand mark */
+.brand-lockup { display:inline-flex; align-items:center; gap:.58rem; }
+.z-logo-badge {
+  position:relative; display:inline-grid; place-items:center; width:2.25rem; height:2.25rem; border-radius:.78rem;
+  color:#fff; font-size:.95rem; font-weight:1000; letter-spacing:-.08em;
+  background:linear-gradient(145deg,#4c1d95 0%,#7c3aed 48%,#ec4899 100%);
+  box-shadow:0 9px 22px rgba(109,40,217,.22), inset 0 1px 0 rgba(255,255,255,.38);
+  transform:rotate(-4deg); isolation:isolate;
+}
+.z-logo-badge::before { content:""; position:absolute; inset:2px; border:1px solid rgba(255,255,255,.3); border-radius:.65rem; }
+.z-logo-badge::after { content:""; position:absolute; width:.42rem; height:.42rem; right:.28rem; top:.28rem; border-radius:999px; background:#67e8f9; box-shadow:0 0 12px rgba(103,232,249,.8); }
+.zenvora-store-header .brand-mark { font-size:1.72rem; line-height:1; }
+.zenvora-store-header .brand-mark:hover .z-logo-badge { transform:rotate(0deg) scale(1.04); box-shadow:0 12px 28px rgba(109,40,217,.3), inset 0 1px 0 rgba(255,255,255,.4); }
+.zenvora-store-header { box-shadow:0 8px 28px rgba(31,41,55,.07); }
+.zenvora-benefit-strip, .zenvora-filter-panel, .zenvora-detail-panel, .zenvora-checkout-panel, .zenvora-order-summary, .zenvora-account-nav, .zenvora-account-panel { background:rgba(249,250,253,.98); }
+.zenvora-product-card { background:#fbfbfd; }
+.zenvora-category-card { background:linear-gradient(145deg,#fbfbfd,#f1f2f7); }
+.admin-dark { background:radial-gradient(circle at 90% 0%,rgba(124,58,237,.07),transparent 20%),linear-gradient(180deg,#f0f1f6,#eaecf3) !important; }
