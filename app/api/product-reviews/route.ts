@@ -51,7 +51,7 @@ export async function POST(req:Request){
   }
 
   const existing=await db.productReview.findFirst({
-    where:{productId,customerId:customer.id,...(orderId?{orderId}:{})},
+    where:{productId,customerId:customer.id},
     select:{id:true},
   });
   if(existing)return NextResponse.json({error:'You have already submitted a review for this product.'},{status:409});
