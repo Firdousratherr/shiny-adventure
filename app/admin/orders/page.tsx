@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import AdminNav from '../../../components/admin-nav';
 import { redirect } from 'next/navigation';
-import { auth } from '../../../auth';
 import { db } from '../../../lib/db';
+import { requireAdminPermission } from '../../../lib/admin-access';
 import PaymentActions from './payment-actions';
 import DeleteOrderButton from './delete-order-button';
 
@@ -10,8 +10,8 @@ const statuses = ['PAYMENT_PENDING','CONFIRMED','ORDERED_FROM_SOURCE','SHIPPED',
 const money = (v: unknown) => `₹${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 
 export default async function AdminOrders({ searchParams }: { searchParams?: { status?: string; q?: string } }) {
-  const session = await auth();
-  if (session?.user?.role !== 'admin') redirect('/admin/login');
+  const admin = await requireAdminPermission('orders');
+  if (!admin) redirect('/admin/login');
   const status = statuses.includes(searchParams?.status as typeof statuses[number]) ? searchParams?.status : undefined;
   const q = (searchParams?.q || '').trim();
   const orders = await db.order.findMany({
