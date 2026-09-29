@@ -15,8 +15,11 @@ export type ScrapedMarketplaceProduct = {
 
 const MAX_HTML_BYTES = 6 * 1024 * 1024;
 const MAX_IMAGES = 8;
-const DIRECT_TIMEOUT_MS = 10000;
-const SCRAPER_TIMEOUT_MS = 60000;
+const DIRECT_TIMEOUT_MS = 8000;
+// Keep each scraper attempt short enough that a multi-product import cannot
+// consume Vercel's 300s function limit.
+const SCRAPER_SIMPLE_TIMEOUT_MS = 15000;
+const SCRAPER_BROWSER_TIMEOUT_MS = 30000;
 
 function cleanText(value: unknown, max = 10000) {
   if (typeof value !== 'string') return '';
@@ -231,7 +234,7 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
   const apiKey = getScrapingAntApiKey();
   if (!apiKey) throw new Error('Automatic scraping is not configured. Add SCRAPINGANT_API_KEY in Vercel, or enter title and price manually.');
 
-  const maxAttempts = Math.max(1, Math.min(4, options.maxAttempts ?? 3));
+  const maxAttempts = Math.max(1, Math.min(2, options.maxAttempts ?? 2));
   let lastError = 'Automatic scraper failed.';
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -239,7 +242,7 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
     endpoint.searchParams.set('url', url);
     endpoint.searchParams.set('browser', options.browser ? 'true' : 'false');
     endpoint.searchParams.set('proxy_country', 'in');
-    endpoint.searchParams.set('timeout', String(options.browser ? Math.ceil(SCRAPER_TIMEOUT_MS / 1000) : 30));
+    endpoint.searchParams.set('timeout', String(options.browser ? Math.ceil(SCRAPER_BROWSER_TIMEOUT_MS / 1000) : 15));
 
     try {
       const response = await fetchWithTimeout(endpoint.toString(), {
@@ -248,7 +251,7 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         },
         cache: 'no-store',
-      }, options.browser ? SCRAPER_TIMEOUT_MS : 30000);
+      }, options.browser ? SCRAPER_BROWSER_TIMEOUT_MS : SCRAPER_SIMPLE_TIMEOUT_MS);
 
       const body = await response.text();
       if (!response.ok) {
@@ -267,7 +270,7 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
         // 409 is a concurrency/rate-limit response. Failed requests are not
         // billed, so retry with a short backoff instead of spending credits.
         if (response.status === 409 && attempt < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
           continue;
         }
 
@@ -290,7 +293,7 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
     } catch (error) {
       lastError = error instanceof Error ? error.message : lastError;
       if (attempt < maxAttempts && /HTTP 409|HTTP 5\d\d|timed out|aborted/i.test(lastError)) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        await new Promise(resolve => setTimeout(resolve, 750 * attempt));
         continue;
       }
       throw new Error(lastError);
