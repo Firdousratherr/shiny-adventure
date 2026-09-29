@@ -149,6 +149,26 @@ export default function ProductAdmin({
   const [alt, setAlt] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    const elements = Array.from(document.querySelectorAll<HTMLElement>('.product-scroll-reveal'));
+    if (!elements.length) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('product-scroll-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: '0px 0px -40px 0px' },
+    );
+
+    elements.forEach(element => observer.observe(element));
+    return () => observer.disconnect();
+  }, [editing, showCreate, products.length, categoryList.length]);
+
+  useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('edit');
     if (!id) return;
     const product = initialProducts.find(p => p.id === id);
@@ -573,7 +593,27 @@ export default function ProductAdmin({
 
   return (
     <div className="mt-8 space-y-6 pb-12">
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <style>{`
+        .product-scroll-reveal {
+          opacity: 0;
+          transform: translateY(24px);
+          transition: opacity 500ms ease, transform 500ms ease;
+          will-change: opacity, transform;
+        }
+        .product-scroll-reveal.product-scroll-visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .product-scroll-reveal,
+          .product-scroll-reveal.product-scroll-visible {
+            opacity: 1;
+            transform: none;
+            transition: none;
+          }
+        }
+      `}</style>
+      <section className="product-scroll-reveal rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">Product management</p>
@@ -611,7 +651,7 @@ export default function ProductAdmin({
       <MarketplaceImporter categories={categoryList} />
 
       {showCreate && (
-        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <section className="product-scroll-reveal rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Step 1</p>
@@ -669,7 +709,7 @@ export default function ProductAdmin({
         </section>
       )}
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className="product-scroll-reveal rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">Organisation</p>
@@ -732,7 +772,7 @@ export default function ProductAdmin({
       </section>
 
       {editingProduct && edit && (
-        <section className="rounded-3xl border-2 border-indigo-100 bg-white p-4 shadow-sm sm:p-6">
+        <section className="product-scroll-reveal rounded-3xl border-2 border-indigo-100 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col gap-3 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-600">Product editor</p>
@@ -886,7 +926,7 @@ export default function ProductAdmin({
         </section>
       )}
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className="product-scroll-reveal rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-600">Catalogue</p>
