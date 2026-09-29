@@ -2,14 +2,15 @@ import { NextResponse } from 'next/server';
 import { db } from '../../../../../lib/db';
 import { getRazorpay, verifyCheckoutSignature } from '../../../../../lib/razorpay';
 import { notifyCustomer } from '../../../../../lib/email';
-import { rateLimit } from '../../../../../lib/rate-limit';
+import { securityRateLimit } from '../../../../../lib/rate-limit';
 import { verifyPaymentAccessToken } from '../../../../../lib/payment-access';
 import { releaseExpiredPaymentReservations } from '../../../../../lib/inventory-reservations';
 
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
-    const limited = await rateLimit(`razorpay-verify:${ip}`, 20, 600);
+    const limited = await securityRateLimit(`razorpay-verify:${ip}`, 20, 600);
+    if (limited.securityUnavailable) return NextResponse.json({ error: 'Payment verification is temporarily unavailable. Please try again shortly.' }, { status: 503 });
     if (limited.limited) return NextResponse.json({ error: 'Too many payment verification attempts. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
 
     const body = await request.json();
