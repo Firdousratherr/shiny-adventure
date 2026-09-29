@@ -162,7 +162,7 @@ function normalizeMeeshoUrl(value: string) {
 
 function extractMeeshoProductUrls(source: string, limit = 20) {
   const html = source
-    .replace(/\u002F/gi, '/')
+    .replace(/\\u002F/gi, '/')
     .replace(/\\\//g, '/')
     .replace(/&amp;/g, '&');
 
