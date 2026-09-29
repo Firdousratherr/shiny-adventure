@@ -6,7 +6,7 @@ import { db } from '../../../lib/db';
 import ProductAdmin from './product-admin';
 import { productImageUrl } from '../../../lib/product-image-url';
 
-export default async function ProductsAdmin() {
+export default async function ProductsAdmin({ searchParams }: { searchParams?: { import?: string } }) {
   const s = await requireAdminPermission('products');
   if (!s) redirect('/admin/login');
 
@@ -26,7 +26,7 @@ export default async function ProductsAdmin() {
 
   return (
     <main className="min-h-screen bg-slate-100">
-      <AdminNav active="products" />
+      <AdminNav active={searchParams?.import === "1" ? "direct-import" : "products"} />
       <div className="container py-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
