@@ -9,17 +9,17 @@ export default function CartPage() {
   const count = items.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <main className="store-dark min-h-screen bg-[#070b16] pb-28 text-white sm:pb-10">
+    <main className="store-dark min-h-screen pb-28 sm:pb-10">
       <StoreHeader />
 
       <div className="container py-7 sm:py-10">
         <div className="zenvora-page-hero">
           <div>
-            <span className="inline-flex rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-200">Shopping cart</span>
+            <span className="inline-flex rounded-full bg-fuchsia-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-700">Shopping cart</span>
             <h1 className="mt-4 text-4xl font-black tracking-[-.04em] sm:text-5xl">Ready to check out?</h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400">Review your items, adjust quantities, then continue to secure checkout.</p>
           </div>
-          <Link href="/products" className="hidden rounded-xl border border-white/10 bg-white/[.035] px-4 py-2.5 text-xs font-black hover:bg-white/[.07] sm:inline-flex">Continue shopping →</Link>
+          <Link href="/products" className="hidden rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-600 hover:border-violet-300 hover:text-violet-700 sm:inline-flex">Continue shopping →</Link>
         </div>
 
         {!items.length ? (
@@ -27,19 +27,19 @@ export default function CartPage() {
             <div className="text-6xl">🛒</div>
             <p className="mt-5 text-xl font-black">Your cart is empty</p>
             <p className="mt-2 text-sm text-slate-500">Explore the catalog and add something worth keeping.</p>
-            <Link href="/products" className="mt-6 inline-flex rounded-xl bg-white px-6 py-3 text-sm font-black text-slate-950 shadow-xl shadow-black/10">Explore products →</Link>
+            <Link href="/products" className="mt-6 inline-flex rounded-full bg-gradient-to-r from-violet-700 to-fuchsia-500 px-6 py-3 text-sm font-black text-white shadow-lg shadow-violet-500/20">Explore products →</Link>
           </div>
         ) : (
           <div className="mt-8 grid gap-5 lg:grid-cols-[1fr_360px]">
             <section className="space-y-3">
               <div className="mb-2 flex items-center justify-between px-1">
                 <p className="text-xs font-bold text-slate-500">{count} {count === 1 ? 'item' : 'items'}</p>
-                <Link href="/products" className="text-xs font-bold text-violet-300 hover:text-white sm:hidden">Continue shopping →</Link>
+                <Link href="/products" className="text-xs font-black text-violet-700 hover:text-fuchsia-600 sm:hidden">Continue shopping →</Link>
               </div>
 
               {items.map((item) => (
                 <article key={item.productId} className="zenvora-cart-item">
-                  <div className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[.03] sm:h-32 sm:w-32">
+                  <div className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-32 sm:w-32">
                     {item.image ? <img src={item.image} alt="" className="h-full w-full object-contain p-2" /> : <span className="grid h-full place-items-center text-4xl">🛍️</span>}
                   </div>
 
@@ -54,12 +54,12 @@ export default function CartPage() {
                     </div>
 
                     <div className="mt-5 flex items-center justify-between gap-3">
-                      <div className="flex items-center rounded-xl border border-white/10 bg-white/[.035] p-1">
-                        <button aria-label="Decrease quantity" onClick={() => setQuantity(item.productId, item.quantity - 1)} className="grid h-9 w-9 place-items-center rounded-lg text-lg hover:bg-white/10">−</button>
+                      <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                        <button aria-label="Decrease quantity" onClick={() => setQuantity(item.productId, item.quantity - 1)} className="grid h-9 w-9 place-items-center rounded-lg text-lg text-slate-600 hover:bg-violet-50 hover:text-violet-700">−</button>
                         <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
                         <button aria-label="Increase quantity" onClick={() => setQuantity(item.productId, item.quantity + 1)} className="grid h-9 w-9 place-items-center rounded-lg text-lg hover:bg-white/10">+</button>
                       </div>
-                      <button onClick={() => remove(item.productId)} className="rounded-lg px-2 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10">Remove</button>
+                      <button onClick={() => remove(item.productId)} className="rounded-lg px-2 py-2 text-xs font-black text-rose-600 hover:bg-rose-50">Remove</button>
                     </div>
                   </div>
                 </article>
