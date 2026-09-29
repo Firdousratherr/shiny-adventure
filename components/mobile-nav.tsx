@@ -29,7 +29,7 @@ export default function MobileNav() {
             key={href}
             href={href}
             aria-current={active ? 'page' : undefined}
-            className={`relative flex min-h-13 flex-col items-center justify-center rounded-[16px] px-1 text-[10px] font-extrabold transition ${
+            className={`relative flex min-h-13 flex-col items-center justify-center rounded-[16px] px-1 text-[10px] font-extrabold transition duration-200 ${
               active
                 ? 'bg-white text-slate-950 shadow-lg shadow-white/10'
                 : 'text-slate-400 hover:bg-white/5 hover:text-white'
