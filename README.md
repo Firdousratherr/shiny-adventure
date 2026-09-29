@@ -115,5 +115,3 @@ This runs `prisma migrate deploy`; it does not create or alter migrations intera
 - RTO from `SHIPPED` automatically restores ordered quantities and records an inventory movement.
 - Email notification failures must not roll back order transactions.
 - Keep production secrets only in Vercel/Neon/provider secret stores.
-
-<!-- production deployment trigger: 2026-09-29 -->
