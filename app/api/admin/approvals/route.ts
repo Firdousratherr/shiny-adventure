@@ -21,6 +21,13 @@ export async function PATCH(request: Request) {
     if (!id || !decision) return NextResponse.json({ error: 'Approval ID and decision are required.' }, { status: 400 });
 
     const result = await db.$transaction(async tx => {
+      // Lock the approval row so concurrent approvers cannot both execute
+      // the side effect before one of them changes its status.
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "AdminApproval" WHERE "id" = ${id} AND "status" = 'PENDING' FOR UPDATE
+      `;
+      if (!locked[0]) return null;
+
       const approval = await tx.adminApproval.findUnique({ where: { id } });
       if (!approval || approval.status !== 'PENDING') return null;
 
@@ -40,11 +47,10 @@ export async function PATCH(request: Request) {
           },
         });
 
-        const claimed = await tx.adminApproval.updateMany({
-          where: { id, status: 'PENDING' },
+        await tx.adminApproval.update({
+          where: { id },
           data: { status: decision, reviewedBy: admin.email, reviewNote: note, reviewedAt: new Date() },
         });
-        if (claimed.count !== 1) return null;
 
         return {
           approval,
@@ -59,11 +65,10 @@ export async function PATCH(request: Request) {
         };
       }
 
-      const claimed = await tx.adminApproval.updateMany({
-        where: { id, status: 'PENDING' },
+      await tx.adminApproval.update({
+        where: { id },
         data: { status: decision, reviewedBy: admin.email, reviewNote: note, reviewedAt: new Date() },
       });
-      if (claimed.count !== 1) return null;
 
       return {
         approval,
