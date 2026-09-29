@@ -1,8 +1,12 @@
 import {NextResponse} from 'next/server';import {auth} from '../../../auth';import {db} from '../../../lib/db';
+import { rateLimit } from '../../../lib/rate-limit';
 export async function GET(req:Request){const id=new URL(req.url).searchParams.get('productId')||'';if(!id)return NextResponse.json({error:'productId required'},{status:400});const reviews=await db.productReview.findMany({where:{productId:id,status:'APPROVED'},orderBy:{createdAt:'desc'},take:50,select:{id:true,rating:true,title:true,body:true,customerName:true,verified:true,createdAt:true}});return NextResponse.json({reviews})}
 export async function POST(req:Request){
   const s=await auth();
   if(s?.user?.role!=='customer'||!s.user.email)return NextResponse.json({error:'Customer login required.'},{status:401});
+
+  const limited=await rateLimit('review:'+s.user.email.toLowerCase(),10,600);
+  if(limited.limited)return NextResponse.json({error:'Too many review submissions. Please try again later.'},{status:429,headers:{'Retry-After':'600'}});
 
   const b=await req.json().catch(()=>({}));
   const productId=typeof b.productId==='string'?b.productId.trim():'';
