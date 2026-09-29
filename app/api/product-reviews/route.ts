@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';import {Prisma} from '@prisma/client';import {auth} from '../../../auth';import {db} from '../../../lib/db';import {z} from 'zod';
-import { rateLimit } from '../../../lib/rate-limit';
+import { securityRateLimit } from '../../../lib/rate-limit';
 const reviewQuerySchema=z.object({productId:z.string().trim().min(1).max(128)});
 const reviewBodySchema=z.object({
   productId:z.string().trim().min(1).max(128),
@@ -19,8 +19,8 @@ export async function POST(req:Request){
   const s=await auth();
   if(s?.user?.role!=='customer'||!s.user.email)return NextResponse.json({error:'Customer login required.'},{status:401});
 
-  const limited=await rateLimit('review:'+s.user.email.toLowerCase(),10,600);
-  if(limited.limited)return NextResponse.json({error:'Too many review submissions. Please try again later.'},{status:429,headers:{'Retry-After':'600'}});
+  const limited=await securityRateLimit('review:'+s.user.email.toLowerCase(),10,600);
+  if(limited.securityUnavailable)return NextResponse.json({error:'This security service is temporarily unavailable.'},{status:503});if(limited.limited)return NextResponse.json({error:'Too many review submissions. Please try again later.'},{status:429,headers:{'Retry-After':'600'}});
 
   const b=await req.json().catch(()=>null);
   const parsed=reviewBodySchema.safeParse(b);
