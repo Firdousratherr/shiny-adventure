@@ -7,17 +7,37 @@ import WishlistButton from '../../../components/wishlist-button';
 import { productImageUrl } from '../../../lib/product-image-url';
 import { productDescriptionText } from '../../../lib/product-description';
 
+function jsonLd(value: unknown) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const p = await db.product.findFirst({ where: { slug: params.slug, status: 'ACTIVE' }, select: { name: true, description: true, metaTitle: true, metaDescription: true, canonicalUrl: true, images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } } } });
   if (!p) return {};
-  return { title: p.metaTitle || p.name, description: p.metaDescription || p.description || `Shop ${p.name} online at Zenvora.`, alternates: p.canonicalUrl ? { canonical: p.canonicalUrl } : undefined, openGraph: { title: p.metaTitle || p.name, description: p.metaDescription || p.description || undefined, images: p.images[0] ? [p.images[0].url] : [] } };
+  return { title: p.metaTitle || p.name, description: p.metaDescription || p.description || `Shop ${p.name} online at Zenvora.`, alternates: p.canonicalUrl ? { canonical: p.canonicalUrl } : undefined, openGraph: { title: p.metaTitle || p.name, description: p.metaDescription || p.description || undefined, images: p.images[0] ? [productImageUrl(p.images[0].url) || p.images[0].url] : [] } };
 }
 
 export default async function Product({ params }: { params: { slug: string } }) {
   const p = await db.product.findFirst({ where: { slug: params.slug, status: 'ACTIVE' }, select: { id: true, name: true, slug: true, description: true, sellingPrice: true, stock: true, images: { orderBy: { sortOrder: 'asc' }, select: { url: true, altText: true } } } });
   if (!p) notFound();
-  return <main className="min-h-screen bg-[#070b16] px-4 pt-5 pb-32 text-white sm:px-6 sm:py-10 sm:pb-10">
-    <div className="mx-auto max-w-6xl">
+  const productUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/product/${p.slug}`;
+  const productSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: p.name,
+    description: productDescriptionText(p.description) || `Shop ${p.name} online at Zenvora.`,
+    url: productUrl,
+    image: p.images.map(image => image.url),
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'INR',
+      price: Number(p.sellingPrice).toFixed(2),
+      availability: p.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      url: productUrl,
+    },
+  };
+  return <main id="main-content" className="min-h-screen bg-[#070b16] px-4 pt-5 pb-32 text-white sm:px-6 sm:py-10 sm:pb-10">
+    <div className="mx-auto max-w-6xl"><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(productSchema) }} />
       <nav className="flex items-center justify-between border-b border-white/10 pb-4 text-sm"><div className="flex items-center gap-2 text-slate-400"><Link href="/" className="hover:text-white">Home</Link><span>/</span><Link href="/products" className="hover:text-white">Shop</Link><span>/</span><span className="max-w-[180px] truncate text-slate-200">{p.name}</span></div><Link href="/cart" className="rounded-xl border border-white/10 px-3 py-2 font-bold hover:bg-white/5">🛒 Cart</Link></nav>
       <div className="mt-7 grid gap-8 lg:grid-cols-[1.05fr_.95fr] lg:gap-12">
         <section><div className="zenvora-glass overflow-hidden rounded-3xl p-2 sm:p-3"><div className="grid gap-2">{p.images.length ? p.images.slice(0,6).map((image,i)=><div key={image.url} className={i===0?'relative aspect-square overflow-hidden rounded-2xl bg-white/5':'relative hidden aspect-square overflow-hidden rounded-2xl bg-white/5 sm:block'}>{<img src={productImageUrl(image.url)||''} alt={image.altText||p.name} loading={i !== 0 ? "lazy" : "eager"} decoding="async" className="h-full w-full object-cover"/>}{i===0&&p.stock<=5&&p.stock>0&&<span className="absolute left-3 top-3 rounded-full bg-amber-400 px-3 py-1.5 text-xs font-black text-slate-950">Only {p.stock} left</span>}</div>) : <div className="flex aspect-square items-center justify-center rounded-2xl bg-white/5 text-8xl">🛍️</div>}</div></div>
