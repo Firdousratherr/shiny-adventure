@@ -642,8 +642,12 @@ export async function syncMarketplace(integrationId: string, provider: string, r
       rawData: product.rawData,
     }));
     const result = await importItems(integrationId, 'MEESHO', items, { ...settings, automatic: true, changedBy: settings.changedBy ?? 'MEESHO_AUTO_IMPORT' });
+    // directUrl is a one-run override supplied by the Direct URL test.
+    // Never persist it, otherwise a later keyword run silently keeps importing
+    // the last URL instead of discovering products from the configured keyword.
+    const { directUrl: _directUrl, ...persistableSettings } = settings as Record<string, unknown>;
     const nextSettings = {
-      ...(settings as Record<string, unknown>),
+      ...persistableSettings,
       shardCursor: discovery.shardCursor,
       sitemapShards: discovery.sitemapShards,
       sitemapFetchedAt: discovery.sitemapFetchedAt,
