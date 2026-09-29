@@ -40,6 +40,54 @@ export async function GET() {
         finishedAt: new Date(),
       },
     });
+    const recentMeeshoImports = await db.marketplaceImportLog.findMany({
+      where: { integrationId: meesho.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sellingPrice: true,
+            sourceCost: true,
+            stock: true,
+            status: true,
+            category: { select: { id: true, name: true } },
+            images: {
+              select: { url: true, altText: true, sortOrder: true },
+              orderBy: { sortOrder: 'asc' },
+              take: 5,
+            },
+          },
+        },
+      },
+    });
+
+    const importedProductDetails = recentMeeshoImports.map((log) => ({
+      id: log.id,
+      productId: log.productId,
+      externalId: log.externalId,
+      title: log.title ?? log.product?.name ?? 'Untitled product',
+      sourceUrl: log.sourceUrl,
+      status: log.status,
+      sourceCost: log.sourceCost === null ? null : Number(log.sourceCost),
+      sellingPrice: log.sellingPrice === null ? null : Number(log.sellingPrice),
+      importedImages: log.importedImages,
+      error: log.error,
+      createdAt: log.createdAt,
+      inventory: log.product ? {
+        id: log.product.id,
+        name: log.product.name,
+        sellingPrice: Number(log.product.sellingPrice),
+        sourceCost: log.product.sourceCost === null ? null : Number(log.product.sourceCost),
+        stock: log.product.stock,
+        status: log.product.status,
+        category: log.product.category,
+        images: log.product.images,
+      } : null,
+    }));
+
     const scrapingAntUsage = hasScrapingAntApiKey() ? await getScrapingAntUsage() : {
       planName: null,
       totalCredits: null,
@@ -60,6 +108,7 @@ export async function GET() {
           credentialsConfigured: hasScrapingAntApiKey(),
           capabilities: providerCapabilities('MEESHO'),
           scrapingAntUsage,
+          importedProductDetails,
         },
       ],
     });
