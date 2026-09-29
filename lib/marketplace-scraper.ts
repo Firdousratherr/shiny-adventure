@@ -222,17 +222,24 @@ async function directFetch(url: string) {
   return html;
 }
 
-async function scraperFetch(url: string, provider: string) {
+type ScraperFetchOptions = {
+  browser: boolean;
+  maxAttempts?: number;
+};
+
+async function scraperFetch(url: string, provider: string, options: ScraperFetchOptions) {
   const apiKey = getScrapingAntApiKey();
   if (!apiKey) throw new Error('Automatic scraping is not configured. Add SCRAPINGANT_API_KEY in Vercel, or enter title and price manually.');
 
+  const maxAttempts = Math.max(1, Math.min(4, options.maxAttempts ?? 3));
   let lastError = 'Automatic scraper failed.';
-  for (let attempt = 1; attempt <= 3; attempt++) {
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const endpoint = new URL('https://api.scrapingant.com/v2/general');
     endpoint.searchParams.set('url', url);
-    endpoint.searchParams.set('browser', 'true');
+    endpoint.searchParams.set('browser', options.browser ? 'true' : 'false');
     endpoint.searchParams.set('proxy_country', 'in');
-    endpoint.searchParams.set('timeout', String(Math.ceil(SCRAPER_TIMEOUT_MS / 1000)));
+    endpoint.searchParams.set('timeout', String(options.browser ? Math.ceil(SCRAPER_TIMEOUT_MS / 1000) : 30));
 
     try {
       const response = await fetchWithTimeout(endpoint.toString(), {
@@ -241,7 +248,7 @@ async function scraperFetch(url: string, provider: string) {
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         },
         cache: 'no-store',
-      }, SCRAPER_TIMEOUT_MS);
+      }, options.browser ? SCRAPER_TIMEOUT_MS : 30000);
 
       const body = await response.text();
       if (!response.ok) {
@@ -256,12 +263,17 @@ async function scraperFetch(url: string, provider: string) {
           detail = rawDetail ? ': ' + rawDetail.slice(0, 300) : '';
         } catch {}
         lastError = 'ScrapingAnt returned HTTP ' + response.status + detail + '.';
-        if (response.status === 409 && attempt < 3) {
-          await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+
+        // 409 is a concurrency/rate-limit response. Failed requests are not
+        // billed, so retry with a short backoff instead of spending credits.
+        if (response.status === 409 && attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
           continue;
         }
+
         throw new Error(lastError);
       }
+
       if (!body.trim()) throw new Error('ScrapingAnt returned an empty page.');
       if (Buffer.byteLength(body, 'utf8') > MAX_HTML_BYTES) throw new Error('Scraped page is too large.');
 
@@ -271,17 +283,17 @@ async function scraperFetch(url: string, provider: string) {
 
       if (challenged) {
         lastError = 'Meesho returned an anti-bot challenge.';
-        if (attempt < 3) {
-          await new Promise(resolve => setTimeout(resolve, 700 * attempt));
-          continue;
-        }
         throw new Error(lastError);
       }
 
       return body;
     } catch (error) {
       lastError = error instanceof Error ? error.message : lastError;
-      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 700 * attempt));
+      if (attempt < maxAttempts && /HTTP 409|HTTP 5\d\d|timed out|aborted/i.test(lastError)) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        continue;
+      }
+      throw new Error(lastError);
     }
   }
 
@@ -355,11 +367,20 @@ function parseProduct(provider: 'AMAZON' | 'FLIPKART' | 'MEESHO', url: string, h
   return { provider, externalId: id, sourceUrl: url, name, description, sourceCost, images, categoryName: categoryName || undefined, availability };
 }
 
-export async function scrapeMarketplaceProduct(sourceUrl: string) {
+export type ScrapeMarketplaceOptions = {
+  /**
+   * Browser rendering costs substantially more credits than a simple request.
+   * Keep this false unless the caller explicitly budgets a browser fallback.
+   */
+  allowBrowserFallback?: boolean;
+};
+
+export async function scrapeMarketplaceProduct(sourceUrl: string, options: ScrapeMarketplaceOptions = {}) {
   const parsed = providerFromUrl(sourceUrl);
   let html: string | null = null;
   let directError = '';
 
+  // Tier 1: fetch the source directly. This uses zero ScrapingAnt credits.
   try { html = await directFetch(parsed.url); }
   catch (error) { directError = error instanceof Error ? error.message : 'Direct request failed.'; }
 
@@ -368,13 +389,31 @@ export async function scrapeMarketplaceProduct(sourceUrl: string) {
     catch (error) { directError = error instanceof Error ? error.message : directError; }
   }
 
+  // Tier 2: ScrapingAnt without browser rendering. This is the cheap path.
   try {
-    html = await scraperFetch(parsed.url, parsed.provider);
+    html = await scraperFetch(parsed.url, parsed.provider, { browser: false, maxAttempts: 3 });
     return parseProduct(parsed.provider, parsed.url, html, parsed.id);
   } catch (error) {
-    const scraperError = error instanceof Error ? error.message : 'Automatic scraper failed.';
-    throw new Error(scraperError || directError || 'Unable to read product page.');
+    directError = error instanceof Error ? error.message : directError;
   }
+
+  // Tier 3: browser rendering is only used when the import run explicitly
+  // budgets a fallback. A successful browser request costs 10 credits.
+  if (options.allowBrowserFallback) {
+    try {
+      html = await scraperFetch(parsed.url, parsed.provider, { browser: true, maxAttempts: 3 });
+      return parseProduct(parsed.provider, parsed.url, html, parsed.id);
+    } catch (error) {
+      const scraperError = error instanceof Error ? error.message : 'Automatic scraper failed.';
+      throw new Error(scraperError || directError || 'Unable to read product page.');
+    }
+  }
+
+  throw new Error(
+    directError
+      ? directError + ' Browser fallback was skipped to protect ScrapingAnt credits.'
+      : 'Unable to read product page without browser rendering. Browser fallback was skipped to protect ScrapingAnt credits.',
+  );
 }
 
 export function parseMarketplaceSourceUrl(sourceUrl: string) {
