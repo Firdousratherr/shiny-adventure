@@ -14,10 +14,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
     }
 
-    const limited = await rateLimit('password-reset:' + email, 5, 600);
+    const limited = await securityRateLimit('password-reset:' + email, 5, 600);
     if (process.env.NODE_ENV === 'production' && !limited.configured) {
       return NextResponse.json({ error: 'Password reset is temporarily unavailable.' }, { status: 503 });
     }
+    if (limited.securityUnavailable) return NextResponse.json({ error: 'This security service is temporarily unavailable.' }, { status: 503 });
     if (limited.limited) return NextResponse.json({ error: 'Too many reset attempts. Please wait 10 minutes.' }, { status: 429 });
 
     const customer = await db.customerUser.findUnique({ where: { email } });
