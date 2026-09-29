@@ -71,7 +71,7 @@ export default async function Product({ params }: { params: { slug: string } }) 
   const structuredDataJson = JSON.stringify(structuredData).replace(/</g, '\\u003c');
 
   return (
-    <main className="store-dark min-h-screen bg-[#070b16] pb-28 text-white sm:pb-10">
+    <main className="store-dark min-h-screen pb-28 sm:pb-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredDataJson }} />
       <StoreHeader />
 
@@ -92,11 +92,11 @@ export default async function Product({ params }: { params: { slug: string } }) 
           <section className="lg:sticky lg:top-24 lg:h-fit">
             <div className="zenvora-detail-panel">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-200">Zenvora edit</span>
+                <span className="rounded-full bg-fuchsia-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-700">Zenvora edit</span>
                 {p.stock > 0 ? (
-                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-black text-emerald-300">In stock</span>
+                  <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-black text-emerald-700">In stock</span>
                 ) : (
-                  <span className="rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-1.5 text-[10px] font-black text-rose-300">Out of stock</span>
+                  <span className="rounded-full bg-rose-50 px-3 py-1.5 text-[10px] font-black text-rose-700">Out of stock</span>
                 )}
               </div>
 
@@ -116,7 +116,7 @@ export default async function Product({ params }: { params: { slug: string } }) 
                   ['🚚', 'Fast', 'delivery'],
                   ['↻', 'Easy', 'returns'],
                 ].map(([icon, title, detail]) => (
-                  <div key={title} className="rounded-2xl border border-white/10 bg-white/[.035] p-3 text-center">
+                  <div key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
                     <span className="text-lg">{icon}</span>
                     <p className="mt-1 text-[11px] font-black">{title}</p>
                     <p className="text-[10px] text-slate-500">{detail}</p>
@@ -132,7 +132,7 @@ export default async function Product({ params }: { params: { slug: string } }) 
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">{description}</p>
               </div>
 
-              <div className="mt-7 rounded-2xl border border-violet-400/15 bg-violet-500/[.07] p-4">
+              <div className="mt-7 rounded-2xl border border-violet-100 bg-violet-50 p-4">
                 <p className="text-xs font-black text-violet-200">Ready when you are.</p>
                 <p className="mt-1 text-xs leading-5 text-slate-400">Add it to your cart, review the order, and continue to secure payment.</p>
               </div>
