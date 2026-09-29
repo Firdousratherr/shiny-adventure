@@ -740,7 +740,7 @@ export default function ProductAdmin({
                     <p className="mt-1 truncate text-[11px] text-slate-500">{c.productCount} product(s) · /{c.slug}</p>
                   </div>
                   <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto">
-                    <button onClick={() => { setEditingCategory(c.id); setCategoryName(c.name); }} className="min-w-[72px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 sm:flex-none">Edit</button>
+                    <button onClick={() => { setEditingCategory(c.id); setCategoryName(c.name); }} className="category-edit-button min-w-[72px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold sm:flex-none">Edit</button>
                     <button onClick={() => void deleteCategory(c.id)} className="min-w-[72px] flex-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 sm:flex-none">Delete</button>
                   </div>
                 </div>
