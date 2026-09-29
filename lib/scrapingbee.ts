@@ -1,9 +1,5 @@
-export function getScrapingBeeApiKey() {
-  return (process.env.SCRAPINGBEE_API_KEY ?? process.env.SCRAPINGBEE_API_TOKEN ?? '')
-    .replace(/^['"]|['"]$/g, '')
-    .trim();
-}
-
-export function hasScrapingBeeApiKey() {
-  return Boolean(getScrapingBeeApiKey());
-}
+// Deprecated compatibility shim. New code should use lib/scrapingant.
+export {
+  getScrapingAntApiKey as getScrapingBeeApiKey,
+  hasScrapingAntApiKey as hasScrapingBeeApiKey,
+} from './scrapingant';
