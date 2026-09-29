@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 type Mode = 'SEARCH' | 'URL';
@@ -146,6 +147,26 @@ export default function MeeshoAutoImport() {
     }
   };
 
+  const publishProduct = async (productId: string, status: 'ACTIVE' | 'HIDDEN') => {
+    setBusy(true);
+    setError('');
+    try {
+      const r = await fetch('/api/admin/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: productId, status }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Unable to update product status.');
+      setMessage(status === 'ACTIVE' ? 'Product published to the Zenvora storefront.' : 'Product hidden from the Zenvora storefront.');
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to update product status.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const toggleAuto = async (enabled: boolean) => {
     setAutoSync(enabled);
     setBusy(true);
@@ -269,12 +290,51 @@ export default function MeeshoAutoImport() {
                           <div><span className="block text-slate-600">Selling price</span>{item.sellingPrice != null ? '₹' + item.sellingPrice.toLocaleString('en-IN') : product ? '₹' + product.sellingPrice.toLocaleString('en-IN') : '—'}</div>
                           <div><span className="block text-slate-600">Stock</span>{product ? product.stock : '—'}</div>
                         </div>
-                        <div className="mt-2 flex flex-wrap gap-2 text-[9px] font-bold text-slate-500">
-                          <span>{item.importedImages} images</span>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[9px] font-bold text-slate-500">
+                          <span>{product?.images?.length ?? item.importedImages} images</span>
                           <span>•</span>
                           <span>{product?.status || 'Not linked'}</span>
                           {product?.images?.length ? <><span>•</span><span>{product.images.length} stored</span></> : null}
                         </div>
+                        {product && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Link
+                              href={"/admin/products?edit=" + encodeURIComponent(product.id)}
+                              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-black text-white"
+                            >
+                              Edit product
+                            </Link>
+                            {product.status === 'ACTIVE' ? (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void publishProduct(product.id, 'HIDDEN')}
+                                className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[10px] font-black text-amber-300 disabled:opacity-40"
+                              >
+                                Hide
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={busy || product.stock <= 0}
+                                onClick={() => void publishProduct(product.id, 'ACTIVE')}
+                                className="rounded-xl bg-emerald-400 px-3 py-2 text-[10px] font-black text-slate-950 disabled:opacity-40"
+                              >
+                                Publish to website
+                              </button>
+                            )}
+                            {item.sourceUrl && (
+                              <a
+                                href={item.sourceUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-xl border border-white/10 px-3 py-2 text-[10px] font-black text-slate-400"
+                              >
+                                Source
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     {item.error && <div className="border-t border-red-400/10 bg-red-500/5 px-3 py-2 text-[10px] text-red-300">{item.error}</div>}
