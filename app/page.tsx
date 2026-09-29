@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { auth } from '../auth';
 import { db } from '../lib/db';
@@ -158,7 +159,7 @@ export default async function Home() {
           <div className="grid gap-4 md:grid-cols-3">
             {banners.map((banner, index) => (
               <Link key={banner.id} href={safeBannerHref(banner.linkUrl)} className={'zenvora-promo-card ' + (index === 0 ? 'md:col-span-2 min-h-[250px]' : 'min-h-[250px]')}>
-                {banner.imageUrl ? <img src={banner.imageUrl} alt={banner.title} className="absolute inset-0 h-full w-full object-cover opacity-35" /> : null}
+                {banner.imageUrl ? <Image src={banner.imageUrl} alt={banner.title} fill sizes="(max-width: 768px) 100vw, 66vw" className="object-cover opacity-35" /> : null}
                 <div className="absolute inset-0 bg-gradient-to-br from-violet-950/85 via-violet-900/40 to-fuchsia-950/60" />
                 <div className="relative mt-auto max-w-xl">
                   <span className="text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-200">Limited offer</span>
