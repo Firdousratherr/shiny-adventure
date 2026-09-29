@@ -190,6 +190,14 @@ export default function ProductAdmin({
     });
   }, [initialProducts]);
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('import') !== '1') return;
+    const timer = window.setTimeout(() => {
+      document.getElementById('import')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const stats = useMemo(() => ({
     total: products.length,
     active: products.filter(p => p.status === 'ACTIVE').length,
@@ -648,7 +656,7 @@ export default function ProductAdmin({
         </div>
       </section>
 
-      <MarketplaceImporter categories={categoryList} />
+      <section id="import" className="scroll-mt-24 product-scroll-reveal"><MarketplaceImporter categories={categoryList} /></section>
 
       {showCreate && (
         <section className="product-scroll-reveal rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
