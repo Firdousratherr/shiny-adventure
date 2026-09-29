@@ -15,6 +15,22 @@ export async function POST(request: Request) {
   const session = await auth();
   const email = session?.user?.role === 'customer' ? session.user.email : null;
   const user = email ? await db.customerUser.findUnique({ where: { email }, select: { id: true } }) : null;
-  await db.recentlyViewed.create({ data: { productId, sessionId, userId: user?.id ?? null } });
+  const now = new Date();
+  await db.recentlyViewed.create({ data: { productId, sessionId, userId: user?.id ?? null, viewedAt: now } });
+
+  // Keep this high-volume telemetry bounded: one session should retain only its
+  // latest 30 views. This prevents repeated browsing from growing the table forever.
+  const latest = await db.recentlyViewed.findMany({
+    where: { sessionId },
+    orderBy: { viewedAt: 'desc' },
+    take: 30,
+    select: { id: true },
+  });
+  if (latest.length === 30) {
+    await db.recentlyViewed.deleteMany({
+      where: { sessionId, id: { notIn: latest.map(row => row.id) } },
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }
