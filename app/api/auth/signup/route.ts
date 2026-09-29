@@ -19,10 +19,11 @@ export async function POST(request: Request) {
     const existing = await db.customerUser.findUnique({ where: { email } });
     if (existing) return NextResponse.json({ error: 'An account with this email already exists. Please sign in.' }, { status: 409 });
 
-    const limited = await rateLimit('signup:' + email, 5, 600);
+    const limited = await securityRateLimit('signup:' + email, 5, 600);
     if (process.env.NODE_ENV === 'production' && !limited.configured) {
       return NextResponse.json({ error: 'Signup is temporarily unavailable.' }, { status: 503 });
     }
+    if (limited.securityUnavailable) return NextResponse.json({ error: 'This security service is temporarily unavailable.' }, { status: 503 });
     if (limited.limited) {
       return NextResponse.json({ error: 'Too many signup attempts. Please wait 10 minutes.' }, { status: 429 });
     }
