@@ -248,9 +248,19 @@ async function scraperFetch(url: string, provider: string) {
         let detail = '';
         try {
           const parsed = JSON.parse(body);
-          detail = typeof parsed?.message === 'string' ? ': ' + parsed.message.slice(0, 220) : '';
+          const rawDetail = typeof parsed?.detail === 'string'
+            ? parsed.detail
+            : typeof parsed?.message === 'string'
+              ? parsed.message
+              : '';
+          detail = rawDetail ? ': ' + rawDetail.slice(0, 300) : '';
         } catch {}
-        throw new Error('ScrapingAnt returned HTTP ' + response.status + detail + '.');
+        lastError = 'ScrapingAnt returned HTTP ' + response.status + detail + '.';
+        if (response.status === 409 && attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+          continue;
+        }
+        throw new Error(lastError);
       }
       if (!body.trim()) throw new Error('ScrapingAnt returned an empty page.');
       if (Buffer.byteLength(body, 'utf8') > MAX_HTML_BYTES) throw new Error('Scraped page is too large.');
