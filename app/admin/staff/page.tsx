@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import AdminNav from '../../../components/admin-nav';
 
 type Permission = { key: string; label: string; description: string };
 type Staff = {
