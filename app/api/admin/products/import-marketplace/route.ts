@@ -247,14 +247,17 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        const duplicate = await db.marketplaceProduct.findUnique({
-          where: { integrationId_externalId: { integrationId: integration.id, externalId: parsedUrl.id } },
-          select: { productId: true },
-        });
-        return NextResponse.json(
-          { error: 'This product is already imported into Zenvora.', productId: duplicate?.productId || undefined },
-          { status: 409 },
-        );
+        const target = Array.isArray(error.meta?.target) ? error.meta.target.join(',') : String(error.meta?.target ?? '');
+        if (target.includes('integrationId') && target.includes('externalId')) {
+          const duplicate = await db.marketplaceProduct.findUnique({
+            where: { integrationId_externalId: { integrationId: integration.id, externalId: parsedUrl.id } },
+            select: { productId: true },
+          });
+          return NextResponse.json(
+            { error: 'This product is already imported into Zenvora.', productId: duplicate?.productId || undefined },
+            { status: 409 },
+          );
+        }
       }
       throw error;
     }
