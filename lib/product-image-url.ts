@@ -1,7 +1,9 @@
-const PROXIED_IMAGE_HOSTS = /(^|\\.)(meesho\\.com|cdn\\.shopify\\.com|myshopify\\.com)$/i;
+const PROXIED_IMAGE_HOSTS = /(^|\\.)(meesho\\.com)$/i;
 
 export function productImageUrl(url: string | null | undefined) {
   if (!url) return undefined;
+  if (url.startsWith('/api/product-images?') || url.startsWith('/_next/')) return url;
+
   try {
     const parsed = new URL(url);
     if (
