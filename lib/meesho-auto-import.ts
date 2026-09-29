@@ -172,8 +172,8 @@ function extractMeeshoProductUrls(source: string, limit = 20) {
     if (normalized) found.add(normalized);
   };
 
-  for (const match of html.matchAll(/https?:\/\/(?:www\.)?meesho\.com\/[^"'<>\\s]+?\/(?:p|s\/p)\/[^"'<>\\s?#]+/gi)) add(match[0]);
-  for (const match of html.matchAll(/["'](\/(?:[^"'<>\\s]+)\/(?:p|s\/p)\/[^"'<>\\s?#]+)["']/gi)) add(match[1]);
+  for (const match of html.matchAll(/https?:\/\/(?:www\.)?meesho\.com\/[^"'<>\s]+?\/(?:p|s\/p)\/[^"'<>\s?#]+/gi)) add(match[0]);
+  for (const match of html.matchAll(/["'](\/(?:[^"'<>\s]+)\/(?:p|s\/p)\/[^"'<>\s?#]+)["']/gi)) add(match[1]);
   for (const match of html.matchAll(/(?:href|url|productUrl|product_url)\s*[:=]\s*["']([^"']+)["']/gi)) add(match[1]);
 
   return [...found].slice(0, Math.max(1, Math.min(100, limit)));
