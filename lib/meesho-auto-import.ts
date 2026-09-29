@@ -1,6 +1,6 @@
 import { scrapeMarketplaceProduct } from './marketplace-scraper';
 import { getShopifyAccessToken } from './shopify';
-import { getScrapingBeeApiKey } from './scrapingbee';
+import { getScrapingAntApiKey } from './scrapingant';
 
 export type MeeshoAutoSettings = {
   maxItemsPerSync?: number;
@@ -29,26 +29,34 @@ function parseLocs(xml: string) {
   return [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map(m => m[1].trim()).filter(Boolean);
 }
 
-async function scrapingBee(url: string, timeoutMs = 60000) {
-  const key = getScrapingBeeApiKey();
-  if (!key) throw new Error('Add SCRAPINGBEE_API_KEY in Vercel before enabling Meesho Auto Import.');
+async function scrapingAnt(url: string, timeoutMs = 60000, browser = false) {
+  const key = getScrapingAntApiKey();
+  if (!key) throw new Error('Add SCRAPINGANT_API_KEY in Vercel before enabling Meesho Auto Import.');
 
-  const endpoint = new URL('https://app.scrapingbee.com/api/v1/');
+  const endpoint = new URL('https://api.scrapingant.com/v2/general');
   endpoint.searchParams.set('url', url);
-  endpoint.searchParams.set('mode', 'auto');
-  endpoint.searchParams.set('country_code', 'in');
-  endpoint.searchParams.set('max_cost', (process.env.SCRAPINGBEE_MAX_COST ?? '75').trim() || '75');
+  endpoint.searchParams.set('browser', browser ? 'true' : 'false');
+  endpoint.searchParams.set('proxy_country', 'in');
+  endpoint.searchParams.set('timeout', String(Math.ceil(timeoutMs / 1000)));
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(endpoint.toString(), {
-      headers: { Authorization: 'Bearer ' + key, Accept: 'text/html,application/xml' },
+      headers: { 'x-api-key': key, Accept: 'text/html,application/xml' },
       cache: 'no-store',
       signal: controller.signal,
     });
     const body = await response.text();
-    if (!response.ok) throw new Error('ScrapingBee returned HTTP ' + response.status + '.');
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const parsed = JSON.parse(body);
+        detail = typeof parsed?.message === 'string' ? ': ' + parsed.message.slice(0, 220) : '';
+      } catch {}
+      throw new Error('ScrapingAnt returned HTTP ' + response.status + detail + '.');
+    }
+    if (!body.trim()) throw new Error('ScrapingAnt returned an empty response.');
     return body;
   } finally {
     clearTimeout(timer);
@@ -60,7 +68,7 @@ async function loadSitemapShards(settings: MeeshoAutoSettings) {
   const freshAt = settings.sitemapFetchedAt ? Date.parse(settings.sitemapFetchedAt) : 0;
   if (cached.length && Number.isFinite(freshAt) && Date.now() - freshAt < 24 * 60 * 60 * 1000) return cached;
 
-  const xml = await scrapingBee(SITEMAP_INDEX);
+  const xml = await scrapingAnt(SITEMAP_INDEX, 30000, false);
   const shards = parseLocs(xml).filter(url => /\/sitemap\/pdp\//i.test(url));
   if (!shards.length) throw new Error('Meesho sitemap did not return product shards.');
   return shards;
