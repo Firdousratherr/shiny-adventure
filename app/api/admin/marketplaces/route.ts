@@ -8,7 +8,7 @@ import { recordAdminAudit } from '../../../../lib/admin-audit';
 import { credentialStatus, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
 import { getScrapingAntApiKey, getScrapingAntUsage, hasScrapingAntApiKey } from '../../../../lib/scrapingant';
 import { productImageUrl } from '../../../../lib/product-image-url';
-import { rateLimit } from '../../../../lib/rate-limit';
+import { securityRateLimit } from '../../../../lib/rate-limit';
 
 const PROVIDERS = [
   { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify app + client credentials' },
@@ -212,7 +212,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     if (!isProvider(body.provider)) return NextResponse.json({ error: 'Unsupported marketplace provider.' }, { status: 400 });
 
-    const syncRate = await rateLimit(`marketplace-sync:${admin.id}`, 2, 60);
+    const syncRate = await securityRateLimit(`marketplace-sync:${admin.id}`, 2, 60);
+    if (syncRate.securityUnavailable) return NextResponse.json({ error: 'Marketplace sync is temporarily unavailable because rate limiting is not configured.' }, { status: 503 });
     if (syncRate.limited) {
       return NextResponse.json({ error: 'Too many marketplace sync requests. Please wait a minute before starting another sync.' }, { status: 429 });
     }
