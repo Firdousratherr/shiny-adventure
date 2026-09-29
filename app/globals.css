@@ -112,3 +112,10 @@ main.bg-slate-100 .sticky{backdrop-filter:blur(14px)}
 /* Category action contrast */
 main.bg-slate-100 .category-edit-button{color:#0f172a!important;background:#fff!important}
 main.bg-slate-100 .category-edit-button:hover{background:#f1f5f9!important}
+
+
+.skip-link{position:fixed;left:12px;top:12px;z-index:100;transform:translateY(-160%);border:1px solid rgba(255,255,255,.16);border-radius:12px;background:#fff;color:#0f172a;padding:10px 14px;font-size:12px;font-weight:800;box-shadow:0 12px 30px rgba(0,0,0,.28);transition:transform .18s ease}
+.skip-link:focus{transform:translateY(0)}
+.zenvora-float{animation:zenvora-float 6s ease-in-out infinite}
+@keyframes zenvora-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@media(prefers-reduced-motion:reduce){.zenvora-float{animation:none}}
