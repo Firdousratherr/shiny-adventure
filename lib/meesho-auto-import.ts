@@ -132,18 +132,18 @@ async function discoverSearchUrls(keyword: string, limit: number) {
     const found = new Set<string>();
     const add = (value: string) => {
       try {
-        const decoded = value.replace(/\\u002F/g, '/').replace(/&amp;/g, '&');
+        const decoded = value.replace(/\u002F/g, '/').replace(/&amp;/g, '&');
         const absolute = decoded.startsWith('http')
           ? decoded
           : new URL(decoded, 'https://www.meesho.com').toString();
         const parsed = new URL(absolute);
-        if (parsed.hostname.replace(/^www\\./, '') !== 'meesho.com') return;
-        if (/\\/p\\/[^/?#]+/i.test(parsed.pathname)) found.add(absolute);
+        if (parsed.hostname.replace(/^www\./, '') !== 'meesho.com') return;
+        if (/\/p\/[^/?#]+/i.test(parsed.pathname)) found.add(absolute);
       } catch { /* ignore malformed Meesho URLs */ }
     };
 
-    for (const match of html.matchAll(/(?:href|url|productUrl|product_url)\\s*[:=]\\s*["']([^"']+)["']/gi)) add(match[1]);
-    for (const match of html.matchAll(/https?:\\/\\/(?:www\\.)?meesho\\.com\\/[^"'\\s<>]+\\/p\\/[^"'\\s<>?#]+/gi)) add(match[0]);
+    for (const match of html.matchAll(/(?:href|url|productUrl|product_url)\s*[:=]\s*["']([^"']+)["']/gi)) add(match[1]);
+    for (const match of html.matchAll(/https?:\/\/(?:www\.)?meesho\.com\/[^"'\s<>]+\/p\/[^"'\s<>?#]+/gi)) add(match[0]);
 
     return [...found].slice(0, Math.max(1, limit));
   } catch {
