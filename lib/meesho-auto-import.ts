@@ -22,10 +22,12 @@ export type MeeshoAutoSettings = {
 const SITEMAP_INDEX = 'https://www.meesho.com/sitemap.xml';
 const DEFAULT_SHARD_COUNT = 1;
 const DEFAULT_MAX_ITEMS = 10;
-const MAX_BROWSER_FALLBACKS_PER_RUN = 8;
-const MAX_SIMPLE_SCRAPES_PER_RUN = 12;
-const MAX_PRODUCTS_PER_RUN = 8;
-const MAX_IMPORT_RUNTIME_MS = 210000;
+const MAX_BROWSER_FALLBACKS_PER_RUN = 3;
+const MAX_SIMPLE_SCRAPES_PER_RUN = 8;
+const MAX_PRODUCTS_PER_RUN = 5;
+// Leave a large safety margin below Vercel's 300s function ceiling so the
+// route can persist the run result and release its lock before termination.
+const MAX_IMPORT_RUNTIME_MS = 150000;
 
 function clean(value: unknown) {
   return String(value ?? '').trim();
