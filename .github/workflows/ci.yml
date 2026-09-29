@@ -1,6 +1,10 @@
-name: CI
+name: Zenvora CI
 
 # CI trigger enabled for branch validation
+
+concurrency:
+  group: zenvora-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 on:
   push:
@@ -35,7 +39,7 @@ jobs:
         with:
           node-version: 20
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Generate Prisma client
         run: npm run db:generate
       - name: Apply database migrations
