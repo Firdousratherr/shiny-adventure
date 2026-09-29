@@ -1,5 +1,5 @@
 import { URL } from 'url';
-import { getScrapingBeeApiKey } from './scrapingbee';
+import { getScrapingAntApiKey } from './scrapingant';
 
 export type ScrapedMarketplaceProduct = {
   provider: 'AMAZON' | 'FLIPKART' | 'MEESHO';
@@ -16,7 +16,7 @@ export type ScrapedMarketplaceProduct = {
 const MAX_HTML_BYTES = 6 * 1024 * 1024;
 const MAX_IMAGES = 8;
 const DIRECT_TIMEOUT_MS = 10000;
-const SCRAPER_TIMEOUT_MS = 50000;
+const SCRAPER_TIMEOUT_MS = 60000;
 
 function cleanText(value: unknown, max = 10000) {
   if (typeof value !== 'string') return '';
@@ -223,30 +223,42 @@ async function directFetch(url: string) {
 }
 
 async function scraperFetch(url: string, provider: string) {
-  const apiKey = getScrapingBeeApiKey();
-  if (!apiKey) throw new Error('Automatic scraping is not configured. Add SCRAPINGBEE_API_KEY in Vercel, or enter title and price manually.');
+  const apiKey = getScrapingAntApiKey();
+  if (!apiKey) throw new Error('Automatic scraping is not configured. Add SCRAPINGANT_API_KEY in Vercel, or enter title and price manually.');
 
   let lastError = 'Automatic scraper failed.';
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const endpoint = new URL('https://app.scrapingbee.com/api/v1/');
+    const endpoint = new URL('https://api.scrapingant.com/v2/general');
     endpoint.searchParams.set('url', url);
-    endpoint.searchParams.set('mode', 'auto');
-    endpoint.searchParams.set('max_cost', process.env.SCRAPINGBEE_MAX_COST?.trim() || '75');
-    endpoint.searchParams.set('country_code', 'in');
-    endpoint.searchParams.set('wait_browser', 'load');
-    endpoint.searchParams.set('wait', provider === 'AMAZON' ? '2000' : '1500');
+    endpoint.searchParams.set('browser', 'true');
+    endpoint.searchParams.set('proxy_country', 'in');
+    endpoint.searchParams.set('timeout', String(Math.ceil(SCRAPER_TIMEOUT_MS / 1000)));
 
     try {
       const response = await fetchWithTimeout(endpoint.toString(), {
-        headers: { Authorization: 'Bearer ' + apiKey, Accept: 'text/html,application/xhtml+xml' },
+        headers: {
+          'x-api-key': apiKey,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
         cache: 'no-store',
       }, SCRAPER_TIMEOUT_MS);
 
       const body = await response.text();
-      if (!response.ok) throw new Error('Automatic scraper returned HTTP ' + response.status + (body ? ': ' + body.slice(0, 220) : '.'));
+      if (!response.ok) {
+        let detail = '';
+        try {
+          const parsed = JSON.parse(body);
+          detail = typeof parsed?.message === 'string' ? ': ' + parsed.message.slice(0, 220) : '';
+        } catch {}
+        throw new Error('ScrapingAnt returned HTTP ' + response.status + detail + '.');
+      }
+      if (!body.trim()) throw new Error('ScrapingAnt returned an empty page.');
       if (Buffer.byteLength(body, 'utf8') > MAX_HTML_BYTES) throw new Error('Scraped page is too large.');
 
-      const challenged = /sec-if-cpt-container/i.test(body) || (!/__NEXT_DATA__/i.test(body) && provider !== 'AMAZON' && !/<script[^>]+application\/ld\+json/i.test(body));
+      const challenged = /sec-if-cpt-container/i.test(body)
+        || /cf-chl-|challenge-platform|verify you are human/i.test(body)
+        || (!/__NEXT_DATA__/i.test(body) && provider !== 'AMAZON' && !/<script[^>]+application\\/ld\\+json/i.test(body));
+
       if (challenged) {
         lastError = 'Meesho returned an anti-bot challenge.';
         if (attempt < 3) {
@@ -255,6 +267,7 @@ async function scraperFetch(url: string, provider: string) {
         }
         throw new Error(lastError);
       }
+
       return body;
     } catch (error) {
       lastError = error instanceof Error ? error.message : lastError;
