@@ -110,7 +110,7 @@ export default function MeeshoAutoImport() {
           <p className="mt-2 text-xs text-slate-400">Find public Meesho products and add them directly to your website.</p>
         </div>
         <span className={integration?.credentialsConfigured ? 'rounded-full bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black text-emerald-300' : 'rounded-full bg-amber-500/10 px-3 py-1.5 text-[10px] font-black text-amber-300'}>
-          {integration?.credentialsConfigured ? 'READY' : 'ADD SCRAPINGBEE KEY'}
+          {integration?.credentialsConfigured ? 'READY' : 'ADD SCRAPINGANT KEY'}
         </span>
       </div>
 
