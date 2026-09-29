@@ -123,7 +123,19 @@ export async function DELETE(request: Request) {
     if (!image) return NextResponse.json({ error: 'Image not found.' }, { status: 404 });
 
     await db.productImage.delete({ where: { id: image.id } });
-    try { await del(image.url); } catch (error) { console.error('Blob deletion failed:', error); }
+
+    // Only delete objects that are actually owned by our private Vercel Blob store.
+    // Marketplace/external URLs are just references and must not be passed to Blob.delete().
+    try {
+      const source = new URL(image.url);
+      const isPrivateBlob =
+        /(^|\\.)private\\.blob\\.vercel-storage\\.com$/i.test(source.hostname);
+      if (isPrivateBlob) {
+        await del(image.url);
+      }
+    } catch (error) {
+      console.error('Blob deletion skipped/failed:', error);
+    }
 
     await recordAdminAudit({
       adminId: admin.id,
