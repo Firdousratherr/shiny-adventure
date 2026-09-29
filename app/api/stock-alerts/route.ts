@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../auth';
 import { db } from '../../../lib/db';
+import { rateLimit } from '../../../lib/rate-limit';
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const productId = typeof body.productId === 'string' ? body.productId : '';
