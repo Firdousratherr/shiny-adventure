@@ -4,12 +4,37 @@ import { useEffect, useState } from 'react';
 
 type Mode = 'SEARCH' | 'URL';
 
+type ImportedProductDetail = {
+  id: string;
+  productId: string | null;
+  externalId: string;
+  title: string;
+  sourceUrl: string | null;
+  status: string;
+  sourceCost: number | null;
+  sellingPrice: number | null;
+  importedImages: number;
+  error: string | null;
+  createdAt: string;
+  inventory: {
+    id: string;
+    name: string;
+    sellingPrice: number;
+    sourceCost: number | null;
+    stock: number;
+    status: string;
+    category: { id: string; name: string } | null;
+    images: { url: string; altText: string | null; sortOrder: number }[];
+  } | null;
+};
+
 type Integration = {
   autoSync: boolean;
   importedProducts: number;
   settings: Record<string, any> | null;
   credentialsConfigured: boolean;
   scrapingAntUsage?: { remainingCredits: number | null };
+  importedProductDetails?: ImportedProductDetail[];
 };
 
 export default function MeeshoAutoImport() {
@@ -199,6 +224,68 @@ export default function MeeshoAutoImport() {
               <input type="checkbox" checked={autoSync} disabled={busy || !integration?.credentialsConfigured} onChange={e => void toggleAuto(e.target.checked)} />
               Auto import
             </label>
+          )}
+        </div>
+
+        <div className="mt-7 border-t border-white/10 pt-6">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[.18em] text-pink-300">Imported products</p>
+              <h3 className="mt-1 text-lg font-black text-white">Inventory-ready product details</h3>
+              <p className="mt-1 text-xs text-slate-500">The latest imported products, images, category, source cost, selling price and stock.</p>
+            </div>
+            <span className="text-[10px] font-bold text-slate-500">
+              {(integration?.importedProductDetails?.length ?? 0)} recent records
+            </span>
+          </div>
+
+          {integration?.importedProductDetails?.length ? (
+            <div className="mt-4 grid gap-3">
+              {integration.importedProductDetails.map((item) => {
+                const product = item.inventory;
+                const image = product?.images?.[0]?.url;
+                return (
+                  <div key={item.id} className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/70">
+                    <div className="flex gap-3 p-3">
+                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-900">
+                        {image ? (
+                          <img src={image} alt={product?.images?.[0]?.altText || item.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[9px] font-bold text-slate-600">NO IMAGE</div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <h4 className="line-clamp-2 text-sm font-bold text-white">{product?.name || item.title}</h4>
+                          <span className={item.status === 'IMPORTED' || item.status === 'UPDATED'
+                            ? 'rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-black text-emerald-300'
+                            : 'rounded-full bg-red-500/10 px-2 py-1 text-[9px] font-black text-red-300'}>
+                            {item.status}
+                          </span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-400 sm:grid-cols-4">
+                          <div><span className="block text-slate-600">Category</span>{product?.category?.name || 'Uncategorized'}</div>
+                          <div><span className="block text-slate-600">Source cost</span>{item.sourceCost != null ? '₹' + item.sourceCost.toLocaleString('en-IN') : '—'}</div>
+                          <div><span className="block text-slate-600">Selling price</span>{item.sellingPrice != null ? '₹' + item.sellingPrice.toLocaleString('en-IN') : product ? '₹' + product.sellingPrice.toLocaleString('en-IN') : '—'}</div>
+                          <div><span className="block text-slate-600">Stock</span>{product ? product.stock : '—'}</div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[9px] font-bold text-slate-500">
+                          <span>{item.importedImages} images</span>
+                          <span>•</span>
+                          <span>{product?.status || 'Not linked'}</span>
+                          {product?.images?.length ? <><span>•</span><span>{product.images.length} stored</span></> : null}
+                        </div>
+                      </div>
+                    </div>
+                    {item.error && <div className="border-t border-red-400/10 bg-red-500/5 px-3 py-2 text-[10px] text-red-300">{item.error}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-white/10 bg-slate-950/40 px-4 py-6 text-center text-xs text-slate-500">
+              No imported products yet. Run an import and the inventory details will appear here automatically.
+            </div>
           )}
         </div>
 
