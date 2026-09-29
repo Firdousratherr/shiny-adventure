@@ -42,10 +42,11 @@ export default async function Products({ searchParams }: { searchParams: { q?: s
   const pages = Math.ceil(count / size);
   const query = (extra: Record<string, string | undefined> = {}) => {
     const params = new URLSearchParams();
+    const nextCategory = Object.prototype.hasOwnProperty.call(extra, 'category') ? extra.category : category;
     if (q) params.set('q', q);
     if (searchParams.sort) params.set('sort', searchParams.sort);
-    if (category) params.set('category', category);
-    for (const [k,v] of Object.entries(extra)) if (v) params.set(k,v);
+    if (nextCategory) params.set('category', nextCategory);
+    for (const [k,v] of Object.entries(extra)) if (v && k !== 'category') params.set(k,v);
     return params.toString();
   };
 
