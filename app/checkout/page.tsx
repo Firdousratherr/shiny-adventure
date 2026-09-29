@@ -133,7 +133,7 @@ export default function Checkout() {
   }
 
   if (!items.length) return (
-    <main className="min-h-screen bg-[#070b16] px-4 py-16 pb-28 text-center text-white">
+    <main id="main-content" className="min-h-screen bg-[#070b16] px-4 py-16 pb-28 text-center text-white">
       <h1 className="text-2xl font-black">Your cart is empty</h1>
       <p className="mt-2 text-sm text-slate-500">Add a product before starting checkout.</p>
       <Link href="/products" className="mt-5 inline-block rounded-xl bg-white px-6 py-3 font-black text-slate-950">Shop products</Link>
