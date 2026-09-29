@@ -1,4 +1,4 @@
-import {NextResponse} from 'next/server';import {auth} from '../../../auth';import {db} from '../../../lib/db';import {z} from 'zod';
+import {NextResponse} from 'next/server';import {Prisma} from '@prisma/client';import {auth} from '../../../auth';import {db} from '../../../lib/db';import {z} from 'zod';
 import { rateLimit } from '../../../lib/rate-limit';
 const reviewQuerySchema=z.object({productId:z.string().trim().min(1).max(128)});
 const reviewBodySchema=z.object({
@@ -56,18 +56,25 @@ export async function POST(req:Request){
   });
   if(existing)return NextResponse.json({error:'You have already submitted a review for this product.'},{status:409});
 
-  const review=await db.productReview.create({
-    data:{
-      productId,
-      customerId:customer.id,
-      customerName:customer.name,
-      customerEmail:customer.email,
-      orderId,
-      rating,
-      title:title||null,
-      body:body||null,
-      verified,
-    },
-  });
-  return NextResponse.json({review},{status:201});
+  try {
+    const review=await db.productReview.create({
+      data:{
+        productId,
+        customerId:customer.id,
+        customerName:customer.name,
+        customerEmail:customer.email,
+        orderId,
+        rating,
+        title:title||null,
+        body:body||null,
+        verified,
+      },
+    });
+    return NextResponse.json({review},{status:201});
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return NextResponse.json({error:'You have already submitted a review for this product.'},{status:409});
+    }
+    throw error;
+  }
 }
