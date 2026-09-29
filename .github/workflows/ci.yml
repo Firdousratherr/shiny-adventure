@@ -4,7 +4,7 @@ name: Zenvora CI
 
 concurrency:
   group: zenvora-ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep each validation run observable; rapid pushes should not silently cancel CI.\n  cancel-in-progress: false
 
 on:
   push:
