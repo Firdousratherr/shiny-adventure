@@ -112,3 +112,46 @@ main.bg-slate-100 .sticky{backdrop-filter:blur(14px)}
 /* Category action contrast */
 main.bg-slate-100 .category-edit-button{color:#0f172a!important;background:#fff!important}
 main.bg-slate-100 .category-edit-button:hover{background:#f1f5f9!important}
+
+
+/* Zenvora motion layer v3 */
+@keyframes zenvora-float {
+  0%,100% { transform: translate3d(0,0,0) }
+  50% { transform: translate3d(0,-8px,0) }
+}
+@keyframes zenvora-pulse-glow {
+  0%,100% { opacity:.45; transform:scale(1) }
+  50% { opacity:.75; transform:scale(1.08) }
+}
+@keyframes zenvora-gradient-shift {
+  0%,100% { background-position:0% 50% }
+  50% { background-position:100% 50% }
+}
+@keyframes zenvora-fade-up {
+  from { opacity:0; transform:translateY(12px) }
+  to { opacity:1; transform:translateY(0) }
+}
+.zenvora-hero-glow {
+  animation: zenvora-pulse-glow 5s ease-in-out infinite;
+}
+.zenvora-float {
+  animation: zenvora-float 5s ease-in-out infinite;
+}
+.zenvora-gradient-motion {
+  background-size:200% 200%;
+  animation: zenvora-gradient-shift 9s ease infinite;
+}
+.zenvora-reveal {
+  animation: zenvora-fade-up .55s ease both;
+}
+.zenvora-reveal-delay-1 { animation-delay:.08s }
+.zenvora-reveal-delay-2 { animation-delay:.16s }
+.zenvora-reveal-delay-3 { animation-delay:.24s }
+.zenvora-reveal-delay-4 { animation-delay:.32s }
+.zenvora-card img { will-change:transform }
+.zenvora-card:focus-within { transform:translateY(-3px); border-color:rgba(167,139,250,.42); box-shadow:0 24px 60px rgba(0,0,0,.22) }
+.zenvora-mobile-nav { transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease }
+.zenvora-mobile-nav:hover { border-color:rgba(167,139,250,.28) }
+@media (prefers-reduced-motion:reduce) {
+  .zenvora-hero-glow,.zenvora-float,.zenvora-gradient-motion,.zenvora-reveal { animation:none!important }
+}
