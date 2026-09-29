@@ -8,6 +8,8 @@ export async function POST(request: Request) {
   const inputEmail = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   const session = await auth();
   const email = session?.user?.role === 'customer' && session.user.email ? session.user.email.toLowerCase() : inputEmail;
+  const limited = await rateLimit('stock-alert:' + email, 10, 600);
+  if (limited.limited) return NextResponse.json({ error: 'Too many stock alert requests. Please try again later.' }, { status: 429, headers: { 'Retry-After': '600' } });
   if (!productId || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 });
   const product = await db.product.findFirst({ where: { id: productId, status: { in: ['ACTIVE','OUT_OF_STOCK'] } }, select: { id:true,stock:true } });
   if (!product) return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
