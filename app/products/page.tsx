@@ -47,7 +47,7 @@ export default async function Products({ searchParams }: { searchParams: { q?: s
   };
 
   return (
-    <main className="min-h-screen bg-[#070b16] pb-24 text-white sm:pb-0">
+    <main id="main-content" className="min-h-screen bg-[#070b16] pb-24 text-white sm:pb-0">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070b16]/95 backdrop-blur-xl">
         <div className="container flex h-14 items-center gap-2 sm:h-16 sm:gap-4">
           <Link href="/" className="shrink-0 text-lg font-black tracking-tight sm:text-2xl">🛍️ Zenvora<span className="text-fuchsia-400">.</span></Link>
