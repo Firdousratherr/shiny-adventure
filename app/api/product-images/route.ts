@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { get } from '@vercel/blob';
 
-const PRIVATE_BLOB_HOST = /(^|\.)private\.blob\.vercel-storage\.com$/i;
-const REMOTE_IMAGE_HOST = /(^|\.)meesho\.com$/i;
+const PRIVATE_BLOB_HOST = /(^|\\.)private\\.blob\\.vercel-storage\\.com$/i;
+const REMOTE_IMAGE_HOST = /(^|\\.)meesho\\.com$/i;
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
 
 function blobToken() {
   return process.env.BLOB_READ_WRITE_TOKEN?.trim() || '';
+}
+
+function isImageContentType(value: string) {
+  return /^image\/(jpeg|png|webp|gif|avif|svg\+xml)$/i.test(value);
 }
 
 export async function GET(request: Request) {
@@ -44,12 +48,13 @@ export async function GET(request: Request) {
         headers: {
           'Content-Type': result.blob.contentType || 'application/octet-stream',
           'Cache-Control': 'public, max-age=300, s-maxage=86400, stale-while-revalidate=604800',
+          'X-Zenvora-Image-Source': 'private-blob',
         },
       });
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timer = setTimeout(() => controller.abort(), 12000);
     let response: Response;
     try {
       response = await fetch(source.toString(), {
@@ -58,16 +63,22 @@ export async function GET(request: Request) {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36',
           Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-          Referer: isAllowedRemote && /(^|\\.)meesho\\.com$/i.test(source.hostname) ? 'https://www.meesho.com/' : 'https://www.shopify.com/',
+          'Accept-Language': 'en-IN,en;q=0.9',
+          Referer: 'https://www.meesho.com/',
         },
         cache: 'no-store',
       });
     } finally {
-      clearTimeout(timeout);
+      clearTimeout(timer);
     }
 
     if (!response.ok || !response.body) {
       return new NextResponse('Remote image unavailable.', { status: 404 });
+    }
+
+    const contentType = (response.headers.get('content-type') || '').split(';')[0].toLowerCase();
+    if (contentType && !isImageContentType(contentType)) {
+      return new NextResponse('Remote source did not return an image.', { status: 415 });
     }
 
     const contentLength = Number(response.headers.get('content-length') || 0);
@@ -77,8 +88,9 @@ export async function GET(request: Request) {
 
     return new Response(response.body, {
       headers: {
-        'Content-Type': response.headers.get('content-type') || 'image/jpeg',
+        'Content-Type': contentType || 'image/jpeg',
         'Cache-Control': 'public, max-age=300, s-maxage=86400, stale-while-revalidate=604800',
+        'X-Zenvora-Image-Source': 'remote',
       },
     });
   } catch (error) {
