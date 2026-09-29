@@ -629,7 +629,17 @@ async function ebayItems(settings: Settings, credentials: Record<string, unknown
 }
 
 export async function syncMarketplace(integrationId: string, provider: string, rawSettings: unknown) {
-  const settings = settingsOf(rawSettings);
+  // Keep synchronous marketplace requests comfortably below Vercel's function ceiling.
+  // Large imports must be split across multiple runs rather than processing hundreds
+  // of products and images in one request.
+  const raw = settingsOf(rawSettings);
+  const requestedLimit = Number(raw.maxItemsPerSync ?? 25);
+  const settings: Settings = {
+    ...raw,
+    maxItemsPerSync: Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(25, Math.trunc(requestedLimit)))
+      : 25,
+  };
 
   if (provider === 'MEESHO') {
     const discovery = await discoverMeeshoAutoProducts(settings);
