@@ -181,7 +181,7 @@ export async function PATCH(request: Request) {
     for (const key of allowedSettings) {
       if (body.settings && Object.prototype.hasOwnProperty.call(body.settings, key)) settings[key] = body.settings[key];
     }
-    if (body.settings) data.settings = settings as Prisma.InputJsonValue;
+    if (body.settings || body.provider === 'MEESHO') data.settings = settings as Prisma.InputJsonValue;
 
     const integration = await db.marketplaceIntegration.update({
       where: { id: current.id },
