@@ -36,13 +36,13 @@ export default async function Dashboard(){
   return <main className="min-h-screen bg-slate-100">
     <AdminNav active="dashboard"/>
     <div className="container py-7 md:py-9">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="admin-dashboard-hero flex flex-wrap items-end justify-between gap-4 rounded-3xl border border-violet-100 bg-gradient-to-br from-white via-violet-50/70 to-indigo-50 p-5 shadow-sm sm:p-7">
         <div>
           <p className="text-xs font-black uppercase tracking-[.18em] text-violet-400">Overview</p>
           <h1 className="mt-1 text-3xl font-black sm:text-4xl">Store command center</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-400">Welcome back, {session.user.email}. Here is what needs attention.</p>
         </div>
-        <div className="text-right"><p className="text-xs text-slate-500">Last 30 days revenue</p><p className="text-2xl font-black">₹{gross.toLocaleString('en-IN',{minimumFractionDigits:2})}</p></div>
+        <div className="text-left sm:text-right"><p className="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Last 30 days revenue</p><p className="mt-1 text-3xl font-black tracking-tight text-slate-950">₹{gross.toLocaleString('en-IN',{minimumFractionDigits:2})</p><p className="mt-1 text-[10px] font-bold text-emerald-600">Store performance snapshot</p></div>
       </div>
 
       <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -73,12 +73,12 @@ export default async function Dashboard(){
         <section className="zenvora-card p-5">
           <div><p className="text-xs font-black uppercase tracking-widest text-violet-400">Operations</p><h2 className="mt-1 text-xl font-black">Quick actions</h2></div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Link href="/admin/products" className="rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Manage products</b><p className="mt-1 text-xs text-slate-500">Catalog, pricing, SEO and bulk actions.</p></Link>
-            <Link href="/admin/product-health" className="rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Product Health</b><p className="mt-1 text-xs text-slate-500">Find missing content, margin and inventory issues.</p></Link>
-            <Link href="/admin/duplicate-detector" className="rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Duplicate Detector</b><p className="mt-1 text-xs text-slate-500">Catch duplicate names and source URLs.</p></Link>
-            <Link href="/admin/marketplaces" className="rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Marketplace Center</b><p className="mt-1 text-xs text-slate-500">Shopify sync and source monitoring.</p></Link>
-            <Link href="/admin/analytics" className="rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Business analytics</b><p className="mt-1 text-xs text-slate-500">Revenue, profit, margins and products.</p></Link>
-            <Link href="/admin/automation" className="rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Automation</b><p className="mt-1 text-xs text-slate-500">Event-driven operational rules.</p></Link>
+            <Link href="/admin/products" className="admin-quick-action rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Manage products</b><p className="mt-1 text-xs text-slate-500">Catalog, pricing, SEO and bulk actions.</p></Link>
+            <Link href="/admin/product-health" className="admin-quick-action rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Product Health</b><p className="mt-1 text-xs text-slate-500">Find missing content, margin and inventory issues.</p></Link>
+            <Link href="/admin/duplicate-detector" className="admin-quick-action rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Duplicate Detector</b><p className="mt-1 text-xs text-slate-500">Catch duplicate names and source URLs.</p></Link>
+            <Link href="/admin/marketplaces" className="admin-quick-action rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Marketplace Center</b><p className="mt-1 text-xs text-slate-500">Shopify sync and source monitoring.</p></Link>
+            <Link href="/admin/analytics" className="admin-quick-action rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Business analytics</b><p className="mt-1 text-xs text-slate-500">Revenue, profit, margins and products.</p></Link>
+            <Link href="/admin/automation" className="admin-quick-action rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Automation</b><p className="mt-1 text-xs text-slate-500">Event-driven operational rules.</p></Link>
           </div>
         </section>
 
