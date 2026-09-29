@@ -33,27 +33,27 @@ export default async function Dashboard(){
     return 0;
   }
 
-  return <main className="min-h-screen bg-slate-100">
+  return <main className="admin-dark min-h-screen bg-[#070b16] text-white">
     <AdminNav active="dashboard"/>
-    <div className="container py-7 md:py-9">
+    <div className="container py-6 md:py-9 lg:ml-[272px]">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[.18em] text-violet-400">Overview</p>
-          <h1 className="mt-1 text-3xl font-black sm:text-4xl">Store command center</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-400">Welcome back, {session.user.email}. Here is what needs attention.</p>
+          <span className="inline-flex rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-200">Command center</span>
+          <h1 className="mt-4 text-3xl font-black tracking-[-.04em] sm:text-5xl">Good to see you.</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Welcome back, {session.user.email}. Your store at a glance, with the things that need attention surfaced first.</p>
         </div>
         <div className="text-right"><p className="text-xs text-slate-500">Last 30 days revenue</p><p className="text-2xl font-black">₹{gross.toLocaleString('en-IN',{minimumFractionDigits:2})}</p></div>
       </div>
 
       <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map(([label,value,href])=><Link href={href as string} key={label as string} className="zenvora-card p-5">
+        {cards.map(([label,value,href])=><Link href={href as string} key={label as string} className="admin-kpi-card p-5">
           <p className="text-sm text-slate-400">{label}</p>
           <p className="mt-2 text-3xl font-black">{value}</p>
           <p className="mt-3 text-xs font-bold text-violet-300">Open →</p>
         </Link>)}
       </div>
 
-      <section className="mt-7">
+      <section className="mt-8">
         <div className="flex items-center justify-between gap-4">
           <div><p className="text-xs font-black uppercase tracking-widest text-red-300">Live queue</p><h2 className="mt-1 text-xl font-black">Needs attention</h2></div>
           <Link href="/admin/operations" className="text-sm font-bold text-violet-300 hover:text-violet-200">Open Operations Center →</Link>
@@ -70,7 +70,7 @@ export default async function Dashboard(){
       </section>
 
       <div className="mt-7 grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-        <section className="zenvora-card p-5">
+        <section className="admin-panel p-5">
           <div><p className="text-xs font-black uppercase tracking-widest text-violet-400">Operations</p><h2 className="mt-1 text-xl font-black">Quick actions</h2></div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Link href="/admin/products" className="rounded-2xl border border-white/10 bg-white/[.03] p-4 transition hover:-translate-y-0.5 hover:bg-white/[.06]"><b>Manage products</b><p className="mt-1 text-xs text-slate-500">Catalog, pricing, SEO and bulk actions.</p></Link>
