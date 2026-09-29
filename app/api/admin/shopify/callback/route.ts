@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createCipheriv, createHash, randomBytes } from 'crypto';
 import { db } from '@/lib/db';
+import { getAdminAccess } from '@/lib/admin-access';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,9 @@ function safeRedirect(origin: string, path: string, params?: Record<string, stri
 }
 
 export async function GET(request: Request) {
+  const admin = await getAdminAccess();
   const url = new URL(request.url);
+  if (!admin) return safeRedirect(url.origin, '/login', { callbackUrl: '/admin' });
   const state = url.searchParams.get('state') || '';
   const code = url.searchParams.get('code') || '';
   const shopParam = url.searchParams.get('shop') || '';
@@ -54,6 +57,9 @@ export async function GET(request: Request) {
   }
 
   const shop = (shopParam || expectedShop).trim().toLowerCase();
+  if (!expectedShop || shop !== expectedShop.trim().toLowerCase()) {
+    return safeRedirect(url.origin, '/admin', { shopify: 'shop_mismatch' });
+  }
   if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop)) {
     return safeRedirect(url.origin, '/admin', { shopify: 'invalid_shop' });
   }
