@@ -97,7 +97,7 @@ export function providerCapabilities(provider: string) {
   return {
     AMAZON: { products: true, orders: true, inventory: true, note: 'Amazon SP-API' },
     FLIPKART: { products: true, orders: true, inventory: true, note: 'Flipkart Seller API v3' },
-    MEESHO: { products: true, orders: false, inventory: false, note: 'Public catalogue discovery via ScrapingBee; supplier/order APIs are not used.' },
+    MEESHO: { products: true, orders: false, inventory: false, note: 'Public catalogue discovery via ScrapingAnt; supplier/order APIs are not used.' },
     EBAY: { products: true, orders: false, inventory: false, note: 'eBay Browse API catalog import' },
     ETSY: { products: true, orders: true, inventory: true, note: 'Etsy Open API v3' },
     SHOPIFY: { products: true, orders: true, inventory: true, note: 'Shopify Admin GraphQL API' },
