@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { db } from '../../../../lib/db';
+import { getScrapingAntUsage, hasScrapingAntApiKey } from '../../../../lib/scrapingant';
 
 type HealthStatus = 'healthy' | 'warning' | 'error';
 
@@ -30,7 +31,17 @@ export async function GET() {
   checks.razorpayWebhook = envStatus(['RAZORPAY_WEBHOOK_SECRET'], false);
   checks.rateLimiting = envStatus(['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'], true);
   checks.email = envStatus(['BREVO_API_KEY'], false);
-  checks.marketplaceScraping = envStatus(['SCRAPINGBEE_API_KEY'], false);
+  const scrapingAntConfigured = hasScrapingAntApiKey();
+  const scrapingAntUsage = await getScrapingAntUsage();
+  checks.marketplaceScraping = {
+    status: scrapingAntConfigured ? 'healthy' : 'warning',
+    configured: scrapingAntConfigured,
+    detail: scrapingAntConfigured
+      ? (scrapingAntUsage.remainingCredits === null
+          ? 'ScrapingAnt credentials configured.'
+          : 'ScrapingAnt configured with ' + scrapingAntUsage.remainingCredits.toLocaleString('en-IN') + ' credits remaining.')
+      : 'ScrapingAnt API key missing.',
+  };
   checks.authSecret = envStatus(['AUTH_SECRET'], true);
   checks.siteUrl = envStatus(['NEXT_PUBLIC_SITE_URL'], true);
 
