@@ -104,7 +104,7 @@ async function scrapingAnt(
       } catch (error) {
         lastError = error instanceof Error ? error.message : lastError;
         if (routeIndex < routes.length - 1 && /HTTP 403/i.test(lastError)) break;
-        if (attempt < 2 && /HTTP (409|423|429|5\\d\\d)|timed out|aborted/i.test(lastError)) {
+        if (attempt < 2 && /HTTP (409|423|429|5\d\d)|timed out|aborted/i.test(lastError)) {
           await new Promise(resolve => setTimeout(resolve, 900 * attempt));
           continue;
         }
