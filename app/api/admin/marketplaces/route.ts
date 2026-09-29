@@ -4,7 +4,7 @@ import { db } from '../../../../lib/db';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../lib/admin-audit';
 import { credentialStatus, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
-import { getScrapingAntApiKey, hasScrapingAntApiKey } from '../../../../lib/scrapingant';
+import { getScrapingAntApiKey, getScrapingAntUsage, hasScrapingAntApiKey } from '../../../../lib/scrapingant';
 
 const PROVIDERS = [
   { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify app + client credentials' },
@@ -25,6 +25,11 @@ export async function GET() {
   try {
     const shopify = await getIntegration('SHOPIFY');
     const meesho = await getIntegration('MEESHO');
+    const scrapingAntUsage = hasScrapingAntApiKey() ? await getScrapingAntUsage() : {
+      planName: null,
+      totalCredits: null,
+      remainingCredits: null,
+    };
     console.info('marketplace runtime config', {
       vercelEnv: process.env.VERCEL_ENV ?? 'unknown',
       scrapingAntConfigured: hasScrapingAntApiKey(),
@@ -35,7 +40,12 @@ export async function GET() {
       providers: PROVIDERS,
       integrations: [
         { ...shopify, credentialsConfigured: await credentialStatus('SHOPIFY'), capabilities: providerCapabilities('SHOPIFY') },
-        { ...meesho, credentialsConfigured: hasScrapingAntApiKey(), capabilities: providerCapabilities('MEESHO') },
+        {
+          ...meesho,
+          credentialsConfigured: hasScrapingAntApiKey(),
+          capabilities: providerCapabilities('MEESHO'),
+          scrapingAntUsage,
+        },
       ],
     });
   } catch (error) {
