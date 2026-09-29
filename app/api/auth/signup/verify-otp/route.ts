@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { db } from '../../../../../lib/db';
 import { rateLimit } from '../../../../../lib/rate-limit';
 
@@ -39,9 +40,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'An account with this email already exists. Please sign in.' }, { status: 409 });
     }
 
-    const customer = await db.customerUser.create({
-      data: { name: pending.name, email: pending.email, passwordHash: pending.passwordHash },
-    });
+    let customer;
+    try {
+      customer = await db.customerUser.create({
+        data: { name: pending.name, email: pending.email, passwordHash: pending.passwordHash },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        await db.signupOtp.deleteMany({ where: { email } });
+        return NextResponse.json({ error: 'An account with this email already exists. Please sign in.' }, { status: 409 });
+      }
+      throw error;
+    }
     await db.signupOtp.delete({ where: { email } });
 
     return NextResponse.json({ ok: true, customer: { id: customer.id, name: customer.name, email: customer.email } }, { status: 201 });
