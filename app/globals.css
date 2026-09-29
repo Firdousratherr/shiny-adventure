@@ -217,3 +217,13 @@ main.bg-slate-100 .category-edit-button:hover{background:#f1f5f9!important}
 @media(prefers-reduced-motion:reduce){
   .zenvora-showcase-card,.zenvora-page-hero-orb{animation:none!important}
 }
+
+/* Admin application shell */
+.admin-dark{background:#070b16;color:#f8fafc}
+.admin-panel{border:1px solid rgba(255,255,255,.09);border-radius:24px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.022));box-shadow:0 20px 60px rgba(0,0,0,.14)}
+.admin-kpi-card{border:1px solid rgba(255,255,255,.09);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.025));box-shadow:0 16px 45px rgba(0,0,0,.14);transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.admin-kpi-card:hover{transform:translateY(-3px);border-color:rgba(167,139,250,.28);box-shadow:0 24px 60px rgba(0,0,0,.2)}
+.admin-dark .zenvora-card{border:1px solid rgba(255,255,255,.09);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.02));box-shadow:0 16px 45px rgba(0,0,0,.14);color:#f8fafc}
+.admin-dark .zenvora-card:hover{border-color:rgba(167,139,250,.28);background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.03))}
+.zenvora-sticky-action{bottom:76px}
+@media(max-width:639px){.zenvora-sticky-action{bottom:74px}.admin-panel{border-radius:20px}.admin-kpi-card{border-radius:19px}}
