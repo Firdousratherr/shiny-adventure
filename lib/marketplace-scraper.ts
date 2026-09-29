@@ -145,7 +145,8 @@ function uniqueImages(values: unknown[], provider?: 'AMAZON' | 'FLIPKART' | 'MEE
   for (const value of values) {
     if (typeof value !== 'string') continue;
 
-    const url = decodeHtml(value).trim().replace(/\\u002F/g, '/');
+    let url = decodeHtml(value).trim().replace(/\\u002F/g, '/').replace(/\\\//g, '/');
+    if (url.startsWith('//')) url = 'https:' + url;
     if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
 
     // Meesho pages contain many non-product images (discount, payment,
@@ -155,7 +156,7 @@ function uniqueImages(values: unknown[], provider?: 'AMAZON' | 'FLIPKART' | 'MEE
       try {
         const parsed = new URL(url);
         const host = parsed.hostname.toLowerCase();
-        if (!host.endsWith('meesho.com') || !/\/images\/products\//i.test(parsed.pathname)) {
+        if (!host.endsWith('meesho.com') || !/\/images\//i.test(parsed.pathname) || /placeholder|no[-_ ]?image|default[-_ ]?image/i.test(parsed.pathname)) {
           continue;
         }
       } catch {
@@ -228,6 +229,7 @@ async function directFetch(url: string) {
 type ScraperFetchOptions = {
   browser: boolean;
   maxAttempts?: number;
+  waitForSelector?: string;
 };
 
 async function scraperFetch(url: string, provider: string, options: ScraperFetchOptions) {
@@ -243,6 +245,7 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
     endpoint.searchParams.set('browser', options.browser ? 'true' : 'false');
     endpoint.searchParams.set('proxy_country', 'in');
     endpoint.searchParams.set('timeout', String(options.browser ? Math.ceil(SCRAPER_BROWSER_TIMEOUT_MS / 1000) : 15));
+    if (options.waitForSelector && options.browser) endpoint.searchParams.set('wait_for_selector', options.waitForSelector);
 
     try {
       const response = await fetchWithTimeout(endpoint.toString(), {
@@ -281,8 +284,8 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
       if (Buffer.byteLength(body, 'utf8') > MAX_HTML_BYTES) throw new Error('Scraped page is too large.');
 
       const challenged = /sec-if-cpt-container/i.test(body)
-        || /cf-chl-|challenge-platform|verify you are human/i.test(body)
-        || (!/__NEXT_DATA__/i.test(body) && provider !== 'AMAZON' && !/<script[^>]+application\/ld\+json/i.test(body));
+        || /cf-chl-|challenge-platform/i.test(body)
+        || /verify you are human|captcha|access denied/i.test(body);
 
       if (challenged) {
         lastError = 'Meesho returned an anti-bot challenge.';
@@ -302,6 +305,24 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
 
   throw new Error(lastError);
 }
+function extractTagText(html: string, tag: string) {
+  const match = html.match(new RegExp('<' + tag + '\\b[^>]*>([\\s\\S]*?)</' + tag + '>', 'i'));
+  return match ? cleanText(match[1], 12000) : '';
+}
+
+function extractRupeeValues(html: string) {
+  return [...html.matchAll(/(?:₹|Rs\\.?|INR)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)/gi)].map(match => match[1]);
+}
+
+function extractImageAttributeValues(html: string) {
+  const values: string[] = [];
+  for (const match of html.matchAll(/<(?:img|source)\\b[^>]*(?:src|data-src|data-lazy-src|srcset)=["']([^"']+)["']/gi)) {
+    for (const value of match[1].split(/\\s*,\\s*/)) values.push(value.replace(/\\s+\\d+(?:\\.\\d+)?x$/i, '').trim());
+  }
+  for (const match of html.matchAll(/<link\\b[^>]*rel=["'][^"']*image_src[^"']*["'][^>]*href=["']([^"']+)["']/gi)) values.push(match[1]);
+  return values;
+}
+
 function parseProduct(provider: 'AMAZON' | 'FLIPKART' | 'MEESHO', url: string, html: string, id: string): ScrapedMarketplaceProduct {
   const jsonLd = parseJsonLd(html);
   const product = jsonLd.find(x => x?.['@type'] === 'Product' || (Array.isArray(x?.['@type']) && x['@type'].includes('Product'))) || {};
@@ -310,21 +331,25 @@ function parseProduct(provider: 'AMAZON' | 'FLIPKART' | 'MEESHO', url: string, h
   const categoryName = sourceCategory(provider, html, product, nextData);
 
   const name = cleanText(product.name, 220)
+    || extractTagText(html, 'h1').slice(0, 220)
     || cleanText(meta(html, 'og:title'), 220)
     || cleanText(meta(html, 'twitter:title'), 220)
+    || extractTagText(html, 'title').slice(0, 220)
     || cleanText(walkStrings(nextData, ['productName', 'productTitle', 'title', 'name'], 3000)[0], 220);
 
   const description = cleanText(product.description, 12000)
     || cleanText(meta(html, 'og:description'), 12000)
     || cleanText(meta(html, 'description'), 12000)
-    || cleanText(walkStrings(nextData, ['description', 'productDescription'], 3000)[0], 12000);
+    || cleanText(walkStrings(nextData, ['description', 'productDescription', 'shortDescription'], 3000)[0], 12000)
+    || extractTagText(html, 'p').slice(0, 12000);
 
   const priceCandidates: unknown[] = [
+    ...(provider === 'MEESHO' ? extractRupeeValues(html) : []),
     offers?.price,
     offers?.lowPrice,
     meta(html, 'product:price:amount'),
     meta(html, 'og:price:amount'),
-    ...walkStrings(nextData, ['sellingPrice', 'salePrice', 'price', 'amount'], 5000),
+    ...walkStrings(nextData, ['sellingPrice', 'salePrice', 'priceValue', 'currentPrice', 'price', 'amount'], 5000),
   ];
 
   if (provider === 'AMAZON') {
@@ -347,78 +372,110 @@ function parseProduct(provider: 'AMAZON' | 'FLIPKART' | 'MEESHO', url: string, h
         'product_image',
         'product_image_large_url',
         'product_image_thumb_url',
+        'image',
+        'imageUrl',
+        'imageURL',
       ]
     : ['image', 'imageUrl', 'imageURL', 'imageSrc'];
 
   const images = uniqueImages([
-    // Structured Product.image is the preferred source.
     ...(Array.isArray(product.image) ? product.image : [product.image]),
-    ...walkStrings(nextData, nextDataImageKeys, 6000),
+    ...walkStrings(nextData, nextDataImageKeys, 7000),
+    ...extractImageAttributeValues(html),
     meta(html, 'og:image'),
     meta(html, 'twitter:image'),
   ], provider);
 
-  if (!name) throw new Error('Could not read the product title from this page. Try a direct product URL.');
-  if (!sourceCost) throw new Error('Could not read the current product price. Enter the price manually and preview again.');
-  if (!images.length) throw new Error('Could not read a product image. You can continue by adding permitted image URLs manually.');
+  if (!name) throw new Error('Could not read the product title from this Meesho page. Try a direct product URL.');
+  if (!sourceCost) throw new Error('Could not read the current product price from this Meesho page.');
+  if (!images.length) throw new Error('Could not read a product image from this Meesho page.');
 
   const bodyText = cleanText(html).toLowerCase();
   const unavailable = /out of stock|currently unavailable|sold out|not available|temporarily unavailable/.test(bodyText);
   const available = !unavailable && /in stock|add to cart|buy now|available for purchase/.test(bodyText);
   const availability = unavailable ? 'UNAVAILABLE' : available ? 'AVAILABLE' : 'UNKNOWN';
 
-  return { provider, externalId: id, sourceUrl: url, name, description, sourceCost, images, categoryName: categoryName || undefined, availability };
+  return {
+    provider,
+    externalId: id,
+    sourceUrl: url,
+    name,
+    description,
+    sourceCost,
+    images,
+    categoryName: categoryName || undefined,
+    availability,
+  };
 }
 
 export type ScrapeMarketplaceOptions = {
-  /**
-   * Browser rendering costs substantially more credits than a simple request.
-   * Keep this false unless the caller explicitly budgets a browser fallback.
-   */
+  /** Browser rendering is the reliable path for dynamic Meesho pages. */
   allowBrowserFallback?: boolean;
+  /** Prefer browser rendering for providers whose catalogue is client-rendered. */
+  preferBrowser?: boolean;
   onBrowserFallback?: () => void;
 };
 
 export async function scrapeMarketplaceProduct(sourceUrl: string, options: ScrapeMarketplaceOptions = {}) {
   const parsed = providerFromUrl(sourceUrl);
   let html: string | null = null;
-  let directError = '';
+  let lastError = '';
+  let browserAttempted = false;
 
-  // Tier 1: fetch the source directly. This uses zero ScrapingAnt credits.
-  try { html = await directFetch(parsed.url); }
-  catch (error) { directError = error instanceof Error ? error.message : 'Direct request failed.'; }
-
-  if (html) {
-    try { return parseProduct(parsed.provider, parsed.url, html, parsed.id); }
-    catch (error) { directError = error instanceof Error ? error.message : directError; }
-  }
-
-  // Tier 2: ScrapingAnt without browser rendering. This is the cheap path.
+  // Direct request first: zero ScrapingAnt credits when the source serves usable HTML.
   try {
-    html = await scraperFetch(parsed.url, parsed.provider, { browser: false, maxAttempts: 3 });
-    return parseProduct(parsed.provider, parsed.url, html, parsed.id);
-  } catch (error) {
-    directError = error instanceof Error ? error.message : directError;
-  }
-
-  // Tier 3: browser rendering is only used when the import run explicitly
-  // budgets a fallback. A successful browser request costs 10 credits.
-  if (options.allowBrowserFallback) {
+    html = await directFetch(parsed.url);
     try {
-      options.onBrowserFallback?.();
-      html = await scraperFetch(parsed.url, parsed.provider, { browser: true, maxAttempts: 3 });
       return parseProduct(parsed.provider, parsed.url, html, parsed.id);
     } catch (error) {
-      const scraperError = error instanceof Error ? error.message : 'Automatic scraper failed.';
-      throw new Error(scraperError || directError || 'Unable to read product page.');
+      lastError = error instanceof Error ? error.message : 'Direct page parsing failed.';
+    }
+  } catch (error) {
+    lastError = error instanceof Error ? error.message : 'Direct request failed.';
+  }
+
+  // Meesho is a client-rendered application. When the caller budgets a browser
+  // request, go straight to the rendered path rather than wasting a simple request.
+  if (parsed.provider === 'MEESHO' && options.preferBrowser !== false && options.allowBrowserFallback) {
+    browserAttempted = true;
+    try {
+      options.onBrowserFallback?.();
+      html = await scraperFetch(parsed.url, parsed.provider, {
+        browser: true,
+        maxAttempts: 2,
+        waitForSelector: 'h1',
+      });
+      return parseProduct(parsed.provider, parsed.url, html, parsed.id);
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
     }
   }
 
-  throw new Error(
-    directError
-      ? directError + ' Browser fallback was skipped to protect ScrapingAnt credits.'
-      : 'Unable to read product page without browser rendering. Browser fallback was skipped to protect ScrapingAnt credits.',
-  );
+  // Cheap ScrapingAnt fallback for static or partially-rendered pages.
+  try {
+    html = await scraperFetch(parsed.url, parsed.provider, { browser: false, maxAttempts: 2 });
+    return parseProduct(parsed.provider, parsed.url, html, parsed.id);
+  } catch (error) {
+    lastError = error instanceof Error ? error.message : lastError;
+  }
+
+  // Final browser fallback for non-Meesho providers or when the caller did not
+  // prefer the browser-first path.
+  if (options.allowBrowserFallback && !browserAttempted) {
+    try {
+      options.onBrowserFallback?.();
+      html = await scraperFetch(parsed.url, parsed.provider, {
+        browser: true,
+        maxAttempts: 2,
+        waitForSelector: parsed.provider === 'MEESHO' ? 'h1' : undefined,
+      });
+      return parseProduct(parsed.provider, parsed.url, html, parsed.id);
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
+    }
+  }
+
+  throw new Error(lastError || 'Unable to read the product page.');
 }
 
 export function parseMarketplaceSourceUrl(sourceUrl: string) {
