@@ -305,6 +305,66 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
 
   throw new Error(lastError);
 }
+
+async function aiExtractMeeshoProduct(url: string) {
+  const apiKey = getScrapingAntApiKey();
+  if (!apiKey) return null;
+
+  const endpoint = new URL('https://api.scrapingant.com/v2/extract');
+  endpoint.searchParams.set('url', url);
+  endpoint.searchParams.set(
+    'extract_properties',
+    'product title, price(number), full description, category, product images(list)',
+  );
+  endpoint.searchParams.set('browser', 'true');
+  endpoint.searchParams.set('proxy_country', 'in');
+
+  const response = await fetchWithTimeout(endpoint.toString(), {
+    headers: { 'x-api-key': apiKey, Accept: 'application/json' },
+    cache: 'no-store',
+  }, 45000);
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error('ScrapingAnt AI extraction failed with HTTP ' + response.status + (body ? ': ' + body.slice(0, 200) : '.'));
+  }
+
+  const data: any = await response.json();
+  if (!data || typeof data !== 'object') throw new Error('ScrapingAnt AI extraction returned invalid data.');
+
+  const title = cleanText(data.productTitle ?? data.title ?? data.name, 220);
+  const description = cleanText(data.fullDescription ?? data.description ?? '', 12000);
+  const price = firstNumber([data.price]);
+  const categoryName = normalizeCategoryName(data.category ?? data.categoryName ?? '');
+
+  const imageValues = Array.isArray(data.productImages)
+    ? data.productImages
+    : Array.isArray(data.images)
+      ? data.images
+      : typeof data.productImages === 'string'
+        ? [data.productImages]
+        : typeof data.image === 'string'
+          ? [data.image]
+          : [];
+
+  const images = uniqueImages(imageValues, 'MEESHO');
+  if (!title || !price || !images.length) {
+    throw new Error('ScrapingAnt AI extraction did not return a complete Meesho product.');
+  }
+
+  return {
+    provider: 'MEESHO' as const,
+    externalId: providerFromUrl(url).id,
+    sourceUrl: url,
+    name: title,
+    description,
+    sourceCost: price,
+    images,
+    categoryName: categoryName || undefined,
+    availability: 'UNKNOWN' as const,
+  };
+}
+
 function extractTagText(html: string, tag: string) {
   const match = html.match(new RegExp('<' + tag + '\\b[^>]*>([\\s\\S]*?)</' + tag + '>', 'i'));
   return match ? cleanText(match[1], 12000) : '';
@@ -457,6 +517,17 @@ export async function scrapeMarketplaceProduct(sourceUrl: string, options: Scrap
     return parseProduct(parsed.provider, parsed.url, html, parsed.id);
   } catch (error) {
     lastError = error instanceof Error ? error.message : lastError;
+  }
+
+  // Last-resort structured extraction for Meesho. This is intentionally after
+  // normal HTML parsing so it is only used when the page's markup is unusable.
+  if (parsed.provider === 'MEESHO') {
+    try {
+      const extracted = await aiExtractMeeshoProduct(parsed.url);
+      if (extracted) return extracted;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
+    }
   }
 
   // Final browser fallback for non-Meesho providers or when the caller did not
