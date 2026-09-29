@@ -65,7 +65,7 @@ export default async function Product({ params }: { params: { slug: string } }) 
       priceCurrency: 'INR',
       price: Number(p.sellingPrice).toFixed(2),
       availability: p.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-      url: `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://zenvora-online.vercel.app').replace(/\\/$/, '')}/product/${encodeURIComponent(p.slug)}`,
+      url: `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://zenvora-online.vercel.app').replace(/\/$/, '')}/product/${encodeURIComponent(p.slug)}`,
     },
   };
   const structuredDataJson = JSON.stringify(structuredData).replace(/</g, '\\u003c');
