@@ -21,7 +21,7 @@ const SITEMAP_INDEX = 'https://www.meesho.com/sitemap.xml';
 const DEFAULT_SHARD_COUNT = 1;
 const DEFAULT_MAX_ITEMS = 10;
 const MAX_BROWSER_FALLBACKS_PER_RUN = 2;
-const MAX_SIMPLE_SCRAPES_PER_RUN = 25;
+const MAX_SIMPLE_SCRAPES_PER_RUN = 50;
 
 function clean(value: unknown) {
   return String(value ?? '').trim();
