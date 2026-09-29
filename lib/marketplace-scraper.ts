@@ -236,28 +236,39 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
   const apiKey = getScrapingAntApiKey();
   if (!apiKey) throw new Error('Automatic scraping is not configured. Add SCRAPINGANT_API_KEY in Vercel, or enter title and price manually.');
 
-  const maxAttempts = Math.max(1, Math.min(3, options.maxAttempts ?? 3));
+  const maxAttempts = Math.max(1, Math.min(6, options.maxAttempts ?? 6));
   let lastError = 'Automatic scraper failed.';
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  // ScrapingAnt documents HTTP 403 as a retryable detection response in its
+  // migration guidance. Adapt browser mode and proxy settings instead of
+  // repeatedly sending the same request fingerprint.
+  //
+  // Keep cheap routes first: browser+datacenter (10 credits), simple+datacenter
+  // (1), browser raw-page-source+datacenter (2), then residential fallbacks.
+  const routes = [
+    { browser: options.browser, proxyType: 'datacenter', country: 'in', rawPageSource: false },
+    { browser: false, proxyType: 'datacenter', country: 'in', rawPageSource: false },
+    { browser: true, proxyType: 'datacenter', country: 'in', rawPageSource: true },
+    { browser: false, proxyType: 'residential', country: 'in', rawPageSource: false },
+    { browser: true, proxyType: 'residential', country: 'in', rawPageSource: false },
+    { browser: false, proxyType: 'residential', country: '', rawPageSource: false },
+  ].slice(0, maxAttempts);
+
+  for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+    const route = routes[routeIndex];
     const endpoint = new URL('https://api.scrapingant.com/v2/general');
     endpoint.searchParams.set('url', url);
-    endpoint.searchParams.set('browser', options.browser ? 'true' : 'false');
-    endpoint.searchParams.set('proxy_country', 'in');
-    endpoint.searchParams.set('timeout', String(options.browser ? Math.ceil(SCRAPER_BROWSER_TIMEOUT_MS / 1000) : 15));
-    if (options.waitForSelector && options.browser) endpoint.searchParams.set('wait_for_selector', options.waitForSelector);
-
-    // Meesho can reject one proxy/browser combination with HTTP 423 even
-    // though another ScrapingAnt route works. Adapt the route instead of
-    // repeatedly sending the same fingerprint.
-    const route = attempt === 1
-      ? { proxyType: 'datacenter', country: 'in' }
-      : attempt === 2
-        ? { proxyType: 'residential', country: 'in' }
-        : { proxyType: 'residential', country: '' };
+    endpoint.searchParams.set('browser', route.browser ? 'true' : 'false');
     endpoint.searchParams.set('proxy_type', route.proxyType);
     if (route.country) endpoint.searchParams.set('proxy_country', route.country);
-    else endpoint.searchParams.delete('proxy_country');
+    if (route.rawPageSource) endpoint.searchParams.set('return_page_source', 'true');
+    endpoint.searchParams.set(
+      'timeout',
+      String(route.browser ? Math.ceil(SCRAPER_BROWSER_TIMEOUT_MS / 1000) : 15),
+    );
+    if (options.waitForSelector && route.browser && !route.rawPageSource) {
+      endpoint.searchParams.set('wait_for_selector', options.waitForSelector);
+    }
 
     try {
       const response = await fetchWithTimeout(endpoint.toString(), {
@@ -266,7 +277,7 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         },
         cache: 'no-store',
-      }, options.browser ? SCRAPER_BROWSER_TIMEOUT_MS : SCRAPER_SIMPLE_TIMEOUT_MS);
+      }, route.browser ? SCRAPER_BROWSER_TIMEOUT_MS : SCRAPER_SIMPLE_TIMEOUT_MS);
 
       const body = await response.text();
       if (!response.ok) {
@@ -280,12 +291,18 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
               : '';
           detail = rawDetail ? ': ' + rawDetail.slice(0, 300) : '';
         } catch {}
+
         lastError = 'ScrapingAnt returned HTTP ' + response.status + detail + '.';
 
-        // 409 is a concurrency/rate-limit response. Failed requests are not
-        // billed, so retry with a short backoff instead of spending credits.
-        if ((response.status === 409 || response.status === 423) && attempt < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        // 403 is explicitly handled as a detection response by ScrapingAnt's
+        // migration guidance. Move to the next browser/proxy combination.
+        if (response.status === 403 && routeIndex < routes.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          continue;
+        }
+
+        if ([409, 423, 429, 500, 502, 503, 504].includes(response.status) && routeIndex < routes.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 750));
           continue;
         }
 
@@ -301,14 +318,18 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
 
       if (challenged) {
         lastError = 'Meesho returned an anti-bot challenge.';
+        if (routeIndex < routes.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          continue;
+        }
         throw new Error(lastError);
       }
 
       return body;
     } catch (error) {
       lastError = error instanceof Error ? error.message : lastError;
-      if (attempt < maxAttempts && /HTTP 409|HTTP 5\d\d|timed out|aborted/i.test(lastError)) {
-        await new Promise(resolve => setTimeout(resolve, 750 * attempt));
+      if (routeIndex < routes.length - 1 && /ScrapingAnt returned HTTP (403|409|423|429|5\d\d)|anti-bot challenge|timed out|aborted/i.test(lastError)) {
+        await new Promise(resolve => setTimeout(resolve, 750));
         continue;
       }
       throw new Error(lastError);
