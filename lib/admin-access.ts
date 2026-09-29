@@ -20,8 +20,11 @@ export async function getAdminAccess() {
   const session = await auth();
   const email = session?.user?.email?.toLowerCase().trim();
   if (session?.user?.role !== 'admin' || !email) return null;
-  const user = await db.adminUser.findUnique({ where: { email }, select: { id: true, email: true, accessRole: true, permissions: true } });
-  if (!user) return null;
+  const user = await db.adminUser.findUnique({
+    where: { email },
+    select: { id: true, email: true, accessRole: true, permissions: true, isActive: true },
+  });
+  if (!user || !user.isActive) return null;
   const permissions = Array.isArray(user.permissions) ? user.permissions.filter((p): p is string => typeof p === 'string') : [];
   return { ...user, permissions, isSuperAdmin: user.accessRole === 'SUPER_ADMIN' };
 }
