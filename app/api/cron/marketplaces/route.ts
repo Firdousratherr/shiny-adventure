@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/db';
 import { syncMarketplace } from '../../../../lib/marketplaces';
 import { releaseExpiredPaymentReservations } from '../../../../lib/inventory-reservations';
+import { acquireMarketplaceSyncLock, releaseMarketplaceSyncLock } from '../../../../lib/marketplace-lock';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,12 @@ export async function GET(request: Request) {
       continue;
     }
 
+    const lockToken = await acquireMarketplaceSyncLock(integration.id);
+    if (!lockToken) {
+      results.push({ provider: integration.provider, status: 'SKIPPED', reason: 'Another marketplace sync is already running.' });
+      continue;
+    }
+
     const started = Date.now();
     const run = await db.marketplaceSyncRun.create({ data: { integrationId: integration.id, type: 'SCHEDULED', status: 'RUNNING' } });
     try {
@@ -70,6 +77,8 @@ export async function GET(request: Request) {
       await db.marketplaceSyncRun.update({ where: { id: run.id }, data: { status: 'FAILED', error: message, finishedAt: new Date() } });
       await db.marketplaceIntegration.update({ where: { id: integration.id }, data: { lastSyncAt: new Date(), lastError: message, healthStatus: 'ERROR', lastSyncDurationMs: duration } });
       results.push({ provider: integration.provider, status: 'FAILED', error: message });
+    } finally {
+      await releaseMarketplaceSyncLock(integration.id, lockToken);
     }
   }
 
