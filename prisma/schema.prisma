@@ -631,6 +631,7 @@ model ProductReview {
 
   @@index([productId, status, createdAt])
   @@index([status, createdAt])
+  @@unique([productId, customerId])
 }
 
 model CheckoutSession {
