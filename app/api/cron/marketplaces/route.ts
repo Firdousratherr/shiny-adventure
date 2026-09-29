@@ -26,6 +26,36 @@ export async function GET(request: Request) {
       if (nextAt > now) continue;
     }
 
+    // Prevent the scheduler from overlapping a manual import or a previous
+    // scheduler run, and recover locks left behind by a killed function.
+    const staleBefore = new Date(Date.now() - 10 * 60 * 1000);
+    await db.marketplaceSyncRun.updateMany({
+      where: {
+        integrationId: integration.id,
+        status: 'RUNNING',
+        startedAt: { lt: staleBefore },
+      },
+      data: {
+        status: 'FAILED',
+        error: 'Stale scheduled run lock cleared automatically.',
+        finishedAt: new Date(),
+      },
+    });
+    const activeRun = await db.marketplaceSyncRun.findFirst({
+      where: { integrationId: integration.id, status: 'RUNNING' },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, startedAt: true },
+    });
+    if (activeRun) {
+      results.push({
+        provider: integration.provider,
+        status: 'SKIPPED',
+        reason: 'An import is already running.',
+        runId: activeRun.id,
+      });
+      continue;
+    }
+
     const started = Date.now();
     const run = await db.marketplaceSyncRun.create({ data: { integrationId: integration.id, type: 'SCHEDULED', status: 'RUNNING' } });
     try {
