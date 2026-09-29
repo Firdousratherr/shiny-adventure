@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import AdminNav from '../../../components/admin-nav';
 import { useEffect, useState } from 'react';
 
