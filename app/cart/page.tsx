@@ -2,71 +2,92 @@
 
 import Link from 'next/link';
 import { useCart } from '../../components/cart-provider';
+import StoreHeader from '../../components/store-header';
 
 export default function CartPage() {
   const { items, setQuantity, remove, subtotal } = useCart();
-  const count = items.reduce((n, i) => n + i.quantity, 0);
+  const count = items.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <main className="min-h-screen bg-[#070b16] px-4 pb-28 pt-5 text-white sm:px-6 sm:py-8 sm:pb-10">
-      <div className="mx-auto max-w-6xl">
-        <header className="flex items-center justify-between border-b border-white/10 pb-4">
-          <Link href="/" className="text-xl font-black tracking-tight sm:text-2xl">🛍️ Zenvora<span className="text-fuchsia-500">.</span></Link>
-          <Link href="/products" className="rounded-xl border border-white/10 bg-white/[.025] px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/5 sm:text-sm">Continue shopping →</Link>
-        </header>
+    <main className="store-dark min-h-screen bg-[#070b16] pb-28 text-white sm:pb-10">
+      <StoreHeader />
 
-        <div className="mt-7 flex items-end justify-between gap-3">
+      <div className="container py-7 sm:py-10">
+        <div className="zenvora-page-hero">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[.22em] text-violet-400">Shopping cart</p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Your cart</h1>
-            <p className="mt-2 text-xs text-slate-500">Review your items before secure checkout.</p>
+            <span className="inline-flex rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-200">Shopping cart</span>
+            <h1 className="mt-4 text-4xl font-black tracking-[-.04em] sm:text-5xl">Ready to check out?</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400">Review your items, adjust quantities, then continue to secure checkout.</p>
           </div>
-          {items.length > 0 && <span className="zenvora-pill shrink-0 px-3 py-1.5 text-xs font-bold text-slate-300">{count} {count === 1 ? 'item' : 'items'}</span>}
+          <Link href="/products" className="hidden rounded-xl border border-white/10 bg-white/[.035] px-4 py-2.5 text-xs font-black hover:bg-white/[.07] sm:inline-flex">Continue shopping →</Link>
         </div>
 
         {!items.length ? (
-          <div className="zenvora-empty-state mx-auto mt-10 max-w-lg">
+          <div className="zenvora-empty-state mx-auto mt-10 max-w-xl">
             <div className="text-6xl">🛒</div>
-            <p className="mt-5 text-lg font-black">Your cart is empty</p>
-            <p className="mt-2 text-sm text-slate-500">Find something you love and add it here.</p>
-            <Link href="/products" className="mt-6 inline-flex rounded-xl bg-white px-6 py-3 text-sm font-black text-slate-950 shadow-lg shadow-black/20">Explore products →</Link>
+            <p className="mt-5 text-xl font-black">Your cart is empty</p>
+            <p className="mt-2 text-sm text-slate-500">Explore the catalog and add something worth keeping.</p>
+            <Link href="/products" className="mt-6 inline-flex rounded-xl bg-white px-6 py-3 text-sm font-black text-slate-950 shadow-xl shadow-black/10">Explore products →</Link>
           </div>
         ) : (
-          <div className="mt-7 grid gap-5 lg:grid-cols-[1fr_360px]">
+          <div className="mt-8 grid gap-5 lg:grid-cols-[1fr_360px]">
             <section className="space-y-3">
-              {items.map(item => (
-                <div key={item.productId} className="zenvora-card flex gap-3 p-3 sm:gap-4 sm:p-4">
-                  <Link href="/products" aria-label="Continue shopping" className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[.04] sm:h-28 sm:w-28">
-                    {item.image ? <img src={item.image} alt="" className="h-full w-full object-contain p-2"/> : <span className="grid h-full place-items-center text-3xl">🛍️</span>}
-                  </Link>
+              <div className="mb-2 flex items-center justify-between px-1">
+                <p className="text-xs font-bold text-slate-500">{count} {count === 1 ? 'item' : 'items'}</p>
+                <Link href="/products" className="text-xs font-bold text-violet-300 hover:text-white sm:hidden">Continue shopping →</Link>
+              </div>
+
+              {items.map((item) => (
+                <article key={item.productId} className="zenvora-cart-item">
+                  <div className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[.03] sm:h-32 sm:w-32">
+                    {item.image ? <img src={item.image} alt="" className="h-full w-full object-contain p-2" /> : <span className="grid h-full place-items-center text-4xl">🛍️</span>}
+                  </div>
+
                   <div className="min-w-0 flex-1">
-                    <div className="flex justify-between gap-3">
+                    <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <h2 className="line-clamp-2 text-sm font-bold leading-5 sm:text-base">{item.name}</h2>
-                        <p className="mt-1 text-sm font-black">₹{item.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                        <h2 className="line-clamp-2 text-sm font-black leading-5 sm:text-base">{item.name}</h2>
+                        <p className="mt-1 text-xs text-slate-500">Unit price</p>
+                        <p className="mt-0.5 text-lg font-black">₹{item.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                       </div>
-                      <strong className="shrink-0 text-sm sm:text-base">₹{(item.price * item.quantity).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                      <p className="shrink-0 text-base font-black sm:text-lg">₹{(item.price * item.quantity).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                     </div>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center rounded-xl border border-white/10 bg-white/5 p-1">
-                        <button aria-label="Decrease quantity" onClick={() => setQuantity(item.productId, item.quantity - 1)} className="grid h-8 w-8 place-items-center rounded-lg text-lg hover:bg-white/10">−</button>
+
+                    <div className="mt-5 flex items-center justify-between gap-3">
+                      <div className="flex items-center rounded-xl border border-white/10 bg-white/[.035] p-1">
+                        <button aria-label="Decrease quantity" onClick={() => setQuantity(item.productId, item.quantity - 1)} className="grid h-9 w-9 place-items-center rounded-lg text-lg hover:bg-white/10">−</button>
                         <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                        <button aria-label="Increase quantity" onClick={() => setQuantity(item.productId, item.quantity + 1)} className="grid h-8 w-8 place-items-center rounded-lg text-lg hover:bg-white/10">+</button>
+                        <button aria-label="Increase quantity" onClick={() => setQuantity(item.productId, item.quantity + 1)} className="grid h-9 w-9 place-items-center rounded-lg text-lg hover:bg-white/10">+</button>
                       </div>
                       <button onClick={() => remove(item.productId)} className="rounded-lg px-2 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10">Remove</button>
                     </div>
                   </div>
-                </div>
+                </article>
               ))}
             </section>
 
-            <aside className="zenvora-glass h-fit rounded-3xl p-5 lg:sticky lg:top-20">
-              <p className="text-xs font-black uppercase tracking-widest text-violet-400">Summary</p>
-              <h2 className="mt-1 text-xl font-black">Order summary</h2>
-              <div className="mt-5 flex justify-between text-sm text-slate-300"><span>Subtotal</span><strong className="text-white">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>
-              <div className="my-4 border-t border-white/10"/>
-              <div className="flex items-start gap-2 rounded-xl border border-emerald-400/10 bg-emerald-400/5 p-3 text-xs text-slate-400"><span>🔒</span><span>Secure checkout. Delivery charges and final total are calculated securely at checkout.</span></div>
-              <Link href="/checkout" className="mt-5 block rounded-xl bg-white px-5 py-3.5 text-center text-sm font-black text-slate-950 shadow-xl shadow-black/20 hover:-translate-y-0.5">Proceed to checkout →</Link>
+            <aside className="zenvora-order-summary h-fit lg:sticky lg:top-24">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[.2em] text-violet-400">Your order</p>
+                  <h2 className="mt-1 text-xl font-black">Order summary</h2>
+                </div>
+                <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold text-slate-400">{count} items</span>
+              </div>
+
+              <div className="mt-6 space-y-3 text-sm">
+                <div className="flex justify-between gap-4 text-slate-400"><span>Subtotal</span><span className="font-bold text-white">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                <div className="flex justify-between gap-4 text-slate-500"><span>Delivery</span><span>Calculated at checkout</span></div>
+              </div>
+
+              <div className="my-5 border-t border-white/10" />
+              <div className="flex items-end justify-between gap-4"><span className="font-bold">Estimated total</span><strong className="text-2xl font-black">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></div>
+
+              <div className="mt-5 rounded-2xl border border-emerald-400/10 bg-emerald-400/[.05] p-3 text-xs leading-5 text-slate-400">
+                <span className="mr-2">🔒</span>Secure checkout. Final shipping, coupon and total are verified on the server.
+              </div>
+
+              <Link href="/checkout" className="zenvora-primary-btn mt-5 flex min-h-12 items-center justify-center rounded-xl px-5 py-3.5 text-center text-sm font-black">Proceed to checkout →</Link>
             </aside>
           </div>
         )}
