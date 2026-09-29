@@ -10,6 +10,14 @@ function getRedis() {
   return redis;
 }
 
+export async function securityRateLimit(key: string, limit = 10, windowSeconds = 600) {
+  const result = await rateLimit(key, limit, windowSeconds);
+  if (process.env.NODE_ENV === 'production' && !result.configured) {
+    return { ...result, limited: true, securityUnavailable: true };
+  }
+  return { ...result, securityUnavailable: false };
+}
+
 export async function rateLimit(key: string, limit = 10, windowSeconds = 600) {
   const client = getRedis();
   if (!client) return { limited: false, configured: false, remaining: limit };
