@@ -434,70 +434,48 @@ export async function scrapeMarketplaceProduct(sourceUrl: string, options: Scrap
   let lastError = '';
   let browserAttempted = false;
 
-  // Meesho imports are intentionally ScrapingAnt-first. Meesho is a
-  // client-rendered catalogue and can actively reject direct server requests.
-  // ScrapingAnt supports browser rendering plus datacenter/residential proxy
-  // routing, so it is the primary marketplace importer path.
-  if (parsed.provider === 'MEESHO' && options.preferBrowser !== false && options.allowBrowserFallback) {
+  // All marketplace URL imports now use ScrapingAnt first. This keeps Amazon,
+  // Flipkart and Meesho on the same proxy/browser pipeline and makes the
+  // importer resilient to bot protection and JavaScript-rendered product pages.
+  const scraperAttempts = parsed.provider === 'MEESHO' ? 3 : 2;
+
+  if (options.preferBrowser !== false && options.allowBrowserFallback) {
     browserAttempted = true;
     try {
       options.onBrowserFallback?.();
       html = await scraperFetch(parsed.url, parsed.provider, {
         browser: true,
-        maxAttempts: 3,
+        maxAttempts: scraperAttempts,
         waitForSelector: 'h1',
       });
       return parseProduct(parsed.provider, parsed.url, html, parsed.id);
     } catch (error) {
-      lastError = error instanceof Error ? error.message : lastError;
-    }
-
-    // If browser rendering is challenged, try ScrapingAnt's non-browser route
-    // before falling back to any direct request.
-    try {
-      html = await scraperFetch(parsed.url, parsed.provider, { browser: false, maxAttempts: 3 });
-      return parseProduct(parsed.provider, parsed.url, html, parsed.id);
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : lastError;
+      lastError = error instanceof Error ? error.message : 'ScrapingAnt browser request failed.';
     }
   }
 
-  // Other marketplaces, or a final Meesho fallback, can still use direct HTML.
+  // ScrapingAnt non-browser mode is the cheaper second route and is useful
+  // when the target page is static or the browser route is challenged.
   try {
-    html = await directFetch(parsed.url);
-    try {
-      return parseProduct(parsed.provider, parsed.url, html, parsed.id);
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : 'Direct page parsing failed.';
-    }
-  } catch (error) {
-    lastError = error instanceof Error ? error.message : 'Direct request failed.';
-  }
-
-  try {
-    html = await scraperFetch(parsed.url, parsed.provider, { browser: false, maxAttempts: 3 });
+    html = await scraperFetch(parsed.url, parsed.provider, {
+      browser: false,
+      maxAttempts: scraperAttempts,
+    });
     return parseProduct(parsed.provider, parsed.url, html, parsed.id);
   } catch (error) {
     lastError = error instanceof Error ? error.message : lastError;
   }
 
-  // Final browser fallback for non-Meesho providers or when the caller did not
-  // prefer the browser-first path.
-  if (options.allowBrowserFallback && !browserAttempted) {
-    try {
-      options.onBrowserFallback?.();
-      html = await scraperFetch(parsed.url, parsed.provider, {
-        browser: true,
-        maxAttempts: 2,
-        waitForSelector: parsed.provider === 'MEESHO' ? 'h1' : undefined,
-      });
-      return parseProduct(parsed.provider, parsed.url, html, parsed.id);
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : lastError;
-    }
+  // Final fallback for resilience if ScrapingAnt cannot reach a particular
+  // public URL. Successful direct requests cost no ScrapingAnt credits.
+  try {
+    html = await directFetch(parsed.url);
+    return parseProduct(parsed.provider, parsed.url, html, parsed.id);
+  } catch (error) {
+    lastError = error instanceof Error ? error.message : lastError;
   }
 
-  throw new Error(lastError || 'Unable to read the product page.');
+  throw new Error(lastError || 'Unable to import product from the supplied URL.');
 }
 
 export function parseMarketplaceSourceUrl(sourceUrl: string) {
