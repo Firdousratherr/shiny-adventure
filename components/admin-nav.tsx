@@ -12,7 +12,7 @@ type NavGroup = { title: string; tone: string; items: NavItem[] };
 const groups: NavGroup[] = [
   { title: 'Overview', tone: 'violet', items: [
     { key: 'dashboard', label: 'Dashboard', href: '/admin/dashboard' },
-    { key: 'operations', label: 'Operations Center', href: '/admin/operations' },
+    { key: 'operations', label: 'Operations Center', href: '/admin/operations', permission: 'orders' },
   ]},
   { title: 'Commerce', tone: 'blue', items: [
     { key: 'orders', label: 'Orders', href: '/admin/orders', permission: 'orders' },
@@ -36,21 +36,21 @@ const groups: NavGroup[] = [
     { key: 'banners', label: 'Storefront', href: '/admin/banners' },
   ]},
   { title: 'Customer Care', tone: 'amber', items: [
-    { key: 'support', label: 'Support', href: '/admin/support' },
+    { key: 'support', label: 'Support', href: '/admin/support', permission: 'orders' },
     { key: 'reviews', label: 'Reviews', href: '/admin/reviews' },
     { key: 'notifications', label: 'Notifications', href: '/admin/notifications' },
   ]},
   { title: 'Insights', tone: 'indigo', items: [
-    { key: 'analytics', label: 'Analytics', href: '/admin/analytics' },
+    { key: 'analytics', label: 'Analytics', href: '/admin/analytics', permission: 'orders' },
     { key: 'goals', label: 'Business Goals', href: '/admin/goals' },
-    { key: 'abandoned', label: 'Abandoned Checkouts', href: '/admin/abandoned-checkouts' },
+    { key: 'abandoned', label: 'Abandoned Checkouts', href: '/admin/abandoned-checkouts', permission: 'orders' },
   ]},
   { title: 'System', tone: 'slate', items: [
     { key: 'suppliers', label: 'Suppliers', href: '/admin/suppliers' },
     { key: 'automation', label: 'Automation Rules', href: '/admin/automation' },
     { key: 'features', label: 'Feature Flags', href: '/admin/feature-flags' },
     { key: 'integrations', label: 'Integration Events', href: '/admin/integration-events' },
-    { key: 'system-health', label: 'System Health', href: '/admin/system-health' },
+    { key: 'system-health', label: 'System Health', href: '/admin/system-health', permission: 'settings' },
     { key: 'staff', label: 'Staff & Access', href: '/admin/staff', ownerOnly: true },
     { key: 'approvals', label: 'Approvals', href: '/admin/approvals', ownerOnly: true },
     { key: 'audit', label: 'Activity Log', href: '/admin/audit', ownerOnly: true },
