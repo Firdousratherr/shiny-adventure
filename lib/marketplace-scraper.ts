@@ -434,7 +434,35 @@ export async function scrapeMarketplaceProduct(sourceUrl: string, options: Scrap
   let lastError = '';
   let browserAttempted = false;
 
-  // Direct request first: zero ScrapingAnt credits when the source serves usable HTML.
+  // Meesho imports are intentionally ScrapingAnt-first. Meesho is a
+  // client-rendered catalogue and can actively reject direct server requests.
+  // ScrapingAnt supports browser rendering plus datacenter/residential proxy
+  // routing, so it is the primary marketplace importer path.
+  if (parsed.provider === 'MEESHO' && options.preferBrowser !== false && options.allowBrowserFallback) {
+    browserAttempted = true;
+    try {
+      options.onBrowserFallback?.();
+      html = await scraperFetch(parsed.url, parsed.provider, {
+        browser: true,
+        maxAttempts: 3,
+        waitForSelector: 'h1',
+      });
+      return parseProduct(parsed.provider, parsed.url, html, parsed.id);
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
+    }
+
+    // If browser rendering is challenged, try ScrapingAnt's non-browser route
+    // before falling back to any direct request.
+    try {
+      html = await scraperFetch(parsed.url, parsed.provider, { browser: false, maxAttempts: 3 });
+      return parseProduct(parsed.provider, parsed.url, html, parsed.id);
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
+    }
+  }
+
+  // Other marketplaces, or a final Meesho fallback, can still use direct HTML.
   try {
     html = await directFetch(parsed.url);
     try {
@@ -446,26 +474,8 @@ export async function scrapeMarketplaceProduct(sourceUrl: string, options: Scrap
     lastError = error instanceof Error ? error.message : 'Direct request failed.';
   }
 
-  // Meesho is a client-rendered application. When the caller budgets a browser
-  // request, go straight to the rendered path rather than wasting a simple request.
-  if (parsed.provider === 'MEESHO' && options.preferBrowser !== false && options.allowBrowserFallback) {
-    browserAttempted = true;
-    try {
-      options.onBrowserFallback?.();
-      html = await scraperFetch(parsed.url, parsed.provider, {
-        browser: true,
-        maxAttempts: 2,
-        waitForSelector: 'h1',
-      });
-      return parseProduct(parsed.provider, parsed.url, html, parsed.id);
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : lastError;
-    }
-  }
-
-  // Cheap ScrapingAnt fallback for static or partially-rendered pages.
   try {
-    html = await scraperFetch(parsed.url, parsed.provider, { browser: false, maxAttempts: 2 });
+    html = await scraperFetch(parsed.url, parsed.provider, { browser: false, maxAttempts: 3 });
     return parseProduct(parsed.provider, parsed.url, html, parsed.id);
   } catch (error) {
     lastError = error instanceof Error ? error.message : lastError;
