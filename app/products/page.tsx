@@ -108,7 +108,7 @@ export default async function Products({ searchParams }: { searchParams: { q?: s
                   <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-white/[.06] via-white/[.025] to-violet-900/20">
                     {p.images[0] ? (
                       <div className="flex h-full w-full items-center justify-center p-3 sm:p-5">
-                        <img src={productImageUrl(p.images[0].url) || ''} alt={p.images[0].altText || p.name} className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.04]"/>
+                        <img src={productImageUrl(p.images[0].url) || ''} alt={p.images[0].altText || p.name} loading="lazy" decoding="async" className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.04]"/>
                       </div>
                     ) : (
                       <div className="grid h-full place-items-center text-6xl">🛍️</div>
