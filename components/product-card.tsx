@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import AddToCart from './add-to-cart';
 import { productImageUrl } from '../lib/product-image-url';
