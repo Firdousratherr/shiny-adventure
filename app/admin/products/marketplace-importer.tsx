@@ -81,19 +81,19 @@ export default function MarketplaceImporter({ categories }: { categories: Catego
   const providerLabel = preview?.provider === 'AMAZON' ? 'Amazon' : preview?.provider === 'FLIPKART' ? 'Flipkart' : 'Meesho';
 
   return (
-    <section className="rounded-2xl bg-white p-5 shadow-sm">
+    <section className="importer-card rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-indigo-600">Marketplace importer</p>
+          <p className="text-sm font-bold text-violet-600">Marketplace importer</p>
           <h2 className="text-xl font-black">Amazon · Flipkart · Meesho</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-500">
             Paste a direct public product URL. Zenvora uses ScrapingAnt first to read the page, extracts the title, price, description and images, and lets you review everything before importing. A direct/manual fallback is used when automatic extraction cannot complete.
           </p>
         </div>
-        <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">Automatic + manual fallback</span>
+        <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-black text-violet-700">Automatic + manual fallback</span>
       </div>
 
-      <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+      <div className="mt-4 rounded-xl border importer-note border-violet-100 bg-violet-50 p-3 text-sm text-violet-900">
         Automatic extraction uses <b>ScrapingAnt</b> from Vercel for Amazon, Flipkart and Meesho product pages. The importer does not bypass logins or private pages; use public product pages and content you are permitted to reuse.
       </div>
 
