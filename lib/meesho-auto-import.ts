@@ -15,14 +15,17 @@ export type MeeshoAutoSettings = {
   fixedAmount?: number;
   importImages?: boolean;
   importDescriptions?: boolean;
+  directUrl?: string;
+  defaultInventory?: number;
 };
 
 const SITEMAP_INDEX = 'https://www.meesho.com/sitemap.xml';
 const DEFAULT_SHARD_COUNT = 1;
 const DEFAULT_MAX_ITEMS = 10;
-const MAX_BROWSER_FALLBACKS_PER_RUN = 2;
-const MAX_SIMPLE_SCRAPES_PER_RUN = 50;
-const MAX_IMPORT_RUNTIME_MS = 240000;
+const MAX_BROWSER_FALLBACKS_PER_RUN = 8;
+const MAX_SIMPLE_SCRAPES_PER_RUN = 12;
+const MAX_PRODUCTS_PER_RUN = 8;
+const MAX_IMPORT_RUNTIME_MS = 210000;
 
 function clean(value: unknown) {
   return String(value ?? '').trim();
@@ -32,27 +35,36 @@ function parseLocs(xml: string) {
   return [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map(m => m[1].trim()).filter(Boolean);
 }
 
-async function scrapingAnt(url: string, timeoutMs = 60000, browser = false) {
+async function scrapingAnt(
+  url: string,
+  timeoutMs = 30000,
+  browser = false,
+  waitForSelector?: string,
+) {
   const key = getScrapingAntApiKey();
   if (!key) throw new Error('Add SCRAPINGANT_API_KEY in Vercel before enabling Meesho Auto Import.');
 
   let lastError = 'ScrapingAnt request failed.';
-  for (let attempt = 1; attempt <= 5; attempt++) {
+  const attempts = 2;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     const endpoint = new URL('https://api.scrapingant.com/v2/general');
     endpoint.searchParams.set('url', url);
     endpoint.searchParams.set('browser', browser ? 'true' : 'false');
     endpoint.searchParams.set('proxy_country', 'in');
-    endpoint.searchParams.set('timeout', String(Math.ceil(timeoutMs / 1000)));
+    endpoint.searchParams.set('timeout', String(Math.max(5, Math.min(60, Math.ceil(timeoutMs / 1000)))));
+    if (browser && waitForSelector) endpoint.searchParams.set('wait_for_selector', waitForSelector);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(endpoint.toString(), {
-        headers: { 'x-api-key': key, Accept: 'text/html,application/xml' },
+        headers: { 'x-api-key': key, Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
         cache: 'no-store',
         signal: controller.signal,
       });
       const body = await response.text();
+
       if (!response.ok) {
         let detail = '';
         try {
@@ -63,22 +75,24 @@ async function scrapingAnt(url: string, timeoutMs = 60000, browser = false) {
               ? parsed.message
               : '';
           detail = rawDetail ? ': ' + rawDetail.slice(0, 300) : '';
-        } catch { /* ignore malformed Meesho URLs */ }
-
+        } catch {
+          // Ignore a non-JSON error body.
+        }
         lastError = 'ScrapingAnt returned HTTP ' + response.status + detail + '.';
 
-        if (response.status === 409 && attempt < 5) {
-          await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+        if (attempt < attempts && [409, 423, 429, 500, 502, 503, 504].includes(response.status)) {
+          await new Promise(resolve => setTimeout(resolve, 1200 * attempt));
           continue;
         }
         throw new Error(lastError);
       }
+
       if (!body.trim()) throw new Error('ScrapingAnt returned an empty response.');
       return body;
     } catch (error) {
       lastError = error instanceof Error ? error.message : lastError;
-      if (attempt < 5 && !/HTTP 409/.test(lastError)) {
-        await new Promise(resolve => setTimeout(resolve, 700 * attempt));
+      if (attempt < attempts && /timed out|aborted|HTTP (409|423|429|5\d\d)/i.test(lastError)) {
+        await new Promise(resolve => setTimeout(resolve, 900 * attempt));
         continue;
       }
       throw new Error(lastError);
@@ -123,29 +137,67 @@ async function fetchSitemapDocument(url: string) {
   }
 }
 
+function normalizeMeeshoUrl(value: string) {
+  try {
+    const decoded = value
+      .replace(/&amp;/g, '&')
+      .replace(/\\u002F/gi, '/')
+      .replace(/\\\\\//g, '/')
+      .replace(/^["']|["']$/g, '')
+      .trim();
+    const absolute = decoded.startsWith('http')
+      ? decoded
+      : decoded.startsWith('//')
+        ? 'https:' + decoded
+        : new URL(decoded, 'https://www.meesho.com').toString();
+    const parsed = new URL(absolute);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    if (host !== 'meesho.com') return '';
+    if (!/\/p\/[^/?#]+|\/s\/p\/[^/?#]+/i.test(parsed.pathname)) return '';
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
+function extractMeeshoProductUrls(source: string, limit = 20) {
+  const html = source
+    .replace(/\\u002F/gi, '/')
+    .replace(/\\\\\//g, '/')
+    .replace(/&amp;/g, '&');
+
+  const found = new Set<string>();
+  const add = (value: string) => {
+    const normalized = normalizeMeeshoUrl(value);
+    if (normalized) found.add(normalized);
+  };
+
+  for (const match of html.matchAll(/https?:\\/\\/(?:www\\.)?meesho\\.com\\/[^"'<>\\s]+?\\/(?:p|s\\/p)\\/[^"'<>\\s?#]+/gi)) add(match[0]);
+  for (const match of html.matchAll(/["'](\\/(?:[^"'<>\\s]+)\\/(?:p|s\\/p)\\/[^"'<>\\s?#]+)["']/gi)) add(match[1]);
+  for (const match of html.matchAll(/(?:href|url|productUrl|product_url)\\s*[:=]\\s*["']([^"']+)["']/gi)) add(match[1]);
+
+  return [...found].slice(0, Math.max(1, Math.min(100, limit)));
+}
+
 async function discoverSearchUrls(keyword: string, limit: number) {
   const q = clean(keyword);
   if (!q) return [];
+
   const searchUrl = 'https://www.meesho.com/search?q=' + encodeURIComponent(q);
+
+  // Try the lightweight request first. If it does not contain product links,
+  // use a rendered browser page so the React catalogue has time to populate.
   try {
-    const html = await fetchSitemapDocument(searchUrl);
-    const found = new Set<string>();
-    const add = (value: string) => {
-      try {
-        const decoded = value.replace(/\u002F/g, '/').replace(/&amp;/g, '&');
-        const absolute = decoded.startsWith('http')
-          ? decoded
-          : new URL(decoded, 'https://www.meesho.com').toString();
-        const parsed = new URL(absolute);
-        if (parsed.hostname.replace(/^www\./, '') !== 'meesho.com') return;
-        if (/\/p\/[^/?#]+/i.test(parsed.pathname)) found.add(absolute);
-      } catch { /* ignore malformed Meesho URLs */ }
-    };
+    const direct = await fetchPublic(searchUrl);
+    const directUrls = extractMeeshoProductUrls(direct, limit);
+    if (directUrls.length) return directUrls;
+  } catch {
+    // Continue to rendered discovery.
+  }
 
-    for (const match of html.matchAll(/(?:href|url|productUrl|product_url)\s*[:=]\s*["']([^"']+)["']/gi)) add(match[1]);
-    for (const match of html.matchAll(/https?:\/\/(?:www\.)?meesho\.com\/[^"'\s<>]+\/p\/[^"'\s<>?#]+/gi)) add(match[0]);
-
-    return [...found].slice(0, Math.max(1, limit));
+  try {
+    const rendered = await scrapingAnt(searchUrl, 35000, true, 'a[href*="/p/"]');
+    return extractMeeshoProductUrls(rendered, limit);
   } catch {
     return [];
   }
@@ -173,53 +225,58 @@ function matchesFilters(item: { name: string; categoryName?: string }, settings:
 }
 
 export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
-  const maxItems = Math.max(1, Math.min(50, Number(settings.maxItemsPerSync ?? DEFAULT_MAX_ITEMS)));
+  const maxItems = Math.max(1, Math.min(MAX_PRODUCTS_PER_RUN, Number(settings.maxItemsPerSync ?? DEFAULT_MAX_ITEMS)));
   const keyword = clean(settings.keywords);
-  const shards = await loadSitemapShards(settings);
-  const cursor = Math.max(0, Number(settings.shardCursor ?? 0)) % shards.length;
-  const configuredShardCount = Math.max(
-    1,
-    Math.min(10, Number(settings.shardCountPerRun ?? DEFAULT_SHARD_COUNT)),
-  );
-
-  const selected: string[] = [];
+  const directUrl = clean(settings.directUrl);
   const urls: string[] = [];
+  const selected: string[] = [];
+  let shards: string[] = [];
+  let discoveryMethod: 'DIRECT_URL' | 'SEARCH' | 'SEARCH_PLUS_SITEMAP' | 'SITEMAP_FALLBACK' = directUrl ? 'DIRECT_URL' : 'SEARCH';
+  let discoveryError = '';
 
-  // Use Meesho's search result page first. This is one cheap discovery request
-  // and gives us products relevant to the requested keyword before scraping
-  // individual PDPs. Sitemap scanning is only the fallback.
-  if (keyword) {
-    urls.push(...await discoverSearchUrls(keyword, Math.max(maxItems * 3, 20)));
+  if (directUrl) {
+    const normalized = normalizeMeeshoUrl(directUrl);
+    if (!normalized) throw new Error('Enter a valid Meesho product URL containing /p/ or /s/p/.');
+    urls.push(normalized);
+  } else if (keyword) {
+    urls.push(...await discoverSearchUrls(keyword, Math.max(maxItems * 2, 12)));
   }
 
-  let shardOffset = 0;
-
-  // Sitemap fallback: do not filter the URL slug by keyword. Meesho's sitemap
-  // is not a reliable keyword index; keyword matching is performed after the
-  // actual product page is scraped.
-  for (
-    ;
-    shardOffset < Math.min(configuredShardCount, shards.length) && urls.length < maxItems * 4;
-    shardOffset++
-  ) {
-    const shard = shards[(cursor + shardOffset) % shards.length];
-    selected.push(shard);
-
+  // Sitemap is a true fallback, not the primary keyword index. We only touch it
+  // when rendered search discovery did not produce enough product URLs.
+  if (!directUrl && urls.length < maxItems) {
     try {
-      const shardDocument = await fetchSitemapDocument(shard);
-      const shardUrls = parseLocs(shardDocument)
-        .filter(url => /^https?:\/\/(?:www\.)?meesho\.com\/[^?#]+\/p\/[a-z0-9]+(?:[?#]|$)/i.test(url));
+      shards = await loadSitemapShards(settings);
+      const cursor = Math.max(0, Number(settings.shardCursor ?? 0)) % shards.length;
+      const configuredShardCount = Math.max(1, Math.min(3, Number(settings.shardCountPerRun ?? DEFAULT_SHARD_COUNT)));
 
-      urls.push(...shardUrls);
-    } catch {
-      // Continue to the next shard; one unavailable sitemap shard must not
-      // stop the whole import.
+      for (
+        let shardOffset = 0;
+        shardOffset < Math.min(configuredShardCount, shards.length) && urls.length < maxItems * 2;
+        shardOffset++
+      ) {
+        const shard = shards[(cursor + shardOffset) % shards.length];
+        selected.push(shard);
+        try {
+          const shardDocument = await fetchSitemapDocument(shard);
+          const shardUrls = parseLocs(shardDocument)
+            .filter(url => /^https?:\/\/(?:www\.)?meesho\.com\/[^?#]+\/p\/[^/?#]+/i.test(url));
+          urls.push(...shardUrls);
+        } catch {
+          // One unavailable shard should not abort the run.
+        }
+      }
+
+      discoveryMethod = urls.length
+        ? (keyword ? 'SEARCH_PLUS_SITEMAP' : 'SITEMAP_FALLBACK')
+        : 'SITEMAP_FALLBACK';
+    } catch (error) {
+      discoveryError = error instanceof Error ? error.message : 'Meesho sitemap discovery failed.';
+      if (!urls.length && !keyword) throw new Error(discoveryError);
     }
   }
 
-  const uniqueUrls = [...new Set(urls)]
-    .slice(0, Math.min(100, Math.max(maxItems * 4, maxItems)));
-
+  const uniqueUrls = [...new Set(urls)].slice(0, Math.min(30, Math.max(maxItems * 2, maxItems)));
   const products: Array<{
     externalId: string;
     title: string;
@@ -228,46 +285,51 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
     imageUrl: string | null;
     rawData: Record<string, unknown>;
   }> = [];
+
   let failed = 0;
   const failureDetails: string[] = [];
-  let simpleScrapesUsed = 0;
-  let browserFallbacksRemaining = MAX_BROWSER_FALLBACKS_PER_RUN;
-  let creditUsage = await getScrapingAntUsage();
+  if (discoveryError) failureDetails.push(discoveryError);
 
-  // Keep a conservative reserve. A simple request costs 1 credit; browser
-  // rendering costs 10. We never spend the whole reported balance in one run.
-  const reportedRemaining = creditUsage.remainingCredits;
-  if (reportedRemaining !== null && reportedRemaining < 12) {
+  let browserRequestsUsed = 0;
+  let simpleRequestsAttempted = 0;
+  let browserFallbacksRemaining = directUrl || keyword ? MAX_BROWSER_FALLBACKS_PER_RUN : 0;
+  const reportedRemaining = (await getScrapingAntUsage()).remainingCredits;
+
+  // Keep a reserve so a single run cannot unexpectedly consume the account.
+  if (reportedRemaining !== null && reportedRemaining < 10) {
     throw new Error(
-      'ScrapingAnt has only ' + reportedRemaining + ' credits remaining. Import stopped to protect the remaining credits.',
+      'ScrapingAnt has only ' + reportedRemaining + ' credits remaining. At least 10 credits are required for reliable Meesho browser import.',
     );
   }
 
+  // IMPORTANT: keep this loop sequential. ScrapingAnt can return HTTP 409 for
+  // concurrent requests on some plans, so parallel product scraping is unsafe.
   const startedAt = Date.now();
 
   for (const url of uniqueUrls) {
     if (products.length >= maxItems) break;
     if (Date.now() - startedAt >= MAX_IMPORT_RUNTIME_MS) {
-      failureDetails.push('Import stopped safely before the runtime limit. Run it again to continue.');
-      break;
-    }
-    if (simpleScrapesUsed >= MAX_SIMPLE_SCRAPES_PER_RUN) {
-      failureDetails.push('Scraping budget reached. Run the import again to continue from the next sitemap shard.');
+      failureDetails.push('Import stopped safely before the server runtime limit. Run it again to continue.');
       break;
     }
 
     try {
-      simpleScrapesUsed++;
+      simpleRequestsAttempted++;
       const allowBrowserFallback =
         browserFallbacksRemaining > 0
-        && (creditUsage.remainingCredits === null || creditUsage.remainingCredits >= 12);
+        && (reportedRemaining === null || reportedRemaining >= 10);
 
       const item = await scrapeMarketplaceProduct(url, {
         allowBrowserFallback,
-        onBrowserFallback: () => { browserFallbacksRemaining--; },
+        preferBrowser: true,
+        onBrowserFallback: () => {
+          browserFallbacksRemaining--;
+          browserRequestsUsed++;
+        },
       });
 
-      if (item.provider !== 'MEESHO' || !matchesFilters(item, settings)) continue;
+      if (item.provider !== 'MEESHO') continue;
+      if (!matchesFilters(item, settings) && !directUrl) continue;
 
       products.push({
         externalId: item.externalId,
@@ -286,32 +348,42 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
       });
     } catch (error) {
       failed++;
-      if (failureDetails.length < 3) {
+      if (failureDetails.length < 5) {
         failureDetails.push(error instanceof Error ? error.message.slice(0, 1000) : 'Product scrape failed.');
       }
     }
   }
 
-  if (!products.length && !failed) {
-    failureDetails.push(
-      keyword
-        ? 'No matching Meesho products were found in the scanned sitemap shard(s). Try the import again; the importer advances to the next shard.'
-        : 'No Meesho product URLs were found in the scanned sitemap shard(s).',
-    );
+  if (!products.length) {
+    if (failureDetails.length === 0) {
+      failureDetails.push(
+        directUrl
+          ? 'The Meesho product page did not expose a usable title, price and product image.'
+          : keyword
+            ? 'Meesho search did not expose usable product links for this keyword. Try another keyword or paste a direct product URL.'
+            : 'No Meesho product URLs were discovered.',
+      );
+    }
   }
+
+  const shardCursor = shards.length
+    ? (Math.max(0, Number(settings.shardCursor ?? 0)) + Math.max(1, selected.length)) % shards.length
+    : Math.max(0, Number(settings.shardCursor ?? 0));
 
   return {
     products,
-    shardCursor: (cursor + Math.max(1, selected.length)) % shards.length,
-    sitemapShards: shards,
-    sitemapFetchedAt: settings.sitemapFetchedAt ?? new Date().toISOString(),
+    shardCursor,
+    sitemapShards: shards.length ? shards : (Array.isArray(settings.sitemapShards) ? settings.sitemapShards : []),
+    sitemapFetchedAt: shards.length ? new Date().toISOString() : settings.sitemapFetchedAt ?? null,
     shardsScanned: selected.length,
     urlsScanned: uniqueUrls.length,
+    discoveryMethod,
     failed,
     failureDetails,
     scraping: {
-      simpleRequestsAttempted: simpleScrapesUsed,
-      browserFallbacksUsed: MAX_BROWSER_FALLBACKS_PER_RUN - browserFallbacksRemaining,
+      simpleRequestsAttempted,
+      browserFallbacksUsed: browserRequestsUsed,
+      discoveryBrowserRequestUsed: discoveryMethod !== 'DIRECT_URL' && Boolean(keyword),
       remainingCreditsBeforeRun: reportedRemaining,
       remainingCreditsAfterRun: (await getScrapingAntUsage()).remainingCredits,
     },
