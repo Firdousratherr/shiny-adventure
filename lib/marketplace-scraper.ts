@@ -236,7 +236,7 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
   const apiKey = getScrapingAntApiKey();
   if (!apiKey) throw new Error('Automatic scraping is not configured. Add SCRAPINGANT_API_KEY in Vercel, or enter title and price manually.');
 
-  const maxAttempts = Math.max(1, Math.min(2, options.maxAttempts ?? 2));
+  const maxAttempts = Math.max(1, Math.min(3, options.maxAttempts ?? 3));
   let lastError = 'Automatic scraper failed.';
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -246,6 +246,18 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
     endpoint.searchParams.set('proxy_country', 'in');
     endpoint.searchParams.set('timeout', String(options.browser ? Math.ceil(SCRAPER_BROWSER_TIMEOUT_MS / 1000) : 15));
     if (options.waitForSelector && options.browser) endpoint.searchParams.set('wait_for_selector', options.waitForSelector);
+
+    // Meesho can reject one proxy/browser combination with HTTP 423 even
+    // though another ScrapingAnt route works. Adapt the route instead of
+    // repeatedly sending the same fingerprint.
+    const route = attempt === 1
+      ? { proxyType: 'datacenter', country: 'in' }
+      : attempt === 2
+        ? { proxyType: 'residential', country: 'in' }
+        : { proxyType: 'residential', country: '' };
+    endpoint.searchParams.set('proxy_type', route.proxyType);
+    if (route.country) endpoint.searchParams.set('proxy_country', route.country);
+    else endpoint.searchParams.delete('proxy_country');
 
     try {
       const response = await fetchWithTimeout(endpoint.toString(), {
@@ -272,7 +284,7 @@ async function scraperFetch(url: string, provider: string, options: ScraperFetch
 
         // 409 is a concurrency/rate-limit response. Failed requests are not
         // billed, so retry with a short backoff instead of spending credits.
-        if (response.status === 409 && attempt < maxAttempts) {
+        if ((response.status === 409 || response.status === 423) && attempt < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
           continue;
         }
