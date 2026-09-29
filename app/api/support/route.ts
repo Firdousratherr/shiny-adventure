@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../auth';
 import { db } from '../../../lib/db';
+import { rateLimit } from '../../../lib/rate-limit';
 export async function GET() {
   const session=await auth(); if(session?.user?.role!=='customer'||!session.user.email)return NextResponse.json({error:'Unauthorized'},{status:401});
   const customer=await db.customerUser.findUnique({where:{email:session.user.email},select:{id:true}}); if(!customer)return NextResponse.json({error:'Unauthorized'},{status:401});
