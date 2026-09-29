@@ -61,6 +61,13 @@ export async function POST(request: Request) {
       finalPayment = await razorpay.payments.capture(paymentId, Math.round(Number(order.totalAmount) * 100), 'INR');
     }
 
+    if (finalPayment.status === 'captured' && (!order.reservationExpiresAt || order.reservationExpiresAt <= new Date())) {
+      // The gateway may capture after our inventory reservation expires. Do not
+      // confirm an order whose inventory is no longer reserved; the webhook
+      // path records the same late-capture state for refund review.
+      return NextResponse.json({ error: 'Payment was captured after the checkout reservation expired. The payment requires refund review.' }, { status: 409 });
+    }
+
     if (finalPayment.status !== 'captured') {
       const detail = finalPayment.error_description || finalPayment.error_reason || finalPayment.status || 'unknown status';
       console.error('razorpay payment not captured', {
@@ -79,7 +86,6 @@ export async function POST(request: Request) {
           id: order.id,
           status: 'PAYMENT_PENDING',
           paymentAccessTokenHash: order.paymentAccessTokenHash,
-          reservationExpiresAt: { gt: new Date() },
         },
         data: {
           status: 'CONFIRMED',
