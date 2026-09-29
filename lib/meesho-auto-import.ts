@@ -237,8 +237,10 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
         browserFallbacksRemaining > 0
         && (creditUsage.remainingCredits === null || creditUsage.remainingCredits >= 12);
 
-      const item = await scrapeMarketplaceProduct(url, { allowBrowserFallback });
-      if (allowBrowserFallback) browserFallbacksRemaining--;
+      const item = await scrapeMarketplaceProduct(url, {
+        allowBrowserFallback,
+        onBrowserFallback: () => { browserFallbacksRemaining--; },
+      });
 
       if (item.provider !== 'MEESHO' || !matchesFilters(item, settings)) continue;
 
