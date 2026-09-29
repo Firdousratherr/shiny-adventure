@@ -116,8 +116,8 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
     selected.push(shard);
 
     try {
-      const shardUrls = parseLocs(await scrapingBee(shard))
-        .filter(url => /^https?:\\/\\/(?:www\\.)?meesho\\.com\\/[^?#]+\\/p\\/[a-z0-9]+(?:[?#]|$)/i.test(url));
+      const shardUrls = parseLocs(await scrapingAnt(shard))
+        .filter(url => /^https?:\/\/(?:www\.)?meesho\.com\/[^?#]+\/p\/[a-z0-9]+(?:[?#]|$)/i.test(url));
 
       const matched = keywordTokens.length
         ? shardUrls.filter(url => {
