@@ -648,6 +648,7 @@ export async function syncMarketplace(integrationId: string, provider: string, r
       shardsScanned: discovery.shardsScanned,
       urlsScanned: discovery.urlsScanned,
       failureDetails: [...(discovery.failureDetails ?? []), ...(result.failureDetails ?? [])].slice(0, 3),
+      scraping: discovery.scraping,
     };
   }
 
