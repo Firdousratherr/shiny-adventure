@@ -189,8 +189,6 @@ async function discoverSearchUrls(keyword: string, limit: number) {
 
   const searchUrl = 'https://www.meesho.com/search?q=' + encodeURIComponent(q);
 
-  // Try the lightweight request first. If it does not contain product links,
-  // use a rendered browser page so the React catalogue has time to populate.
   try {
     const direct = await fetchPublic(searchUrl);
     const directUrls = extractMeeshoProductUrls(direct, limit);
@@ -199,9 +197,46 @@ async function discoverSearchUrls(keyword: string, limit: number) {
     // Continue to rendered discovery.
   }
 
+  // Meesho is a SPA. The rendered HTML can contain very few anchors while the
+  // actual catalogue arrives through fetch/XHR calls. ScrapingAnt's extended
+  // browser response exposes those network responses, so scan both page HTML
+  // and XHR bodies for product URLs before falling back to the sitemap.
   try {
-    const rendered = await scrapingAnt(searchUrl, 35000, true, 'a[href*="/p/"]');
-    return extractMeeshoProductUrls(rendered, limit);
+    const key = getScrapingAntApiKey();
+    if (!key) return [];
+
+    const endpoint = new URL('https://api.scrapingant.com/v2/extended');
+    endpoint.searchParams.set('url', searchUrl);
+    endpoint.searchParams.set('browser', 'true');
+    endpoint.searchParams.set('proxy_country', 'in');
+    endpoint.searchParams.set('timeout', '35');
+    endpoint.searchParams.set('wait_for_selector', 'a[href*="/p/"]');
+
+    const response = await fetch(endpoint.toString(), {
+      headers: { 'x-api-key': key, Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!response.ok) return [];
+
+    const data: any = await response.json();
+    const sources: string[] = [];
+    if (typeof data?.html === 'string') sources.push(data.html);
+    if (typeof data?.content === 'string') sources.push(data.content);
+    if (Array.isArray(data?.xhrs)) {
+      for (const xhr of data.xhrs) {
+        if (typeof xhr?.body === 'string') sources.push(xhr.body);
+        if (typeof xhr?.url === 'string') sources.push(xhr.url);
+      }
+    }
+
+    const found = new Set<string>();
+    for (const source of sources) {
+      for (const url of extractMeeshoProductUrls(source, limit)) {
+        found.add(url);
+        if (found.size >= limit) return [...found].slice(0, limit);
+      }
+    }
+    return [...found].slice(0, limit);
   } catch {
     return [];
   }
