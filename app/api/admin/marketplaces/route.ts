@@ -27,6 +27,19 @@ export async function GET() {
   try {
     const shopify = await getIntegration('SHOPIFY');
     const meesho = await getIntegration('MEESHO');
+    const staleBefore = new Date(Date.now() - 10 * 60 * 1000);
+    await db.marketplaceSyncRun.updateMany({
+      where: {
+        integrationId: { in: [shopify.id, meesho.id] },
+        status: 'RUNNING',
+        startedAt: { lt: staleBefore },
+      },
+      data: {
+        status: 'FAILED',
+        error: 'Stale run lock cleared automatically after the importer stopped responding.',
+        finishedAt: new Date(),
+      },
+    });
     const scrapingAntUsage = hasScrapingAntApiKey() ? await getScrapingAntUsage() : {
       planName: null,
       totalCredits: null,
@@ -136,12 +149,35 @@ export async function POST(request: Request) {
     if (body.provider === 'SHOPIFY' && !(await credentialStatus('SHOPIFY'))) return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before syncing.' }, { status: 409 });
     if (body.provider === 'MEESHO' && !hasScrapingAntApiKey()) return NextResponse.json({ error: 'Add SCRAPINGANT_API_KEY to the Vercel Production environment and redeploy before enabling Meesho Auto Import.' }, { status: 409 });
 
+    // A Vercel function can be killed by the platform while the database row
+    // remains RUNNING. Our importer is intentionally capped below 5 minutes,
+    // so a RUNNING row older than 10 minutes is a stale lock, not a live job.
+    const staleBefore = new Date(Date.now() - 10 * 60 * 1000);
+    await db.marketplaceSyncRun.updateMany({
+      where: {
+        integrationId: integration.id,
+        status: 'RUNNING',
+        startedAt: { lt: staleBefore },
+      },
+      data: {
+        status: 'FAILED',
+        error: 'Stale run lock cleared automatically after the importer stopped responding.',
+        finishedAt: new Date(),
+      },
+    });
+
     const activeRun = await db.marketplaceSyncRun.findFirst({
       where: { integrationId: integration.id, status: 'RUNNING' },
       orderBy: { startedAt: 'desc' },
-      select: { id: true },
+      select: { id: true, startedAt: true },
     });
-    if (activeRun) return NextResponse.json({ error: 'A marketplace import is already running. Wait for it to finish before starting another.' }, { status: 409 });
+    if (activeRun) {
+      return NextResponse.json({
+        error: 'A marketplace import is currently running.',
+        startedAt: activeRun.startedAt,
+        hint: 'If nothing is running, refresh once; stale locks older than 10 minutes are cleared automatically.',
+      }, { status: 409 });
+    }
 
     const started = Date.now();
     const syncSettings = body.provider === 'MEESHO' && typeof body.sourceUrl === 'string' && body.sourceUrl.trim()
