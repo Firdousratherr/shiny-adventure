@@ -9,6 +9,7 @@ import { credentialStatus, providerCapabilities, syncMarketplace } from '../../.
 import { getScrapingAntApiKey, getScrapingAntUsage, hasScrapingAntApiKey } from '../../../../lib/scrapingant';
 import { productImageUrl } from '../../../../lib/product-image-url';
 import { securityRateLimit } from '../../../../lib/rate-limit';
+import { acquireMarketplaceSyncLock, releaseMarketplaceSyncLock } from '../../../../lib/marketplace-lock';
 
 const PROVIDERS = [
   { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify app + client credentials' },
@@ -253,6 +254,11 @@ export async function POST(request: Request) {
       }, { status: 409 });
     }
 
+    const lockToken = await acquireMarketplaceSyncLock(integration.id);
+    if (!lockToken) {
+      return NextResponse.json({ error: 'A marketplace import is already running.' }, { status: 409 });
+    }
+
     const started = Date.now();
     const syncSettings = body.provider === 'MEESHO' && typeof body.sourceUrl === 'string' && body.sourceUrl.trim()
       ? { ...(integration.settings && typeof integration.settings === 'object' && !Array.isArray(integration.settings) ? integration.settings : {}), directUrl: body.sourceUrl.trim() }
@@ -307,6 +313,8 @@ export async function POST(request: Request) {
         details: { provider: body.provider, runId: run.id, error: message, duration },
       });
       return NextResponse.json({ error: message, runId: run.id }, { status: 502 });
+    } finally {
+      await releaseMarketplaceSyncLock(integration.id, lockToken);
     }
   } catch (error) {
     console.error('shopify marketplace sync failed', error);
