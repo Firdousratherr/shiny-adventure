@@ -3,10 +3,10 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    console.error('Zenvora page error', reset);
-  }, [reset]);
+    console.error('Zenvora page error', error);
+  }, [error]);
 
   return (
     <main id="main-content" className="min-h-screen bg-[#070b16] px-4 py-16 text-white">
