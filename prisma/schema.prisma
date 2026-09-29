@@ -378,6 +378,8 @@ model MarketplaceIntegration {
   importLogs            MarketplaceImportLog[]
   settings              Json?
   credentialsEncrypted  String?
+  syncLockToken         String?  @unique
+  syncLockAt            DateTime?
   healthStatus          String   @default("UNKNOWN")
   lastSyncDurationMs    Int?
 }
