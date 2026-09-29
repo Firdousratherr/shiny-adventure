@@ -257,7 +257,7 @@ async function scraperFetch(url: string, provider: string) {
 
       const challenged = /sec-if-cpt-container/i.test(body)
         || /cf-chl-|challenge-platform|verify you are human/i.test(body)
-        || (!/__NEXT_DATA__/i.test(body) && provider !== 'AMAZON' && !/<script[^>]+application\\/ld\\+json/i.test(body));
+        || (!/__NEXT_DATA__/i.test(body) && provider !== 'AMAZON' && !/<script[^>]+application\/ld\+json/i.test(body));
 
       if (challenged) {
         lastError = 'Meesho returned an anti-bot challenge.';
