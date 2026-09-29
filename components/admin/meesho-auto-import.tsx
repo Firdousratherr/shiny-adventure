@@ -8,6 +8,11 @@ type Integration = {
   lastSuccessAt: string | null;
   settings: Record<string, any> | null;
   credentialsConfigured: boolean;
+  scrapingAntUsage?: {
+    planName: string | null;
+    totalCredits: number | null;
+    remainingCredits: number | null;
+  };
 };
 
 export default function MeeshoAutoImport() {
@@ -79,10 +84,14 @@ export default function MeeshoAutoImport() {
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Meesho import failed.');
+      const scrape = j.scraping || {};
       const summary = `Found ${j.found ?? 0}, imported ${j.importedProducts ?? 0}, skipped ${j.skippedProducts ?? 0}, failed ${j.failedProducts ?? 0}.`;
+      const usage = scrape.remainingCreditsAfterRun !== null && scrape.remainingCreditsAfterRun !== undefined
+        ? ` ScrapingAnt credits left: ${Number(scrape.remainingCreditsAfterRun).toLocaleString()}.`
+        : '';
       const detail = Array.isArray(j.failureDetails) && j.failureDetails.length ? ` ${j.failureDetails[0]}` : '';
-      if (!j.importedProducts && j.failedProducts) setError(summary + detail);
-      else setMessage(summary + detail);
+      if (!j.importedProducts && j.failedProducts) setError(summary + usage + detail);
+      else setMessage(summary + usage + detail);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Meesho import failed.');
@@ -109,9 +118,16 @@ export default function MeeshoAutoImport() {
           <h2 className="mt-1 text-2xl font-black">Import to Zenvora</h2>
           <p className="mt-2 text-xs text-slate-400">Find public Meesho products and add them directly to your website.</p>
         </div>
-        <span className={integration?.credentialsConfigured ? 'rounded-full bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black text-emerald-300' : 'rounded-full bg-amber-500/10 px-3 py-1.5 text-[10px] font-black text-amber-300'}>
-          {integration?.credentialsConfigured ? 'READY' : 'ADD SCRAPINGANT KEY'}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={integration?.credentialsConfigured ? 'rounded-full bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black text-emerald-300' : 'rounded-full bg-amber-500/10 px-3 py-1.5 text-[10px] font-black text-amber-300'}>
+            {integration?.credentialsConfigured ? 'SCRAPINGANT CONNECTED' : 'ADD SCRAPINGANT KEY'}
+          </span>
+          {integration?.scrapingAntUsage?.remainingCredits !== null && integration?.scrapingAntUsage?.remainingCredits !== undefined && (
+            <span className="rounded-full bg-white/5 px-3 py-1.5 text-[10px] font-black text-slate-400">
+              {integration.scrapingAntUsage.remainingCredits.toLocaleString()} credits left
+            </span>
+          )}
+        </div>
       </div>
 
       {error && <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-xs text-red-300">{error}</div>}
