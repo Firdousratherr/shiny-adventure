@@ -201,3 +201,6 @@ main.bg-slate-100 .zenvora-card:hover{box-shadow:0 20px 40px rgba(79,70,229,.08)
 main.bg-slate-100 .hover\\:bg-slate-50:hover{background:#f8fafc!important}
 @media(max-width:767px){.store-container{padding-left:13px;padding-right:13px}.store-hero{border-radius:25px}.store-service-grid{grid-template-columns:1fr 1fr}.store-service-card:nth-child(2){border-right:0}.store-service-card:nth-child(n+3){border-top:1px solid #eef2f7}.store-page-heading-art{display:none}.store-cart-image{height:82px;width:82px}.store-order-row{grid-template-columns:1fr auto}.store-order-row>strong{grid-column:1/-1}.store-floating-tag.tag-a{left:-3px}.store-floating-tag.tag-b{right:-2px}.store-hero-product{max-width:360px}.store-hero-product-info{padding-top:11px}.store-checkout-progress{max-width:none}.store-checkout-progress>div>div{display:none}.store-progress-line{margin:0 7px}.store-header .store-container{padding-left:13px;padding-right:13px}}
 @media(prefers-reduced-motion:reduce){.store-reveal,.store-float,.store-product-card,.store-service-card,.store-category-pill,.store-eyebrow-dot{animation:none!important}.store-primary-btn:hover,.store-secondary-btn:hover,.store-product-card:hover{transform:none}}
+
+/* Contrast correction after storefront/admin theme migration */
+main.bg-slate-100 .text-white{color:#fff!important}
