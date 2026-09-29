@@ -86,6 +86,9 @@ export async function POST(request: Request) {
   }
 
   const limited = await rateLimit(`marketplace-direct-import:${access.id}`, 6, 60);
+  if (process.env.NODE_ENV === 'production' && !limited.configured) {
+    return NextResponse.json({ error: 'Direct marketplace import is temporarily unavailable because rate limiting is not configured.' }, { status: 503 });
+  }
   if (limited.limited) {
     return NextResponse.json(
       { error: 'Too many direct imports. Please wait a minute before trying again.' },
