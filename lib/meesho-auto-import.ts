@@ -63,7 +63,7 @@ async function scrapingAnt(url: string, timeoutMs = 60000, browser = false) {
               ? parsed.message
               : '';
           detail = rawDetail ? ': ' + rawDetail.slice(0, 300) : '';
-        } catch {}
+        } catch { /* ignore malformed Meesho URLs */ }
 
         lastError = 'ScrapingAnt returned HTTP ' + response.status + detail + '.';
 
@@ -139,7 +139,7 @@ async function discoverSearchUrls(keyword: string, limit: number) {
         const parsed = new URL(absolute);
         if (parsed.hostname.replace(/^www\\./, '') !== 'meesho.com') return;
         if (/\\/p\\/[^/?#]+/i.test(parsed.pathname)) found.add(absolute);
-      } catch {}
+      } catch { /* ignore malformed Meesho URLs */ }
     };
 
     for (const match of html.matchAll(/(?:href|url|productUrl|product_url)\\s*[:=]\\s*["']([^"']+)["']/gi)) add(match[1]);
