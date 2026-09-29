@@ -7,7 +7,33 @@ export async function GET() {
   if (session?.user?.role !== 'customer' || !session.user.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const user = await db.customerUser.findUnique({ where: { email: session.user.email }, select: { id: true } });
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const items = await db.wishlist.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, include: { product: { include: { images: { take: 1, orderBy: { sortOrder: 'asc' } } } } } });
+  const rows = await db.wishlist.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      createdAt: true,
+      product: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          sellingPrice: true,
+          stock: true,
+          status: true,
+          category: { select: { name: true, slug: true } },
+          images: { take: 1, orderBy: { sortOrder: 'asc' }, select: { url: true, altText: true } },
+        },
+      },
+    },
+  });
+  const items = rows.map((row) => ({
+    ...row,
+    product: {
+      ...row.product,
+      image: row.product.images[0] ?? null,
+    },
+  }));
   return NextResponse.json({ items });
 }
 
