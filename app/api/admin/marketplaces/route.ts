@@ -8,6 +8,7 @@ import { recordAdminAudit } from '../../../../lib/admin-audit';
 import { credentialStatus, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
 import { getScrapingAntApiKey, getScrapingAntUsage, hasScrapingAntApiKey } from '../../../../lib/scrapingant';
 import { productImageUrl } from '../../../../lib/product-image-url';
+import { rateLimit } from '../../../../lib/rate-limit';
 
 const PROVIDERS = [
   { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify app + client credentials' },
@@ -110,7 +111,6 @@ export async function GET() {
     console.info('marketplace runtime config', {
       vercelEnv: process.env.VERCEL_ENV ?? 'unknown',
       scrapingAntConfigured: hasScrapingAntApiKey(),
-      scrapingAntKeyLength: getScrapingAntApiKey().length,
       shopifyEnvConfigured: await credentialStatus('SHOPIFY'),
     });
     return NextResponse.json({
@@ -206,6 +206,11 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     if (!isProvider(body.provider)) return NextResponse.json({ error: 'Unsupported marketplace provider.' }, { status: 400 });
+
+    const syncRate = await rateLimit(`marketplace-sync:${admin.id}`, 2, 60);
+    if (syncRate.limited) {
+      return NextResponse.json({ error: 'Too many marketplace sync requests. Please wait a minute before starting another sync.' }, { status: 429 });
+    }
 
     const integration = await getIntegration(body.provider);
     if (!integration.enabled) return NextResponse.json({ error: 'Turn this marketplace ON before syncing.' }, { status: 409 });
