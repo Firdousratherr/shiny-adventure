@@ -254,12 +254,30 @@ async function loadSitemapShards(settings: MeeshoAutoSettings) {
 }
 
 function matchesFilters(item: { name: string; categoryName?: string }, settings: MeeshoAutoSettings) {
-  const keywords = clean(settings.keywords).split(',').map(x => x.toLowerCase()).filter(Boolean);
-  const categories = clean(settings.categories).split(',').map(x => x.toLowerCase()).filter(Boolean);
+  const keywordGroups = clean(settings.keywords)
+    .split(',')
+    .map(value => value.trim().toLowerCase())
+    .filter(Boolean);
+  const categoryFilters = clean(settings.categories)
+    .split(',')
+    .map(value => value.trim().toLowerCase())
+    .filter(Boolean);
   const haystack = (item.name + ' ' + clean(item.categoryName)).toLowerCase();
 
-  if (keywords.length && !keywords.some(k => haystack.includes(k))) return false;
-  if (categories.length && !categories.some(k => clean(item.categoryName).toLowerCase().includes(k))) return false;
+  // Search phrases such as "mobile accessories" should not require that exact
+  // phrase to appear in the product title; Meesho result pages often return
+  // products titled "phone cover", "charger", etc. Match at least one token.
+  if (keywordGroups.length) {
+    const keywordMatch = keywordGroups.some(group =>
+      group.split(/\s+/).filter(Boolean).some(token => haystack.includes(token)),
+    );
+    if (!keywordMatch) return false;
+  }
+
+  if (categoryFilters.length && !categoryFilters.some(filter => clean(item.categoryName).toLowerCase().includes(filter))) {
+    return false;
+  }
+
   return true;
 }
 
