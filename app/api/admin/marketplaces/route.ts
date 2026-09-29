@@ -173,6 +173,11 @@ export async function PATCH(request: Request) {
       'importImages', 'importDescriptions', 'importInventory', 'defaultInventory', 'keywords', 'categories', 'shardCountPerRun', 'shardCursor', 'sitemapShards', 'sitemapFetchedAt', 'importStatus',
     ];
     const settings = { ...currentSettings };
+
+    // A direct Meesho URL is a one-run override, never a persisted importer setting.
+    // Clear any legacy value so a later keyword run can never silently reuse an old URL.
+    if (body.provider === 'MEESHO') delete settings.directUrl;
+
     for (const key of allowedSettings) {
       if (body.settings && Object.prototype.hasOwnProperty.call(body.settings, key)) settings[key] = body.settings[key];
     }
