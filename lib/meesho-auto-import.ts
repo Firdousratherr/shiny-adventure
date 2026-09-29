@@ -1,6 +1,6 @@
 import { scrapeMarketplaceProduct } from './marketplace-scraper';
 import { getShopifyAccessToken } from './shopify';
-import { getScrapingAntApiKey } from './scrapingant';
+import { getScrapingAntApiKey, getScrapingAntUsage } from './scrapingant';
 
 export type MeeshoAutoSettings = {
   maxItemsPerSync?: number;
@@ -20,6 +20,8 @@ export type MeeshoAutoSettings = {
 const SITEMAP_INDEX = 'https://www.meesho.com/sitemap.xml';
 const DEFAULT_SHARD_COUNT = 1;
 const DEFAULT_MAX_ITEMS = 10;
+const MAX_BROWSER_FALLBACKS_PER_RUN = 2;
+const MAX_SIMPLE_SCRAPES_PER_RUN = 25;
 
 function clean(value: unknown) {
   return String(value ?? '').trim();
@@ -87,12 +89,45 @@ async function scrapingAnt(url: string, timeoutMs = 60000, browser = false) {
   throw new Error(lastError);
 }
 
+async function fetchPublic(url: string, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36',
+        Accept: 'text/html,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-IN,en;q=0.9',
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error('Source returned HTTP ' + response.status + '.');
+    const body = await response.text();
+    if (!body.trim()) throw new Error('Source returned an empty response.');
+    return body;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchSitemapDocument(url: string) {
+  // Public sitemap XML is normally available without a scraper. Prefer that
+  // path so the importer does not spend credits on discovery.
+  try {
+    return await fetchPublic(url);
+  } catch {
+    return scrapingAnt(url, 30000, false);
+  }
+}
+
 async function loadSitemapShards(settings: MeeshoAutoSettings) {
   const cached = Array.isArray(settings.sitemapShards) ? settings.sitemapShards.filter(Boolean) : [];
   const freshAt = settings.sitemapFetchedAt ? Date.parse(settings.sitemapFetchedAt) : 0;
   if (cached.length && Number.isFinite(freshAt) && Date.now() - freshAt < 24 * 60 * 60 * 1000) return cached;
 
-  const xml = await scrapingAnt(SITEMAP_INDEX, 30000, false);
+  const xml = await fetchSitemapDocument(SITEMAP_INDEX);
   const shards = parseLocs(xml).filter(url => /\/sitemap\/pdp\//i.test(url));
   if (!shards.length) throw new Error('Meesho sitemap did not return product shards.');
   return shards;
@@ -140,7 +175,8 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
     selected.push(shard);
 
     try {
-      const shardUrls = parseLocs(await scrapingAnt(shard))
+      const shardDocument = await fetchSitemapDocument(shard);
+      const shardUrls = parseLocs(shardDocument)
         .filter(url => /^https?:\/\/(?:www\.)?meesho\.com\/[^?#]+\/p\/[a-z0-9]+(?:[?#]|$)/i.test(url));
 
       const matched = keywordTokens.length
@@ -175,12 +211,35 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
   }> = [];
   let failed = 0;
   const failureDetails: string[] = [];
+  let simpleScrapesUsed = 0;
+  let browserFallbacksRemaining = MAX_BROWSER_FALLBACKS_PER_RUN;
+  let creditUsage = await getScrapingAntUsage();
+
+  // Keep a conservative reserve. A simple request costs 1 credit; browser
+  // rendering costs 10. We never spend the whole reported balance in one run.
+  const reportedRemaining = creditUsage.remainingCredits;
+  if (reportedRemaining !== null && reportedRemaining < 12) {
+    throw new Error(
+      'ScrapingAnt has only ' + reportedRemaining + ' credits remaining. Import stopped to protect the remaining credits.',
+    );
+  }
 
   for (const url of uniqueUrls) {
     if (products.length >= maxItems) break;
+    if (simpleScrapesUsed >= MAX_SIMPLE_SCRAPES_PER_RUN) {
+      failureDetails.push('Scraping budget reached. Run the import again to continue from the next sitemap shard.');
+      break;
+    }
 
     try {
-      const item = await scrapeMarketplaceProduct(url);
+      simpleScrapesUsed++;
+      const allowBrowserFallback =
+        browserFallbacksRemaining > 0
+        && (creditUsage.remainingCredits === null || creditUsage.remainingCredits >= 12);
+
+      const item = await scrapeMarketplaceProduct(url, { allowBrowserFallback });
+      if (allowBrowserFallback) browserFallbacksRemaining--;
+
       if (item.provider !== 'MEESHO' || !matchesFilters(item, settings)) continue;
 
       products.push({
@@ -223,6 +282,12 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
     urlsScanned: uniqueUrls.length,
     failed,
     failureDetails,
+    scraping: {
+      simpleRequestsAttempted: simpleScrapesUsed,
+      browserFallbacksUsed: MAX_BROWSER_FALLBACKS_PER_RUN - browserFallbacksRemaining,
+      remainingCreditsBeforeRun: reportedRemaining,
+      remainingCreditsAfterRun: (await getScrapingAntUsage()).remainingCredits,
+    },
   };
 }
 
