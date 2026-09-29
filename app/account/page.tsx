@@ -8,7 +8,7 @@ export default async function Account() {
 
   if (session?.user?.role !== 'customer') {
     return (
-      <main className="store-dark min-h-screen bg-[#070b16] text-white">
+      <main className="store-dark min-h-screen">
         <StoreHeader />
         <div className="container py-16">
           <div className="zenvora-empty-state mx-auto max-w-lg">
@@ -44,13 +44,13 @@ export default async function Account() {
   ]);
 
   return (
-    <main className="store-dark min-h-screen bg-[#070b16] text-white pb-28 sm:pb-10">
+    <main className="store-dark min-h-screen pb-28 sm:pb-10">
       <StoreHeader loggedIn />
 
       <div className="container py-7 sm:py-10">
         <div className="zenvora-page-hero">
           <div>
-            <span className="inline-flex rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-violet-200">My Zenvora</span>
+            <span className="inline-flex rounded-full border bg-violet-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-violet-700">My Zenvora</span>
             <h1 className="mt-4 text-4xl font-black tracking-[-.04em] sm:text-5xl">Welcome back, {customer?.name || session.user.name || 'Customer'}.</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Manage your details, saved addresses and recent orders from one place.</p>
           </div>
@@ -88,7 +88,7 @@ export default async function Account() {
                   <p className="text-[10px] font-black uppercase tracking-[.2em] text-violet-400">Purchase history</p>
                   <h2 className="mt-1 text-xl font-black">Recent orders</h2>
                 </div>
-                <Link href="/track" className="text-xs font-bold text-violet-300 hover:text-white">Track an order →</Link>
+                <Link href="/track" className="text-xs font-black text-violet-700 hover:text-fuchsia-600">Track an order →</Link>
               </div>
 
               {orders.length === 0 ? (
@@ -106,7 +106,7 @@ export default async function Account() {
                         <p className="font-black">#{order.orderNumber}</p>
                         <p className="mt-1 text-[10px] text-slate-500">{order.createdAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                       </div>
-                      <span className="w-fit rounded-full border border-violet-400/15 bg-violet-500/10 px-3 py-1 text-[10px] font-black text-violet-200">{order.status.replaceAll('_', ' ')}</span>
+                      <span className="w-fit rounded-full border bg-violet-50 px-3 py-1 text-[10px] font-black text-violet-700">{order.status.replaceAll('_', ' ')}</span>
                       <p className="font-black">₹{Number(order.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                     </div>
                   ))}

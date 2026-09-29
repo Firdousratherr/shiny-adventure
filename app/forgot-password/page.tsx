@@ -4,54 +4,20 @@ import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 
 export default function ForgotPassword() {
-  const [email,setEmail]=useState('');
-  const [otp,setOtp]=useState('');
-  const [password,setPassword]=useState('');
-  const [confirm,setConfirm]=useState('');
-  const [step,setStep]=useState<1|2>(1);
-  const [message,setMessage]=useState('');
-  const [error,setError]=useState('');
-  const [loading,setLoading]=useState(false);
+  const [email,setEmail]=useState(''); const [otp,setOtp]=useState(''); const [password,setPassword]=useState(''); const [confirm,setConfirm]=useState(''); const [step,setStep]=useState<1|2>(1); const [message,setMessage]=useState(''); const [error,setError]=useState(''); const [loading,setLoading]=useState(false);
 
   async function submit(e:FormEvent) {
     e.preventDefault(); setError(''); setMessage(''); setLoading(true);
     try {
-      if (step===1) {
-        const res=await fetch('/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
-        const result=await res.json();
-        if(!res.ok){setError(result.error||'Unable to send reset code.');setLoading(false);return;}
-        setMessage('If an account exists for this email, a reset code has been sent.');
-        setStep(2);
-      } else {
-        if(password!==confirm){setError('Passwords do not match.');setLoading(false);return;}
-        const res=await fetch('/api/auth/forgot-password/verify-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,otp,password})});
-        const result=await res.json();
-        if(!res.ok){setError(result.error||'Unable to reset password.');setLoading(false);return;}
-        window.location.href='/login?reset=success';
-      }
-    } catch { setError('Something went wrong. Please try again.'); }
-    setLoading(false);
+      if(step===1){const res=await fetch('/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});const result=await res.json();if(!res.ok){setError(result.error||'Unable to send reset code.');setLoading(false);return;}setMessage('If an account exists for this email, a reset code has been sent.');setStep(2);}
+      else{if(password!==confirm){setError('Passwords do not match.');setLoading(false);return;}const res=await fetch('/api/auth/forgot-password/verify-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,otp,password})});const result=await res.json();if(!res.ok){setError(result.error||'Unable to reset password.');setLoading(false);return;}window.location.href='/login?reset=success';}
+    } catch { setError('Something went wrong. Please try again.'); } setLoading(false);
   }
 
-  return <main className="min-h-screen bg-[#070b16] px-4 py-10 text-white">
-    <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center">
-      <div className="w-full rounded-[2rem] border border-white/10 bg-[#0c1222] p-7 shadow-[0_30px_100px_rgba(0,0,0,.5)] sm:p-10">
-        <Link href="/" className="text-2xl font-black">🛍️ Zenvora<span className="text-fuchsia-400">.</span></Link>
-        <p className="mt-10 text-sm font-black uppercase tracking-[.2em] text-fuchsia-400">Account recovery</p>
-        <h1 className="mt-2 text-4xl font-black">Reset password</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-400">{step===1 ? 'Enter your email and we will send a 6-digit verification code.' : <>Enter the code sent to <b className="text-slate-200">{email}</b> and choose a new password.</>}</p>
-        <form onSubmit={submit} className="mt-8 space-y-4">
-          {step===1 ? <label className="block text-sm font-bold text-slate-200">Email address<input required type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" className="mt-2 h-14 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-white outline-none placeholder:text-slate-500 focus:border-violet-500"/></label> :
-          <><label className="block text-sm font-bold text-slate-200">Verification code<input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,''))} autoComplete="one-time-code" placeholder="123456" className="mt-2 h-14 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-center text-2xl font-black tracking-[.5em] text-white outline-none placeholder:text-slate-600 focus:border-violet-500"/></label>
-          <label className="block text-sm font-bold text-slate-200">New password<input required minLength={12} type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" placeholder="At least 12 characters" className="mt-2 h-14 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-white outline-none placeholder:text-slate-500 focus:border-violet-500"/></label>
-          <label className="block text-sm font-bold text-slate-200">Confirm password<input required minLength={12} type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password" placeholder="Repeat your password" className="mt-2 h-14 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-white outline-none placeholder:text-slate-500 focus:border-violet-500"/></label></>}
-          {message && <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300">{message}</div>}
-          {error && <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300">{error}</div>}
-          <button disabled={loading} className="h-14 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 font-black disabled:opacity-60">{loading ? 'Please wait…' : step===1 ? 'Send Verification Code →' : 'Reset Password →'}</button>
-          {step===2 && <button type="button" onClick={()=>{setStep(1);setOtp('');setMessage('');setError('')}} className="w-full text-sm font-bold text-slate-400 hover:text-white">← Use another email</button>}
-        </form>
-        <Link href="/login" className="mt-7 block text-center text-sm font-bold text-fuchsia-400">← Back to sign in</Link>
-      </div>
-    </div>
-  </main>;
+  return <main className="min-h-screen bg-[#f7f8fc] px-3 py-4 text-slate-900 sm:px-5 sm:py-8"><div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-5xl overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-2xl shadow-violet-950/10 md:grid-cols-[1fr_1.05fr]">
+    <section className="relative hidden overflow-hidden bg-gradient-to-br from-[#171047] via-[#6d28d9] to-[#d946ef] p-10 text-white md:flex md:flex-col md:justify-between lg:p-12"><div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-cyan-300/15 blur-3xl"/><Link href="/" className="relative text-2xl font-black">Zenvora<span className="text-cyan-200">.</span></Link><div className="relative max-w-sm"><span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em]">Account recovery</span><h1 className="mt-5 text-5xl font-black leading-[.98]">Back in.<br/><span className="text-cyan-200">Back to shopping.</span></h1><p className="mt-5 text-sm leading-7 text-fuchsia-100/80">Verify your email, choose a new password and continue with your Zenvora account.</p></div><p className="relative text-[10px] text-fuchsia-100/70">Secure account recovery</p></section>
+    <section className="flex items-center px-5 py-8 sm:px-10 lg:px-12"><div className="mx-auto w-full max-w-sm"><div className="mb-7 flex items-center justify-between md:hidden"><Link href="/" className="text-xl font-black">Zenvora<span className="text-fuchsia-500">.</span></Link><span className="rounded-full bg-violet-50 px-3 py-1 text-[10px] font-black text-violet-700">Recovery</span></div><Link href="/login" className="text-xs font-bold text-slate-400 hover:text-violet-700">← Back to sign in</Link><p className="mt-7 text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-600">Account recovery</p><h1 className="mt-2 text-4xl font-black tracking-[-.04em]">Reset password</h1><p className="mt-3 text-sm leading-6 text-slate-500">{step===1?'Enter your email and we will send a 6-digit verification code.':<>Enter the code sent to <b className="text-slate-800">{email}</b> and choose a new password.</>}</p>
+      <form onSubmit={submit} className="mt-7 space-y-4">{step===1?<label className="block text-xs font-black text-slate-700">Email address<input required type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" className="mt-2 h-13 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10"/></label>:<><label className="block text-xs font-black text-slate-700">Verification code<input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,''))} autoComplete="one-time-code" placeholder="123456" className="mt-2 h-14 w-full rounded-2xl border border-slate-200 bg-white px-4 text-center text-2xl font-black tracking-[.5em] text-slate-900 outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10"/></label><label className="block text-xs font-black text-slate-700">New password<input required minLength={12} type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" placeholder="At least 12 characters" className="mt-2 h-13 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10"/></label><label className="block text-xs font-black text-slate-700">Confirm password<input required minLength={12} type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password" placeholder="Repeat your password" className="mt-2 h-13 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10"/></label></>}
+      {message&&<div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">{message}</div>}{error&&<div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-700">{error}</div>}<button disabled={loading} className="h-13 w-full rounded-2xl bg-gradient-to-r from-violet-700 via-violet-600 to-fuchsia-500 font-black text-white shadow-lg shadow-violet-500/20 disabled:opacity-60">{loading?'Please wait…':step===1?'Send Verification Code →':'Reset Password →'}</button>{step===2&&<button type="button" onClick={()=>{setStep(1);setOtp('');setMessage('');setError('')}} className="w-full text-xs font-bold text-slate-400 hover:text-violet-700">← Use another email</button>}</form></div></section>
+  </div></main>;
 }

@@ -135,7 +135,7 @@ export default function Checkout() {
 
   if (!items.length) {
     return (
-      <main className="store-dark min-h-screen bg-[#070b16] pb-28 text-white">
+      <main className="store-dark min-h-screen pb-28">
         <StoreHeader />
         <div className="container py-16">
           <div className="zenvora-empty-state mx-auto max-w-lg">
@@ -150,7 +150,7 @@ export default function Checkout() {
   }
 
   return (
-    <main className="store-dark min-h-screen bg-[#070b16] pb-28 text-white sm:pb-10">
+    <main className="store-dark min-h-screen pb-28 sm:pb-10">
       <StoreHeader />
       <div className="container py-5 sm:py-8">
         <div className="zenvora-checkout-steps">
