@@ -40,6 +40,8 @@ type Settings = {
   importImages?: boolean;
   importDescriptions?: boolean;
   importInventory?: boolean;
+  defaultInventory?: number;
+  directUrl?: string;
   changedBy?: string;
   categoryMappings?: Record<string, string>;
   keywords?: string;
@@ -341,7 +343,9 @@ export async function importItems(integrationId: string, provider: string, items
     const collections = Array.isArray(raw.collections?.nodes) ? raw.collections.nodes : [];
     const categoryName = provider === 'SHOPIFY'
       ? String(collections[0]?.title || raw.productType || '').trim()
-      : '';
+      : provider === 'MEESHO'
+        ? String(raw.categoryName || '').trim()
+        : '';
     const mappedCategoryId = provider === 'SHOPIFY' && settings.categoryMappings
       ? collections.map((x: any) => String(x?.handle || '').trim()).map((key: string) => settings.categoryMappings?.[key]).find(Boolean)
         || settings.categoryMappings[categoryName]
@@ -379,7 +383,13 @@ export async function importItems(integrationId: string, provider: string, items
           sourceUrl: item.sourceUrl ?? null,
           sourceCost: cost,
           sellingPrice: sellingPrice || 0,
-          stock: settings.importInventory === false ? 0 : (provider === 'SHOPIFY' ? Number(raw.totalInventory ?? 0) || 0 : 0),
+          stock: settings.importInventory === false
+            ? 0
+            : provider === 'SHOPIFY'
+              ? Number(raw.totalInventory ?? 0) || 0
+              : provider === 'MEESHO'
+                ? Math.max(1, Number(settings.defaultInventory ?? 10) || 10)
+                : 0,
           categoryId,
           status: provider === 'MEESHO' && settings.importStatus === 'ACTIVE' ? 'ACTIVE' : 'DRAFT',
         },
@@ -396,6 +406,8 @@ export async function importItems(integrationId: string, provider: string, items
       if (provider === 'SHOPIFY') {
         if (settings.importDescriptions !== false) updateData.description = String(raw.descriptionHtml || '') || null;
         if (settings.importInventory !== false) updateData.stock = Number(raw.totalInventory ?? 0) || 0;
+      } else if (provider === 'MEESHO' && settings.importInventory !== false) {
+        updateData.stock = Math.max(1, Number(settings.defaultInventory ?? 10) || 10);
       }
       if (categoryId) updateData.categoryId = categoryId;
       if (settings.updatePrice !== false && !(settings.protectLockedPrice !== false && existing?.product?.priceLocked)) {
@@ -637,6 +649,7 @@ export async function syncMarketplace(integrationId: string, provider: string, r
       sitemapShards: discovery.sitemapShards,
       sitemapFetchedAt: discovery.sitemapFetchedAt,
     };
+    delete nextSettings.directUrl;
     await db.marketplaceIntegration.update({ where: { id: integrationId }, data: { settings: nextSettings as any } });
     return {
       importedProducts: result.imported + result.updated,
