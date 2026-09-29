@@ -5,50 +5,90 @@ import { db } from '../../../lib/db';
 import AddToCart from '../../../components/add-to-cart';
 import WishlistButton from '../../../components/wishlist-button';
 import ProductGallery from '../../../components/product-gallery';
+import StoreHeader from '../../../components/store-header';
+import StoreFooter from '../../../components/store-footer';
 import { productImageUrl } from '../../../lib/product-image-url';
 import { productDescriptionText } from '../../../lib/product-description';
 
-function jsonLd(value: unknown) {
-  return JSON.stringify(value).replace(/</g, '\\u003c');
-}
+function jsonLd(value: unknown) { return JSON.stringify(value).replace(/</g, '\\u003c'); }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const p = await db.product.findFirst({ where: { slug: params.slug, status: 'ACTIVE' }, select: { name: true, description: true, metaTitle: true, metaDescription: true, canonicalUrl: true, images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } } } });
+  const p = await db.product.findFirst({
+    where:{ slug:params.slug, status:'ACTIVE' },
+    select:{ name:true, description:true, metaTitle:true, metaDescription:true, canonicalUrl:true, images:{orderBy:{sortOrder:'asc'},take:1,select:{url:true}} }
+  });
   if (!p) return {};
-  return { title: p.metaTitle || p.name, description: p.metaDescription || p.description || `Shop ${p.name} online at Zenvora.`, alternates: p.canonicalUrl ? { canonical: p.canonicalUrl } : undefined, openGraph: { title: p.metaTitle || p.name, description: p.metaDescription || p.description || undefined, images: p.images[0] ? [productImageUrl(p.images[0].url) || p.images[0].url] : [] } };
+  return { title:p.metaTitle||p.name, description:p.metaDescription||p.description||('Shop '+p.name+' online at Zenvora.'), alternates:p.canonicalUrl?{canonical:p.canonicalUrl}:undefined, openGraph:{title:p.metaTitle||p.name,description:p.metaDescription||p.description||undefined,images:p.images[0]?[productImageUrl(p.images[0].url)||p.images[0].url]:[]} };
 }
 
 export default async function Product({ params }: { params: { slug: string } }) {
-  const p = await db.product.findFirst({ where: { slug: params.slug, status: 'ACTIVE' }, select: { id: true, name: true, slug: true, description: true, sellingPrice: true, stock: true, images: { orderBy: { sortOrder: 'asc' }, select: { url: true, altText: true } } } });
+  const p = await db.product.findFirst({
+    where:{ slug:params.slug, status:'ACTIVE' },
+    select:{ id:true,name:true,slug:true,description:true,sellingPrice:true,stock:true,images:{orderBy:{sortOrder:'asc'},select:{url:true,altText:true}} }
+  });
   if (!p) notFound();
-  const productUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/product/${p.slug}`;
-  const productSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: p.name,
-    description: productDescriptionText(p.description) || `Shop ${p.name} online at Zenvora.`,
-    url: productUrl,
-    image: p.images.map(image => image.url),
-    offers: {
-      '@type': 'Offer',
-      priceCurrency: 'INR',
-      price: Number(p.sellingPrice).toFixed(2),
-      availability: p.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-      url: productUrl,
-    },
+  const productUrl=(process.env.NEXT_PUBLIC_SITE_URL||'http://localhost:3000')+'/product/'+p.slug;
+  const productSchema={
+    '@context':'https://schema.org','@type':'Product',name:p.name,
+    description:productDescriptionText(p.description)||('Shop '+p.name+' online at Zenvora.'),
+    url:productUrl,image:p.images.map(image=>image.url),
+    offers:{'@type':'Offer',priceCurrency:'INR',price:Number(p.sellingPrice).toFixed(2),availability:p.stock>0?'https://schema.org/InStock':'https://schema.org/OutOfStock',url:productUrl}
   };
-  return <main id="main-content" className="min-h-screen bg-[#070b16] px-4 pt-5 pb-32 text-white sm:px-6 sm:py-10 sm:pb-10">
-    <div className="mx-auto max-w-6xl"><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(productSchema) }} />
-      <nav className="flex items-center justify-between border-b border-white/10 pb-4 text-sm"><div className="flex items-center gap-2 text-slate-400"><Link href="/" className="hover:text-white">Home</Link><span>/</span><Link href="/products" className="hover:text-white">Shop</Link><span>/</span><span className="max-w-[180px] truncate text-slate-200">{p.name}</span></div><Link href="/cart" className="rounded-xl border border-white/10 px-3 py-2 font-bold hover:bg-white/5">🛒 Cart</Link></nav>
-      <div className="mt-7 grid gap-8 lg:grid-cols-[1.05fr_.95fr] lg:gap-12">
-        <section><ProductGallery images={p.images.map(image => ({ url: productImageUrl(image.url) || '', alt: image.altText || p.name }))} name={p.name} stock={p.stock} /></section>
-        <section className="lg:sticky lg:top-20 lg:h-fit"><p className="text-xs font-black uppercase tracking-[.22em] text-fuchsia-400">Zenvora · Premium selection</p><h1 className="mt-2 text-3xl font-black leading-tight sm:text-4xl">{p.name}</h1><div className="mt-5 flex flex-wrap items-end gap-3"><p className="text-3xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN',{minimumFractionDigits:2})}</p>{p.stock>0?<span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">In stock</span>:<span className="rounded-full bg-rose-500/10 px-3 py-1 text-xs font-bold text-rose-300">Out of stock</span>}</div>
-          <div className="mt-5 grid grid-cols-3 gap-2">{[['🔒','Secure','payments'],['🚚','Fast','delivery'],['↻','Easy','returns']].map(([i,a,b])=><div key={a} className="rounded-2xl border border-white/10 bg-white/5 p-3 text-center"><span>{i}</span><p className="mt-1 text-xs font-bold">{a}</p><p className="text-[10px] text-slate-500">{b}</p></div>)}</div>
-          <div className="mt-6"><p className="text-xs font-black uppercase tracking-widest text-slate-500">About this product</p><p className="mt-3 whitespace-pre-wrap leading-7 text-slate-300">{productDescriptionText(p.description)||'Quality product selected for the Zenvora marketplace.'}</p></div>
-          <div className="mt-6 flex flex-wrap gap-2 sm:block"><div className="hidden rounded-2xl border border-white/10 bg-white/5 p-4 sm:block"><AddToCart product={{id:p.id,name:p.name,price:Number(p.sellingPrice),image:productImageUrl(p.images[0]?.url),stock:p.stock}} /></div><WishlistButton productId={p.id} /></div>
-        </section>
+
+  return (
+    <main id="main-content" className="store-shell">
+      <StoreHeader />
+      <div className="store-container pb-28 pt-5 sm:pb-12 sm:pt-7">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{__html:jsonLd(productSchema)}} />
+        <nav className="store-breadcrumb" aria-label="Breadcrumb">
+          <Link href="/">Home</Link><span>/</span><Link href="/products">Shop</Link><span>/</span><span className="max-w-[220px] truncate text-slate-700">{p.name}</span>
+        </nav>
+
+        <div className="mt-6 grid gap-8 lg:grid-cols-[1.03fr_.97fr] lg:gap-12">
+          <section className="store-reveal">
+            <ProductGallery images={p.images.map(image=>({url:productImageUrl(image.url)||'',alt:image.altText||p.name}))} name={p.name} stock={p.stock} />
+          </section>
+
+          <section className="lg:sticky lg:top-24 lg:h-fit">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="store-soft-badge">Zenvora selection</span>
+              {p.stock>0&&p.stock<=5&&<span className="store-warn-badge">Only {p.stock} left</span>}
+            </div>
+            <h1 className="mt-4 text-3xl font-black leading-[1.08] tracking-[-.035em] text-slate-950 sm:text-5xl">{p.name}</h1>
+            <div className="mt-5 flex flex-wrap items-end gap-3">
+              <p className="text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">₹{Number(p.sellingPrice).toLocaleString('en-IN',{minimumFractionDigits:2})}</p>
+              <span className={'store-stock-badge '+(p.stock>0?'is-good':'is-bad')}>{p.stock>0?'In stock':'Out of stock'}</span>
+            </div>
+
+            <div className="mt-6 grid grid-cols-3 gap-2.5">
+              {[['🔒','Secure','checkout'],['🚚','Reliable','delivery'],['↻','Easy','returns']].map(([icon,a,b])=><div key={a} className="store-benefit-card"><span>{icon}</span><strong>{a}</strong><small>{b}</small></div>)}
+            </div>
+
+            <div className="mt-7 border-t border-slate-200 pt-7">
+              <p className="store-kicker">About this product</p>
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600 sm:text-base">{productDescriptionText(p.description)||'A quality product selected for the Zenvora marketplace.'}</p>
+            </div>
+
+            <div className="mt-7 hidden sm:block">
+              <AddToCart product={{id:p.id,name:p.name,slug:p.slug,price:Number(p.sellingPrice),image:productImageUrl(p.images[0]?.url),stock:p.stock}} />
+              <div className="mt-3"><WishlistButton productId={p.id} /></div>
+            </div>
+
+            <div className="mt-7 rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 to-indigo-50 p-5">
+              <p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">A smoother shopping experience</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div><p className="text-sm font-extrabold text-slate-900">Clear pricing</p><p className="mt-1 text-xs leading-5 text-slate-500">What you see here is the current selling price.</p></div>
+                <div><p className="text-sm font-extrabold text-slate-900">Protected checkout</p><p className="mt-1 text-xs leading-5 text-slate-500">Final order totals are verified on the server.</p></div>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
-      <div className="zenvora-sticky-action fixed inset-x-0 bottom-0 px-4 py-3 sm:hidden"><AddToCart product={{id:p.id,name:p.name,price:Number(p.sellingPrice),image:productImageUrl(p.images[0]?.url),stock:p.stock}} /></div>
-    </div>
-  </main>;
+
+      <div className="store-mobile-buy fixed inset-x-0 bottom-0 z-50 p-3 sm:hidden">
+        <AddToCart product={{id:p.id,name:p.name,slug:p.slug,price:Number(p.sellingPrice),image:productImageUrl(p.images[0]?.url),stock:p.stock}} />
+      </div>
+      <StoreFooter />
+    </main>
+  );
 }
