@@ -108,3 +108,7 @@ main.bg-slate-100 .sticky{backdrop-filter:blur(14px)}
 /* Final responsive polish */
 .zenvora-mobile-nav{bottom:max(8px,env(safe-area-inset-bottom));}
 @media(max-width:767px){body:has(.zenvora-mobile-nav){padding-bottom:calc(84px + env(safe-area-inset-bottom));}.zenvora-mobile-nav a{min-height:54px}.zenvora-mobile-nav a:active{transform:scale(.98)}}
+
+/* Category action contrast */
+main.bg-slate-100 .category-edit-button{color:#0f172a!important;background:#fff!important}
+main.bg-slate-100 .category-edit-button:hover{background:#f1f5f9!important}
