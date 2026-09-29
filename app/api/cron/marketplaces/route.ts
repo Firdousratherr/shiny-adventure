@@ -15,10 +15,31 @@ export async function GET(request: Request) {
   const released = await db.$transaction(async tx => releaseExpiredPaymentReservations(tx));
   const integrations = await db.marketplaceIntegration.findMany({
     where: { provider: { in: ['SHOPIFY', 'MEESHO'] }, enabled: true, autoSync: true },
+    orderBy: [{ lastSyncAt: 'asc' }, { createdAt: 'asc' }],
+    take: 1,
   });
   const results: Array<Record<string, unknown>> = [];
 
   for (const integration of integrations) {
+    const staleBefore = new Date(Date.now() - 10 * 60 * 1000);
+    await db.marketplaceSyncRun.updateMany({
+      where: { integrationId: integration.id, status: 'RUNNING', startedAt: { lt: staleBefore } },
+      data: {
+        status: 'FAILED',
+        error: 'Stale scheduled run lock cleared automatically after the importer stopped responding.',
+        finishedAt: new Date(),
+      },
+    });
+
+    const activeRun = await db.marketplaceSyncRun.findFirst({
+      where: { integrationId: integration.id, status: 'RUNNING' },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true },
+    });
+    if (activeRun) {
+      results.push({ provider: integration.provider, status: 'SKIPPED', reason: 'A sync is already running.' });
+      continue;
+    }
     if (!integration.lastSyncAt) {
       // First automatic run.
     } else {
