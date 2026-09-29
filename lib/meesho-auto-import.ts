@@ -44,60 +44,74 @@ async function scrapingAnt(
   const key = getScrapingAntApiKey();
   if (!key) throw new Error('Add SCRAPINGANT_API_KEY in Vercel before enabling Meesho Auto Import.');
 
+  // A 403 from ScrapingAnt can be caused by a request configuration rather
+  // than the key itself. Try the documented browser/proxy combinations before
+  // giving up. This is especially important for Meesho search pages.
+  const routes = [
+    { browser, proxyType: 'datacenter', country: 'in' },
+    { browser: !browser, proxyType: 'datacenter', country: 'in' },
+    { browser: false, proxyType: 'residential', country: 'in' },
+    { browser: true, proxyType: 'residential', country: '' },
+  ];
   let lastError = 'ScrapingAnt request failed.';
-  const attempts = 3;
 
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    const endpoint = new URL('https://api.scrapingant.com/v2/general');
-    endpoint.searchParams.set('url', url);
-    endpoint.searchParams.set('browser', browser ? 'true' : 'false');
-    endpoint.searchParams.set('proxy_country', 'in');
-    endpoint.searchParams.set('timeout', String(Math.max(5, Math.min(60, Math.ceil(timeoutMs / 1000)))));
-    if (browser && waitForSelector) endpoint.searchParams.set('wait_for_selector', waitForSelector);
+  for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+    const route = routes[routeIndex];
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const endpoint = new URL('https://api.scrapingant.com/v2/general');
+      endpoint.searchParams.set('url', url);
+      endpoint.searchParams.set('browser', route.browser ? 'true' : 'false');
+      endpoint.searchParams.set('proxy_type', route.proxyType);
+      if (route.country) endpoint.searchParams.set('proxy_country', route.country);
+      endpoint.searchParams.set('timeout', String(Math.max(5, Math.min(60, Math.ceil(timeoutMs / 1000)))));
+      if (route.browser && waitForSelector) endpoint.searchParams.set('wait_for_selector', waitForSelector);
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(endpoint.toString(), {
-        headers: { 'x-api-key': key, Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
-        cache: 'no-store',
-        signal: controller.signal,
-      });
-      const body = await response.text();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(endpoint.toString(), {
+          headers: { 'x-api-key': key, Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        const body = await response.text();
 
-      if (!response.ok) {
-        let detail = '';
-        try {
-          const parsed = JSON.parse(body);
-          const rawDetail = typeof parsed?.detail === 'string'
-            ? parsed.detail
-            : typeof parsed?.message === 'string'
-              ? parsed.message
-              : '';
-          detail = rawDetail ? ': ' + rawDetail.slice(0, 300) : '';
-        } catch {
-          // Ignore a non-JSON error body.
+        if (!response.ok) {
+          let detail = '';
+          try {
+            const parsed = JSON.parse(body);
+            const rawDetail = typeof parsed?.detail === 'string'
+              ? parsed.detail
+              : typeof parsed?.message === 'string'
+                ? parsed.message
+                : '';
+            detail = rawDetail ? ': ' + rawDetail.slice(0, 300) : '';
+          } catch {}
+          lastError = 'ScrapingAnt returned HTTP ' + response.status + detail + '.';
+
+          if (response.status === 403 && routeIndex < routes.length - 1) {
+            break;
+          }
+          if (attempt < 2 && [409, 423, 429, 500, 502, 503, 504].includes(response.status)) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            continue;
+          }
+          throw new Error(lastError);
         }
-        lastError = 'ScrapingAnt returned HTTP ' + response.status + detail + '.';
 
-        if (attempt < attempts && [409, 423, 429, 500, 502, 503, 504].includes(response.status)) {
-          await new Promise(resolve => setTimeout(resolve, 1200 * attempt));
+        if (!body.trim()) throw new Error('ScrapingAnt returned an empty response.');
+        return body;
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : lastError;
+        if (routeIndex < routes.length - 1 && /HTTP 403/i.test(lastError)) break;
+        if (attempt < 2 && /HTTP (409|423|429|5\\d\\d)|timed out|aborted/i.test(lastError)) {
+          await new Promise(resolve => setTimeout(resolve, 900 * attempt));
           continue;
         }
         throw new Error(lastError);
+      } finally {
+        clearTimeout(timer);
       }
-
-      if (!body.trim()) throw new Error('ScrapingAnt returned an empty response.');
-      return body;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : lastError;
-      if (attempt < attempts && /timed out|aborted|HTTP (409|423|429|5\d\d)/i.test(lastError)) {
-        await new Promise(resolve => setTimeout(resolve, 900 * attempt));
-        continue;
-      }
-      throw new Error(lastError);
-    } finally {
-      clearTimeout(timer);
     }
   }
 
