@@ -1,14 +1,121 @@
 import Link from 'next/link';
 import { auth, signOut } from '../../auth';
 import { db } from '../../lib/db';
+import StoreHeader from '../../components/store-header';
 
 export default async function Account() {
   const session = await auth();
-  if (session?.user?.role !== 'customer') return <main className="min-h-screen bg-slate-950 p-8 text-white"><div className="mx-auto max-w-lg rounded-3xl bg-white/5 p-8 text-center"><h1 className="text-3xl font-black">Please sign in</h1><Link href="/login" className="mt-6 inline-flex rounded-xl bg-violet-600 px-6 py-3 font-bold">Sign in</Link></div></main>;
+
+  if (session?.user?.role !== 'customer') {
+    return (
+      <main className="store-dark min-h-screen bg-[#070b16] text-white">
+        <StoreHeader />
+        <div className="container py-16">
+          <div className="zenvora-empty-state mx-auto max-w-lg">
+            <div className="text-5xl">◉</div>
+            <h1 className="mt-5 text-2xl font-black">Your account is waiting</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Sign in to view your orders, profile and saved addresses.</p>
+            <Link href="/login" className="mt-6 inline-flex rounded-xl bg-white px-6 py-3 font-black text-slate-950">Sign in</Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const email = session.user.email ?? undefined;
-  if (!email) return <main className="min-h-screen bg-slate-950 p-8 text-white"><div className="mx-auto max-w-lg rounded-3xl bg-white/5 p-8 text-center"><h1 className="text-3xl font-black">Account unavailable</h1><p className="mt-3 text-slate-400">Your account session is missing an email address. Please sign in again.</p><Link href="/login" className="mt-6 inline-flex rounded-xl bg-violet-600 px-6 py-3 font-bold">Sign in</Link></div></main>;
-  const customer = await db.customerUser.findUnique({ where: { email }, select: { name:true,email:true,createdAt:true } });
-  const orders = await db.order.findMany({ where:{email}, orderBy:{createdAt:'desc'}, take:10, select:{orderNumber:true,status:true,totalAmount:true,createdAt:true} });
-  return <main className="min-h-screen bg-[#070b16] text-white"><header className="border-b border-white/10 bg-[#090e1c]/90 backdrop-blur"><div className="container flex h-16 items-center justify-between"><Link href="/" className="text-2xl font-black">🛍️ Zenvora<span className="text-fuchsia-400">.</span></Link><div className="flex items-center gap-2"><Link href="/products" className="rounded-xl px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/5">Shop</Link><form action={async()=>{'use server';await signOut({redirectTo:'/'})}}><button className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/5">Logout</button></form></div></div></header>
-  <div className="container py-8 sm:py-12"><div className="grid gap-6 lg:grid-cols-[260px_1fr]"><aside className="rounded-3xl border border-white/10 bg-white/5 p-5"><p className="text-xs font-black uppercase tracking-widest text-fuchsia-400">My account</p><h1 className="mt-2 text-2xl font-black">{customer?.name||session.user.name||'Customer'}</h1><p className="mt-1 break-all text-sm text-slate-400">{customer?.email||email}</p><nav className="mt-7 space-y-1 text-sm font-bold"><Link href="/account" className="block rounded-xl bg-violet-600/20 px-4 py-3 text-violet-200">Overview</Link><Link href="/account/profile" className="block rounded-xl px-4 py-3 text-slate-300 hover:bg-white/5">Edit profile</Link><Link href="/account/addresses" className="block rounded-xl px-4 py-3 text-slate-300 hover:bg-white/5">Saved addresses</Link><Link href="/products" className="block rounded-xl px-4 py-3 text-slate-300 hover:bg-white/5">Continue shopping</Link></nav></aside><section><div className="rounded-3xl border border-white/10 bg-gradient-to-br from-violet-700/40 to-fuchsia-600/20 p-6 sm:p-8"><p className="text-sm font-bold text-violet-200">Welcome back</p><h2 className="mt-1 text-3xl font-black">Your Zenvora account</h2><p className="mt-2 text-sm text-slate-300">Track your recent purchases and keep shopping.</p></div><div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-7"><div className="flex items-center justify-between"><h2 className="text-xl font-black">My Orders</h2><Link href="/track" className="text-sm font-bold text-fuchsia-400">Track order →</Link></div>{orders.length===0?<p className="mt-8 rounded-2xl bg-black/20 p-8 text-center text-sm text-slate-400">Your orders will appear here after checkout.</p>:<div className="mt-5 space-y-3">{orders.map(o=><div key={o.orderNumber} className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black">#{o.orderNumber}</p><p className="text-xs text-slate-500">{o.createdAt.toLocaleDateString('en-IN')}</p></div><span className="w-fit rounded-full bg-violet-500/15 px-3 py-1 text-xs font-bold text-violet-200">{o.status.replaceAll('_',' ')}</span><p className="font-black">₹{Number(o.totalAmount).toLocaleString('en-IN',{minimumFractionDigits:2})}</p></div>)}</div>}</div></section></div></div></main>;
+  if (!email) {
+    return (
+      <main className="store-dark min-h-screen bg-[#070b16] text-white">
+        <StoreHeader />
+        <div className="container py-16">
+          <div className="zenvora-empty-state mx-auto max-w-lg">
+            <h1 className="text-2xl font-black">Account unavailable</h1>
+            <p className="mt-3 text-sm text-slate-500">Your current session is missing an email address. Please sign in again.</p>
+            <Link href="/login" className="mt-6 inline-flex rounded-xl bg-white px-6 py-3 font-black text-slate-950">Sign in</Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const [customer, orders] = await Promise.all([
+    db.customerUser.findUnique({ where: { email }, select: { name: true, email: true, createdAt: true } }),
+    db.order.findMany({ where: { email }, orderBy: { createdAt: 'desc' }, take: 10, select: { orderNumber: true, status: true, totalAmount: true, createdAt: true } }),
+  ]);
+
+  return (
+    <main className="store-dark min-h-screen bg-[#070b16] text-white pb-28 sm:pb-10">
+      <StoreHeader loggedIn />
+
+      <div className="container py-7 sm:py-10">
+        <div className="zenvora-page-hero">
+          <div>
+            <span className="inline-flex rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-violet-200">My Zenvora</span>
+            <h1 className="mt-4 text-4xl font-black tracking-[-.04em] sm:text-5xl">Welcome back, {customer?.name || session.user.name || 'Customer'}.</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Manage your details, saved addresses and recent orders from one place.</p>
+          </div>
+          <form action={async () => { 'use server'; await signOut({ redirectTo: '/' }); }}>
+            <button className="rounded-xl border border-white/10 bg-white/[.035] px-4 py-2.5 text-xs font-black hover:bg-white/[.07]">Sign out</button>
+          </form>
+        </div>
+
+        <div className="mt-8 grid gap-5 lg:grid-cols-[250px_1fr]">
+          <aside className="zenvora-account-nav">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-500 text-lg font-black shadow-lg shadow-violet-950/30">
+              {(customer?.name || session.user.name || 'C').slice(0, 1).toUpperCase()}
+            </div>
+            <p className="mt-4 text-lg font-black">{customer?.name || session.user.name || 'Customer'}</p>
+            <p className="mt-1 break-all text-xs text-slate-500">{customer?.email || email}</p>
+
+            <nav className="mt-6 space-y-1">
+              <Link href="/account" className="zenvora-account-link-active">Overview <span>→</span></Link>
+              <Link href="/account/profile" className="zenvora-account-link">Edit profile <span>→</span></Link>
+              <Link href="/account/addresses" className="zenvora-account-link">Saved addresses <span>→</span></Link>
+              <Link href="/products" className="zenvora-account-link">Continue shopping <span>→</span></Link>
+            </nav>
+          </aside>
+
+          <section className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="zenvora-account-stat"><span>Orders</span><strong>{orders.length}</strong><small>recent orders shown</small></div>
+              <div className="zenvora-account-stat"><span>Account</span><strong>Active</strong><small>customer account</small></div>
+              <div className="zenvora-account-stat"><span>Member since</span><strong>{customer?.createdAt ? customer.createdAt.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'}</strong><small>with Zenvora</small></div>
+            </div>
+
+            <section className="zenvora-account-panel">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[.2em] text-violet-400">Purchase history</p>
+                  <h2 className="mt-1 text-xl font-black">Recent orders</h2>
+                </div>
+                <Link href="/track" className="text-xs font-bold text-violet-300 hover:text-white">Track an order →</Link>
+              </div>
+
+              {orders.length === 0 ? (
+                <div className="zenvora-empty-state mt-6 py-12">
+                  <div className="text-4xl">📦</div>
+                  <p className="mt-4 font-black">No orders yet</p>
+                  <p className="mt-2 text-sm text-slate-500">Your purchases will appear here after checkout.</p>
+                  <Link href="/products" className="mt-5 inline-flex rounded-xl bg-white px-5 py-3 text-xs font-black text-slate-950">Start shopping</Link>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-2">
+                  {orders.map((order) => (
+                    <div key={order.orderNumber} className="zenvora-order-row">
+                      <div className="min-w-0">
+                        <p className="font-black">#{order.orderNumber}</p>
+                        <p className="mt-1 text-[10px] text-slate-500">{order.createdAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      </div>
+                      <span className="w-fit rounded-full border border-violet-400/15 bg-violet-500/10 px-3 py-1 text-[10px] font-black text-violet-200">{order.status.replaceAll('_', ' ')}</span>
+                      <p className="font-black">₹{Number(order.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </section>
+        </div>
+      </div>
+    </main>
+  );
 }
