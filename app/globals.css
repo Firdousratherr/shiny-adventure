@@ -800,3 +800,23 @@ main.bg-slate-900 .bg-violet-50 { background: #f1edff !important; }
     transition: none !important;
   }
 }
+
+
+/* Compatibility layer for legacy storefront/admin utility tokens. */
+.store-dark .text-violet-200,.store-dark .text-violet-300{color:#6d28d9!important}
+.store-dark .text-fuchsia-200,.store-dark .text-fuchsia-300{color:#c026d3!important}
+.store-dark .text-emerald-300{color:#047857!important}
+.store-dark .text-rose-300{color:#be123c!important}
+.store-dark .text-amber-300{color:#b45309!important}
+.store-dark [class~="bg-violet-500/[.07]"],.store-dark [class~="bg-violet-500/[.08]"],.store-dark [class~="bg-violet-500/10"]{background:#f3efff!important}
+.store-dark [class~="bg-fuchsia-500/10"]{background:#fff0fb!important}
+.store-dark [class~="bg-emerald-500/10"]{background:#ecfdf3!important}
+.store-dark [class~="bg-rose-500/10"]{background:#fff1f2!important}
+.store-dark [class~="bg-amber-500/10"]{background:#fffbeb!important}
+.store-dark [class~="bg-black/10"],.store-dark [class~="bg-black/15"],.store-dark [class~="bg-black/20"]{background:rgba(15,23,42,.035)!important}
+.store-dark .border-violet-400\/20,.store-dark .border-violet-400\/15,.store-dark .border-fuchsia-400\/20,.store-dark .border-emerald-400\/20,.store-dark .border-rose-400\/20{border-color:#e3def7!important}
+
+/* Keep keyboard/motion behavior accessible while retaining the visual polish. */
+@media (prefers-reduced-motion: reduce) {
+  .zenvora-product-card:hover,.zenvora-category-card:hover,.zenvora-kpi-card:hover,.admin-kpi-card:hover { transform:none!important; }
+}
