@@ -4,11 +4,11 @@ import { db } from '../../../../lib/db';
 import { requireAdminPermission } from '../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../lib/admin-audit';
 import { credentialStatus, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
-import { getScrapingBeeApiKey, hasScrapingBeeApiKey } from '../../../../lib/scrapingbee';
+import { getScrapingAntApiKey, hasScrapingAntApiKey } from '../../../../lib/scrapingbee';
 
 const PROVIDERS = [
   { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify app + client credentials' },
-  { key: 'MEESHO', name: 'Meesho', description: 'Automatic public catalogue discovery via ScrapingBee', setup: 'ScrapingBee API key' },
+  { key: 'MEESHO', name: 'Meesho', description: 'Automatic public catalogue discovery via ScrapingAnt', setup: 'ScrapingAnt API key' },
 ] as const;
 
 async function getIntegration(provider: 'SHOPIFY' | 'MEESHO') {
@@ -27,15 +27,15 @@ export async function GET() {
     const meesho = await getIntegration('MEESHO');
     console.info('marketplace runtime config', {
       vercelEnv: process.env.VERCEL_ENV ?? 'unknown',
-      scrapingBeeConfigured: hasScrapingBeeApiKey(),
-      scrapingBeeKeyLength: getScrapingBeeApiKey().length,
+      scrapingAntConfigured: hasScrapingAntApiKey(),
+      scrapingAntKeyLength: getScrapingAntApiKey().length,
       shopifyEnvConfigured: await credentialStatus('SHOPIFY'),
     });
     return NextResponse.json({
       providers: PROVIDERS,
       integrations: [
         { ...shopify, credentialsConfigured: await credentialStatus('SHOPIFY'), capabilities: providerCapabilities('SHOPIFY') },
-        { ...meesho, credentialsConfigured: hasScrapingBeeApiKey(), capabilities: providerCapabilities('MEESHO') },
+        { ...meesho, credentialsConfigured: hasScrapingAntApiKey(), capabilities: providerCapabilities('MEESHO') },
       ],
     });
   } catch (error) {
@@ -95,7 +95,7 @@ export async function PATCH(request: Request) {
       data,
     });
 
-    const credentialsConfigured = body.provider === 'MEESHO' ? hasScrapingBeeApiKey() : await credentialStatus('SHOPIFY');
+    const credentialsConfigured = body.provider === 'MEESHO' ? hasScrapingAntApiKey() : await credentialStatus('SHOPIFY');
     await recordAdminAudit({
       adminId: admin.id,
       adminEmail: admin.email,
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
     const integration = await getIntegration(body.provider);
     if (!integration.enabled) return NextResponse.json({ error: 'Turn this marketplace ON before syncing.' }, { status: 409 });
     if (body.provider === 'SHOPIFY' && !(await credentialStatus('SHOPIFY'))) return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before syncing.' }, { status: 409 });
-    if (body.provider === 'MEESHO' && !hasScrapingBeeApiKey()) return NextResponse.json({ error: 'Add SCRAPINGBEE_API_KEY to the Vercel Production environment and redeploy before enabling Meesho Auto Import.' }, { status: 409 });
+    if (body.provider === 'MEESHO' && !hasScrapingAntApiKey()) return NextResponse.json({ error: 'Add SCRAPINGANT_API_KEY to the Vercel Production environment and redeploy before enabling Meesho Auto Import.' }, { status: 409 });
 
     const started = Date.now();
     const run = await db.marketplaceSyncRun.create({ data: { integrationId: integration.id, type: 'MANUAL', status: 'RUNNING' } });
