@@ -92,7 +92,7 @@ export default function Signup() {
   }
 
   return (
-    <main className="min-h-screen bg-[#070b16] px-3 py-3 text-white sm:px-5 sm:py-6">
+    <main id="main-content" className="min-h-screen bg-[#070b16] px-3 py-3 text-white sm:px-5 sm:py-6">
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] max-w-5xl overflow-hidden rounded-2xl border border-white/10 bg-[#0c1222] shadow-2xl sm:min-h-[calc(100vh-3rem)] sm:rounded-[1.5rem] md:grid-cols-2">
         <section className="hidden flex-col justify-center bg-gradient-to-br from-fuchsia-700 via-violet-700 to-slate-950 p-8 md:flex lg:p-10">
           <Link href="/" className="text-xl font-black">🛍️ Zenvora<span className="text-fuchsia-200">.</span></Link>
