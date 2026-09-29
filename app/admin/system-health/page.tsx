@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import AdminNav from '../../../components/admin-nav';
 import { requireAdminPermission } from '../../../lib/admin-access';
 import { db } from '../../../lib/db';
+import { getScrapingAntUsage, hasScrapingAntApiKey } from '../../../lib/scrapingant';
 
 export default async function SystemHealthPage() {
   const admin = await requireAdminPermission('settings');
@@ -12,13 +13,16 @@ export default async function SystemHealthPage() {
   try { await db.$queryRawUnsafe('SELECT 1'); database = true; } catch {}
 
   const shopify = await db.marketplaceIntegration.findUnique({ where: { provider: 'SHOPIFY' }, select: { enabled: true, healthStatus: true, lastError: true } });
+  const scrapingAntConfigured = hasScrapingAntApiKey();
+  const scrapingAntUsage = await getScrapingAntUsage();
+  const scrapingAntCredits = scrapingAntUsage.remainingCredits === null ? '' : ` · ${scrapingAntUsage.remainingCredits.toLocaleString('en-IN')} credits remaining`;
   const checks = [
     { name: 'Database', ok: database, detail: database ? 'Connected' : 'Database query failed' },
     { name: 'Razorpay', ok: Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET), detail: process.env.RAZORPAY_KEY_ID ? 'Server credentials configured' : 'Server credentials missing' },
     { name: 'Email', ok: Boolean(process.env.BREVO_API_KEY || (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD)), detail: process.env.BREVO_API_KEY ? 'Brevo HTTPS API configured' : process.env.SMTP_HOST ? 'SMTP configured' : 'Email provider missing' },
     { name: 'Vercel Blob', ok: Boolean(process.env.BLOB_READ_WRITE_TOKEN), detail: process.env.BLOB_READ_WRITE_TOKEN ? 'Storage configured' : 'BLOB_READ_WRITE_TOKEN missing' },
     { name: 'Rate limiting', ok: Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN), detail: process.env.UPSTASH_REDIS_REST_URL ? 'Upstash Redis configured' : 'Rate limiting backend missing' },
-    { name: 'Marketplace scraper', ok: Boolean(process.env.SCRAPINGBEE_API_KEY), detail: process.env.SCRAPINGBEE_API_KEY ? 'Automatic fallback configured' : 'Manual fallback only' },
+    { name: 'Marketplace scraper', ok: scrapingAntConfigured, detail: scrapingAntConfigured ? `ScrapingAnt configured${scrapingAntCredits}` : 'ScrapingAnt API key missing' },
     { name: 'Shopify', ok: shopify?.healthStatus === 'HEALTHY' || !shopify?.enabled, detail: shopify?.enabled ? (shopify.lastError || shopify.healthStatus) : 'Not connected' },
   ];
 
