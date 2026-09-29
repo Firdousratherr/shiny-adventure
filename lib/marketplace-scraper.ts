@@ -311,15 +311,15 @@ function extractTagText(html: string, tag: string) {
 }
 
 function extractRupeeValues(html: string) {
-  return [...html.matchAll(/(?:₹|Rs\\.?|INR)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)/gi)].map(match => match[1]);
+  return [...html.matchAll(/(?:₹|Rs\.?|INR)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/gi)].map(match => match[1]);
 }
 
 function extractImageAttributeValues(html: string) {
   const values: string[] = [];
-  for (const match of html.matchAll(/<(?:img|source)\\b[^>]*(?:src|data-src|data-lazy-src|srcset)=["']([^"']+)["']/gi)) {
-    for (const value of match[1].split(/\\s*,\\s*/)) values.push(value.replace(/\\s+\\d+(?:\\.\\d+)?x$/i, '').trim());
+  for (const match of html.matchAll(/<(?:img|source)\b[^>]*(?:src|data-src|data-lazy-src|srcset)=["']([^"']+)["']/gi)) {
+    for (const value of match[1].split(/\s*,\s*/)) values.push(value.replace(/\s+\d+(?:\.\d+)?x$/i, '').trim());
   }
-  for (const match of html.matchAll(/<link\\b[^>]*rel=["'][^"']*image_src[^"']*["'][^>]*href=["']([^"']+)["']/gi)) values.push(match[1]);
+  for (const match of html.matchAll(/<link\b[^>]*rel=["'][^"']*image_src[^"']*["'][^>]*href=["']([^"']+)["']/gi)) values.push(match[1]);
   return values;
 }
 
