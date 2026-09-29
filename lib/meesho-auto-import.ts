@@ -162,7 +162,7 @@ function normalizeMeeshoUrl(value: string) {
 
 function extractMeeshoProductUrls(source: string, limit = 20) {
   const html = source
-    .replace(/\\u002F/gi, '/')
+    .replace(/\u002F/gi, '/')
     .replace(/\\\//g, '/')
     .replace(/&amp;/g, '&');
 
@@ -172,9 +172,13 @@ function extractMeeshoProductUrls(source: string, limit = 20) {
     if (normalized) found.add(normalized);
   };
 
-  for (const match of html.matchAll(/https?:\/\/(?:www\.)?meesho\.com\/[^"'<>\s]+?\/(?:p|s\/p)\/[^"'<>\s?#]+/gi)) add(match[0]);
-  for (const match of html.matchAll(/["'](\/(?:[^"'<>\s]+)\/(?:p|s\/p)\/[^"'<>\s?#]+)["']/gi)) add(match[1]);
-  for (const match of html.matchAll(/(?:href|url|productUrl|product_url)\s*[:=]\s*["']([^"']+)["']/gi)) add(match[1]);
+  const absolutePattern = /https?:\/\/(?:www\.)?meesho\.com\/[^"'<>]+?\/(?:p|s\/p)\/[^"'<>?#]+/gi;
+  const relativePattern = /["'](\/[^"'<>]+?\/(?:p|s\/p)\/[^"'<>?#]+)["']/gi;
+  const propertyPattern = /(?:href|url|productUrl|product_url)\s*[:=]\s*["']([^"']+)["']/gi;
+
+  for (const match of html.matchAll(absolutePattern)) add(match[0]);
+  for (const match of html.matchAll(relativePattern)) add(match[1]);
+  for (const match of html.matchAll(propertyPattern)) add(match[1]);
 
   return [...found].slice(0, Math.max(1, Math.min(100, limit)));
 }
