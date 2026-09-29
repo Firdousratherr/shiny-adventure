@@ -192,7 +192,7 @@ main.bg-slate-100 .category-edit-button:hover{background:#f1f5f9!important}
 main.bg-slate-100{background:#f7f8fc!important;color:#0f172a!important}
 main.bg-slate-100 header{background:rgba(255,255,255,.92)!important;border-color:#e2e8f0!important;box-shadow:0 8px 30px rgba(15,23,42,.04)!important;color:#0f172a!important}
 main.bg-slate-100 .bg-white:not(input):not(select):not(textarea):not(button){background:#fff!important;border-color:#e2e8f0!important;color:#0f172a!important;box-shadow:0 12px 30px rgba(15,23,42,.04)!important}
-main.bg-slate-100 .bg-slate-50{background:#f8fafc!important}.main.bg-slate-100 .bg-slate-100{background:#f1f5f9!important}
+main.bg-slate-100 .bg-slate-50{background:#f8fafc!important}main.bg-slate-100 .bg-slate-100{background:#f1f5f9!important}
 main.bg-slate-100 input,main.bg-slate-100 select,main.bg-slate-100 textarea{background:#fff!important;border-color:#e2e8f0!important;color:#0f172a!important}
 main.bg-slate-100 input::placeholder,main.bg-slate-100 textarea::placeholder{color:#94a3b8!important}
 main.bg-slate-100 .text-white{color:#0f172a!important}
