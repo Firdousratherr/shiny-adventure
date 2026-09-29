@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import MeeshoAutoImport from '../../../components/admin/meesho-auto-import';
 import AdminNav from '../../../components/admin-nav';
 
