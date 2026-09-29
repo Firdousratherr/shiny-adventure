@@ -11,7 +11,7 @@ export default async function Products({ searchParams }: { searchParams: { q?: s
   const size = 12;
   const q = searchParams.q?.trim();
   const category = searchParams.category?.trim();
-  const searchTerms = q ? q.split(/\\s+/).map(term => term.trim()).filter(Boolean).slice(0, 6) : [];
+  const searchTerms = q ? q.split(/\s+/).map(term => term.trim()).filter(Boolean).slice(0, 6) : [];
   const searchFilter = searchTerms.length
     ? { AND: searchTerms.map(term => ({ OR: [
         { name: { contains: term, mode: 'insensitive' as const } },
