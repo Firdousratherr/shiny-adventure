@@ -76,6 +76,17 @@ export async function GET(request: Request) {
       return new NextResponse('Remote image unavailable.', { status: 404 });
     }
 
+    // Re-check the final URL after redirects to prevent the proxy from becoming
+    // an unrestricted server-side fetcher.
+    try {
+      const finalUrl = new URL(response.url);
+      if (!REMOTE_IMAGE_HOST.test(finalUrl.hostname)) {
+        return new NextResponse('Remote image destination is not allowed.', { status: 403 });
+      }
+    } catch {
+      return new NextResponse('Invalid remote image destination.', { status: 400 });
+    }
+
     const contentType = (response.headers.get('content-type') || '').split(';')[0].toLowerCase();
     if (contentType && !isImageContentType(contentType)) {
       return new NextResponse('Remote source did not return an image.', { status: 415 });
