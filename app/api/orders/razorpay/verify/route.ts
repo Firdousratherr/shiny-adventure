@@ -86,6 +86,7 @@ export async function POST(request: Request) {
           id: order.id,
           status: 'PAYMENT_PENDING',
           paymentAccessTokenHash: order.paymentAccessTokenHash,
+          reservationExpiresAt: { gt: new Date() },
         },
         data: {
           status: 'CONFIRMED',
