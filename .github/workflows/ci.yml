@@ -8,9 +8,9 @@ concurrency:
 
 on:
   push:
-    branches: ["main", "build/admin-order-management-final4", "build/dropshipping-store", "fix/meesho-product-image-extraction", "feature/meesho-auto-shopify-import"]
+    branches: ["main", "audit/zenvora-full-research-fixes", "build/admin-order-management-final4", "build/dropshipping-store", "fix/meesho-product-image-extraction", "feature/meesho-auto-shopify-import"]
   pull_request:
-    branches: ["main", "build/dropshipping-store", "build/admin-order-management-final4", "fix/meesho-product-image-extraction"]
+    branches: ["main", "audit/zenvora-full-research-fixes", "build/dropshipping-store", "build/admin-order-management-final4", "fix/meesho-product-image-extraction"]
   workflow_dispatch:
 
 jobs:
