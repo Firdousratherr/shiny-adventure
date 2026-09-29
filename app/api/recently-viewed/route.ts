@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../auth';
 import { db } from '../../../lib/db';
+import { rateLimit } from '../../../lib/rate-limit';
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const productId = typeof body.productId === 'string' ? body.productId : '';
   const sessionId = typeof body.sessionId === 'string' ? body.sessionId.slice(0, 128) : '';
   if (!productId || !sessionId) return NextResponse.json({ error: 'Product and session are required.' }, { status: 400 });
+  const limited = await rateLimit('recently-viewed:'+sessionId, 60, 600);
+  if (limited.limited) return NextResponse.json({ error: 'Too many recently-viewed events.' }, { status: 429 });
+  const product = await db.product.findFirst({ where: { id: productId, status: 'ACTIVE' }, select: { id: true } });
+  if (!product) return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
   const session = await auth();
   const email = session?.user?.role === 'customer' ? session.user.email : null;
   const user = email ? await db.customerUser.findUnique({ where: { email }, select: { id: true } }) : null;
