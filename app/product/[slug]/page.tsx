@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { db } from '../../../lib/db';
 import AddToCart from '../../../components/add-to-cart';
 import WishlistButton from '../../../components/wishlist-button';
+import ProductEngagement from '../../../components/product-engagement';
 import { productImageUrl } from '../../../lib/product-image-url';
 import { productDescriptionText } from '../../../lib/product-description';
 
@@ -29,6 +30,7 @@ export default async function Product({ params }: { params: { slug: string } }) 
           <div className="mt-6 flex flex-wrap gap-2 sm:block"><div className="hidden rounded-2xl border border-white/10 bg-white/5 p-4 sm:block"><AddToCart product={{id:p.id,name:p.name,price:Number(p.sellingPrice),image:productImageUrl(p.images[0]?.url),stock:p.stock}} /></div><WishlistButton productId={p.id} /></div>
         </section>
       </div>
+      <ProductEngagement productId={p.id} stock={p.stock} />
       <div className="zenvora-sticky-action fixed inset-x-0 bottom-0 px-4 py-3 sm:hidden"><AddToCart product={{id:p.id,name:p.name,price:Number(p.sellingPrice),image:productImageUrl(p.images[0]?.url),stock:p.stock}} /></div>
     </div>
   </main>;
