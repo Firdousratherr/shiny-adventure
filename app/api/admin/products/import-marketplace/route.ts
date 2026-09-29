@@ -5,6 +5,7 @@ import { getAdminAccess } from '@/lib/admin-access';
 import { db } from '@/lib/db';
 import { parseMarketplaceSourceUrl, scrapeMarketplaceProduct } from '@/lib/marketplace-scraper';
 import { securityRateLimit } from '@/lib/rate-limit';
+import { assertSafeExternalHttpsUrl } from '@/lib/safe-external-url';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,18 +28,26 @@ async function importImage(productId: string, imageUrl: string, index: number, r
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
-      const response = await fetch(imageUrl, {
-        signal: controller.signal,
-        redirect: 'follow',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36',
-          Accept: 'image/avif,image/webp,image/jpeg,image/png,*/*',
-          'Accept-Language': 'en-IN,en;q=0.9',
-          Referer: referer || 'https://www.meesho.com/',
-        },
-        cache: 'no-store',
-      });
-      if (!response.ok || !response.body) return null;
+      let target = await assertSafeExternalHttpsUrl(imageUrl);
+      let response: Response | null = null;
+      for (let redirects = 0; redirects <= 3; redirects++) {
+        response = await fetch(target.toString(), {
+          signal: controller.signal,
+          redirect: 'manual',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36',
+            Accept: 'image/avif,image/webp,image/jpeg,image/png,*/*',
+            'Accept-Language': 'en-IN,en;q=0.9',
+            Referer: referer || 'https://www.meesho.com/',
+          },
+          cache: 'no-store',
+        });
+        if (response.status < 300 || response.status >= 400) break;
+        const location = response.headers.get('location');
+        if (!location || redirects === 3) return null;
+        target = await assertSafeExternalHttpsUrl(new URL(location, target).toString());
+      }
+      if (!response || !response.ok || !response.body) return null;
 
       const type = (response.headers.get('content-type') || '').split(';')[0].toLowerCase();
       const extension = type === 'image/png'
