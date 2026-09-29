@@ -45,7 +45,7 @@ async function scrapingAnt(
   if (!key) throw new Error('Add SCRAPINGANT_API_KEY in Vercel before enabling Meesho Auto Import.');
 
   let lastError = 'ScrapingAnt request failed.';
-  const attempts = 2;
+  const attempts = 3;
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
     const endpoint = new URL('https://api.scrapingant.com/v2/general');
@@ -194,41 +194,12 @@ async function discoverSearchUrls(keyword: string, limit: number) {
   }
 
   try {
-    const key = getScrapingAntApiKey();
-    if (!key) return [];
-
-    const endpoint = new URL('https://api.scrapingant.com/v2/extended');
-    endpoint.searchParams.set('url', searchUrl);
-    endpoint.searchParams.set('browser', 'true');
-    endpoint.searchParams.set('proxy_country', 'in');
-    endpoint.searchParams.set('timeout', '35');
-
-    const response = await fetch(endpoint.toString(), {
-      headers: { 'x-api-key': key, Accept: 'application/json' },
-      cache: 'no-store',
-    });
-    if (!response.ok) return [];
-
-    const data: any = await response.json();
-    const sources: string[] = [];
-    if (typeof data?.html === 'string') sources.push(data.html);
-    if (typeof data?.content === 'string') sources.push(data.content);
-    if (Array.isArray(data?.xhrs)) {
-      for (const xhr of data.xhrs) {
-        if (typeof xhr?.body === 'string') sources.push(xhr.body);
-        if (typeof xhr?.url === 'string') sources.push(xhr.url);
-      }
-    }
-
-    const found = new Set<string>();
-    for (const source of sources) {
-      for (const url of extractMeeshoProductUrls(source, limit)) {
-        found.add(url);
-        if (found.size >= limit) return [...found].slice(0, limit);
-      }
-    }
-    return [...found].slice(0, limit);
+    // Search pages are protected more aggressively than the public HTML.
+    // Use the same adaptive ScrapingAnt route rotation as product pages.
+    const rendered = await scrapingAnt(searchUrl, 35000, true, 'body');
+    return extractMeeshoProductUrls(rendered, limit);
   } catch {
+    // Sitemap remains the deterministic fallback when search is protected.
     return [];
   }
 }
