@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { get } from '@vercel/blob';
+import { assertSafeExternalHttpsUrl } from '../../../lib/safe-external-url';
 
 const PRIVATE_BLOB_HOST = /(^|\.)private\.blob\.vercel-storage\.com$/i;
 const REMOTE_IMAGE_HOST = /(^|\.)meesho\.com$/i;
@@ -55,24 +56,31 @@ export async function GET(request: Request) {
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
-    let response: Response;
+    let response: Response | null = null;
+    let target = await assertSafeExternalHttpsUrl(source.toString());
     try {
-      response = await fetch(source.toString(), {
-        signal: controller.signal,
-        redirect: 'follow',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36',
-          Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-          'Accept-Language': 'en-IN,en;q=0.9',
-          Referer: 'https://www.meesho.com/',
-        },
-        cache: 'no-store',
-      });
+      for (let redirects = 0; redirects <= 3; redirects++) {
+        response = await fetch(target.toString(), {
+          signal: controller.signal,
+          redirect: 'manual',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36',
+            Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Accept-Language': 'en-IN,en;q=0.9',
+            Referer: 'https://www.meesho.com/',
+          },
+          cache: 'no-store',
+        });
+        if (response.status < 300 || response.status >= 400) break;
+        const location = response.headers.get('location');
+        if (!location || redirects === 3) return new NextResponse('Remote image redirect is not allowed.', { status: 403 });
+        target = await assertSafeExternalHttpsUrl(new URL(location, target).toString());
+      }
     } finally {
       clearTimeout(timer);
     }
 
-    if (!response.ok || !response.body) {
+    if (!response || !response.ok || !response.body) {
       return new NextResponse('Remote image unavailable.', { status: 404 });
     }
 
