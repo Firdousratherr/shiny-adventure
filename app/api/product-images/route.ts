@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { get } from '@vercel/blob';
 import { assertSafeExternalHttpsUrl } from '../../../lib/safe-external-url';
+import { db } from '../../../lib/db';
 
 const PRIVATE_BLOB_HOST = /(^|\.)private\.blob\.vercel-storage\.com$/i;
 const REMOTE_IMAGE_HOST = /(^|\.)meesho\.com$/i;
@@ -35,6 +36,15 @@ export async function GET(request: Request) {
     if (isPrivateBlob) {
       const pathname = decodeURIComponent(source.pathname.replace(/^\/+/, ''));
       if (!pathname) return new NextResponse('Image path is required.', { status: 400 });
+
+      // Private Blob objects must be reachable only when the exact URL belongs
+      // to a product image. This prevents this public proxy from becoming a
+      // generic reader for other private Blob objects such as payment proofs.
+      const ownedImage = await db.productImage.findFirst({
+        where: { url: source.toString() },
+        select: { id: true },
+      });
+      if (!ownedImage) return new NextResponse('Image not found.', { status: 404 });
 
       const token = blobToken();
       if (!token) {
