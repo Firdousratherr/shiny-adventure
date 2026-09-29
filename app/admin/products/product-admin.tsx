@@ -825,7 +825,7 @@ export default function ProductAdmin({
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-wide text-indigo-600">05 · Media</p>
                   <h3 className="mt-1 text-lg font-black">Product images</h3>
-                  <p className="mt-1 text-xs text-slate-500">Images from marketplace imports use Zenvora's image delivery path. Broken images can be removed and re-uploaded here.</p>
+                  <p className="mt-1 text-xs text-slate-500">Images from marketplace imports use Zenvora image delivery path. Broken images can be removed and re-uploaded here.</p>
                 </div>
                 <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black">{editingProduct.images.length} stored</span>
               </div>
