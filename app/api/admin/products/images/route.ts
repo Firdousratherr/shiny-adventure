@@ -85,6 +85,9 @@ export async function PATCH(request: Request) {
       : [];
 
     if (!productId || !imageIds.length) return NextResponse.json({ error: 'Product and image order are required.' }, { status: 400 });
+    if (new Set(imageIds).size !== imageIds.length) {
+      return NextResponse.json({ error: 'Image order contains duplicate IDs.' }, { status: 400 });
+    }
 
     const images = await db.productImage.findMany({ where: { productId }, select: { id: true } });
     if (images.length !== imageIds.length || !images.every(i => imageIds.includes(i.id))) {
