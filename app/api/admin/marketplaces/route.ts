@@ -1,3 +1,5 @@
+export const maxDuration = 300;
+
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { db } from '../../../../lib/db';
@@ -92,7 +94,7 @@ export async function PATCH(request: Request) {
       'mode', 'skipExisting', 'skipOutOfStock', 'skipWithoutImages', 'skipWithoutPrice',
       'minSourcePrice', 'maxSourcePrice', 'minInventory', 'roundingMode', 'roundingValue',
       'minSellingPrice', 'maxSellingPrice', 'protectLockedPrice', 'updatePrice',
-      'importImages', 'importDescriptions', 'importInventory', 'keywords', 'categories', 'shardCountPerRun', 'shardCursor', 'sitemapShards', 'sitemapFetchedAt', 'importStatus',
+      'importImages', 'importDescriptions', 'importInventory', 'defaultInventory', 'keywords', 'categories', 'shardCountPerRun', 'shardCursor', 'sitemapShards', 'sitemapFetchedAt', 'importStatus',
     ];
     const settings = { ...currentSettings };
     for (const key of allowedSettings) {
@@ -132,13 +134,23 @@ export async function POST(request: Request) {
     const integration = await getIntegration(body.provider);
     if (!integration.enabled) return NextResponse.json({ error: 'Turn this marketplace ON before syncing.' }, { status: 409 });
     if (body.provider === 'SHOPIFY' && !(await credentialStatus('SHOPIFY'))) return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before syncing.' }, { status: 409 });
-    if (body.provider === 'MEESHO' && !hasScrapingAntApiKey()) return NextResponse.json({ error: 'Add SCRAPINGANT_API_KEY to the Vercel Production environment and redeploy before enabling Meesho Auto Import.' }, { status: 409 });
+    if (body.provider === 'MEESHO' && !hasScrapingAntApiKey()) return NextResponse.json({ error: 'ScrapingAnt is not configured on the server.' }, { status: 409 });
+
+    const activeRun = await db.marketplaceSyncRun.findFirst({
+      where: { integrationId: integration.id, status: 'RUNNING' },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true },
+    });
+    if (activeRun) return NextResponse.json({ error: 'A Meesho import is already running. Wait for it to finish before starting another.' }, { status: 409 });
 
     const started = Date.now();
+    const syncSettings = body.provider === 'MEESHO' && typeof body.sourceUrl === 'string' && body.sourceUrl.trim()
+      ? { ...(integration.settings && typeof integration.settings === 'object' && !Array.isArray(integration.settings) ? integration.settings : {}), directUrl: body.sourceUrl.trim() }
+      : integration.settings;
     const run = await db.marketplaceSyncRun.create({ data: { integrationId: integration.id, type: 'MANUAL', status: 'RUNNING' } });
 
     try {
-      const result = await syncMarketplace(integration.id, body.provider, integration.settings);
+      const result = await syncMarketplace(integration.id, body.provider, syncSettings);
       const duration = Date.now() - started;
       await db.marketplaceSyncRun.update({
         where: { id: run.id },
