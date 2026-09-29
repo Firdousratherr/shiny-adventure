@@ -52,9 +52,27 @@ export default async function Product({ params }: { params: { slug: string } }) 
 
   const description = productDescriptionText(p.description) || 'Quality product selected for the Zenvora marketplace.';
   const image = productImageUrl(p.images[0]?.url);
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: p.name,
+    description,
+    image: p.images.map(item => productImageUrl(item.url)).filter(Boolean),
+    brand: { '@type': 'Brand', name: 'Zenvora' },
+    sku: p.id,
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'INR',
+      price: Number(p.sellingPrice).toFixed(2),
+      availability: p.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      url: `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://zenvora-online.vercel.app').replace(/\\/$/, '')}/product/${encodeURIComponent(p.slug)}`,
+    },
+  };
+  const structuredDataJson = JSON.stringify(structuredData).replace(/</g, '\\u003c');
 
   return (
     <main className="store-dark min-h-screen bg-[#070b16] pb-28 text-white sm:pb-10">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredDataJson }} />
       <StoreHeader />
 
       <div className="container py-5 sm:py-8">
