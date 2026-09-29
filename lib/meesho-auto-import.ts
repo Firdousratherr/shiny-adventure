@@ -142,7 +142,7 @@ function normalizeMeeshoUrl(value: string) {
     const decoded = value
       .replace(/&amp;/g, '&')
       .replace(/\\u002F/gi, '/')
-      .replace(/\\\\\//g, '/')
+      .replace(/\\\//g, '/')
       .replace(/^["']|["']$/g, '')
       .trim();
     const absolute = decoded.startsWith('http')
@@ -260,7 +260,7 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
         try {
           const shardDocument = await fetchSitemapDocument(shard);
           const shardUrls = parseLocs(shardDocument)
-            .filter(url => /^https?:\/\/(?:www\.)?meesho\.com\/[^?#]+\/p\/[^/?#]+/i.test(url));
+            .filter(url => /^https?:\/\/(?:www\.)?meesho\.com\/[^?#]+\/(?:p|s\/p)\/[^/?#]+/i.test(url));
           urls.push(...shardUrls);
         } catch {
           // One unavailable shard should not abort the run.
