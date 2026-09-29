@@ -41,7 +41,6 @@ type Settings = {
   importDescriptions?: boolean;
   importInventory?: boolean;
   defaultInventory?: number;
-  directUrl?: string;
   changedBy?: string;
   categoryMappings?: Record<string, string>;
   keywords?: string;
@@ -649,7 +648,6 @@ export async function syncMarketplace(integrationId: string, provider: string, r
       sitemapShards: discovery.sitemapShards,
       sitemapFetchedAt: discovery.sitemapFetchedAt,
     };
-    delete nextSettings.directUrl;
     await db.marketplaceIntegration.update({ where: { id: integrationId }, data: { settings: nextSettings as any } });
     return {
       importedProducts: result.imported + result.updated,

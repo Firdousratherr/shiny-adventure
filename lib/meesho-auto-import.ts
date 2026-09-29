@@ -172,13 +172,9 @@ function extractMeeshoProductUrls(source: string, limit = 20) {
     if (normalized) found.add(normalized);
   };
 
-  const absolutePattern = /https?:\/\/(?:www\.)?meesho\.com\/[^"'<>]+?\/(?:p|s\/p)\/[^"'<>?#]+/gi;
-  const relativePattern = /["'](\/[^"'<>]+?\/(?:p|s\/p)\/[^"'<>?#]+)["']/gi;
-  const propertyPattern = /(?:href|url|productUrl|product_url)\s*[:=]\s*["']([^"']+)["']/gi;
-
-  for (const match of html.matchAll(absolutePattern)) add(match[0]);
-  for (const match of html.matchAll(relativePattern)) add(match[1]);
-  for (const match of html.matchAll(propertyPattern)) add(match[1]);
+  for (const match of html.matchAll(/https?:\/\/(?:www\.)?meesho\.com\/[^"'<>\\s]+?\/(?:p|s\/p)\/[^"'<>\\s?#]+/gi)) add(match[0]);
+  for (const match of html.matchAll(/["'](\/(?:[^"'<>\\s]+)\/(?:p|s\/p)\/[^"'<>\\s?#]+)["']/gi)) add(match[1]);
+  for (const match of html.matchAll(/(?:href|url|productUrl|product_url)\s*[:=]\s*["']([^"']+)["']/gi)) add(match[1]);
 
   return [...found].slice(0, Math.max(1, Math.min(100, limit)));
 }
@@ -191,16 +187,12 @@ async function discoverSearchUrls(keyword: string, limit: number) {
 
   try {
     const direct = await fetchPublic(searchUrl);
-    const directUrls = extractMeeshoProductUrls(direct, limit);
-    if (directUrls.length) return directUrls;
+    const urls = extractMeeshoProductUrls(direct, limit);
+    if (urls.length) return urls;
   } catch {
-    // Continue to rendered discovery.
+    // Continue to rendered/XHR discovery.
   }
 
-  // Meesho is a SPA. The rendered HTML can contain very few anchors while the
-  // actual catalogue arrives through fetch/XHR calls. ScrapingAnt's extended
-  // browser response exposes those network responses, so scan both page HTML
-  // and XHR bodies for product URLs before falling back to the sitemap.
   try {
     const key = getScrapingAntApiKey();
     if (!key) return [];
@@ -210,7 +202,6 @@ async function discoverSearchUrls(keyword: string, limit: number) {
     endpoint.searchParams.set('browser', 'true');
     endpoint.searchParams.set('proxy_country', 'in');
     endpoint.searchParams.set('timeout', '35');
-    endpoint.searchParams.set('wait_for_selector', 'a[href*="/p/"]');
 
     const response = await fetch(endpoint.toString(), {
       headers: { 'x-api-key': key, Accept: 'application/json' },
@@ -258,23 +249,20 @@ function matchesFilters(item: { name: string; categoryName?: string }, settings:
     .split(',')
     .map(value => value.trim().toLowerCase())
     .filter(Boolean);
-  const categoryFilters = clean(settings.categories)
+  const categories = clean(settings.categories)
     .split(',')
     .map(value => value.trim().toLowerCase())
     .filter(Boolean);
   const haystack = (item.name + ' ' + clean(item.categoryName)).toLowerCase();
 
-  // Search phrases such as "mobile accessories" should not require that exact
-  // phrase to appear in the product title; Meesho result pages often return
-  // products titled "phone cover", "charger", etc. Match at least one token.
   if (keywordGroups.length) {
-    const keywordMatch = keywordGroups.some(group =>
+    const matchesKeyword = keywordGroups.some(group =>
       group.split(/\s+/).filter(Boolean).some(token => haystack.includes(token)),
     );
-    if (!keywordMatch) return false;
+    if (!matchesKeyword) return false;
   }
 
-  if (categoryFilters.length && !categoryFilters.some(filter => clean(item.categoryName).toLowerCase().includes(filter))) {
+  if (categories.length && !categories.some(value => clean(item.categoryName).toLowerCase().includes(value))) {
     return false;
   }
 

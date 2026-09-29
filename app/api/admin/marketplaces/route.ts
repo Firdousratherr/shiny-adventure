@@ -134,14 +134,14 @@ export async function POST(request: Request) {
     const integration = await getIntegration(body.provider);
     if (!integration.enabled) return NextResponse.json({ error: 'Turn this marketplace ON before syncing.' }, { status: 409 });
     if (body.provider === 'SHOPIFY' && !(await credentialStatus('SHOPIFY'))) return NextResponse.json({ error: 'Connect Shopify from Marketplace Center before syncing.' }, { status: 409 });
-    if (body.provider === 'MEESHO' && !hasScrapingAntApiKey()) return NextResponse.json({ error: 'ScrapingAnt is not configured on the server.' }, { status: 409 });
+    if (body.provider === 'MEESHO' && !hasScrapingAntApiKey()) return NextResponse.json({ error: 'Add SCRAPINGANT_API_KEY to the Vercel Production environment and redeploy before enabling Meesho Auto Import.' }, { status: 409 });
 
     const activeRun = await db.marketplaceSyncRun.findFirst({
       where: { integrationId: integration.id, status: 'RUNNING' },
       orderBy: { startedAt: 'desc' },
       select: { id: true },
     });
-    if (activeRun) return NextResponse.json({ error: 'A Meesho import is already running. Wait for it to finish before starting another.' }, { status: 409 });
+    if (activeRun) return NextResponse.json({ error: 'A marketplace import is already running. Wait for it to finish before starting another.' }, { status: 409 });
 
     const started = Date.now();
     const syncSettings = body.provider === 'MEESHO' && typeof body.sourceUrl === 'string' && body.sourceUrl.trim()
