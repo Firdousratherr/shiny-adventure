@@ -41,6 +41,7 @@ export async function POST(req:Request){
         id:requestedOrderId,
         email:customer.email,
         deletedAt:null,
+        status:'DELIVERED',
         items:{some:{productId}},
       },
       select:{id:true},
