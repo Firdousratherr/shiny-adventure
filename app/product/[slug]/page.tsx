@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { db } from '../../../lib/db';
 import AddToCart from '../../../components/add-to-cart';
+import WishlistButton from '../../../components/wishlist-button';
 import { productImageUrl } from '../../../lib/product-image-url';
 import { productDescriptionText } from '../../../lib/product-description';
 
@@ -25,7 +26,7 @@ export default async function Product({ params }: { params: { slug: string } }) 
         <section className="lg:sticky lg:top-20 lg:h-fit"><p className="text-xs font-black uppercase tracking-[.22em] text-fuchsia-400">Zenvora · Premium selection</p><h1 className="mt-2 text-3xl font-black leading-tight sm:text-4xl">{p.name}</h1><div className="mt-5 flex flex-wrap items-end gap-3"><p className="text-3xl font-black">₹{Number(p.sellingPrice).toLocaleString('en-IN',{minimumFractionDigits:2})}</p>{p.stock>0?<span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">In stock</span>:<span className="rounded-full bg-rose-500/10 px-3 py-1 text-xs font-bold text-rose-300">Out of stock</span>}</div>
           <div className="mt-5 grid grid-cols-3 gap-2">{[['🔒','Secure','payments'],['🚚','Fast','delivery'],['↻','Easy','returns']].map(([i,a,b])=><div key={a} className="rounded-2xl border border-white/10 bg-white/5 p-3 text-center"><span>{i}</span><p className="mt-1 text-xs font-bold">{a}</p><p className="text-[10px] text-slate-500">{b}</p></div>)}</div>
           <div className="mt-6"><p className="text-xs font-black uppercase tracking-widest text-slate-500">About this product</p><p className="mt-3 whitespace-pre-wrap leading-7 text-slate-300">{productDescriptionText(p.description)||'Quality product selected for the Zenvora marketplace.'}</p></div>
-          <div className="mt-6 hidden rounded-2xl border border-white/10 bg-white/5 p-4 sm:block"><AddToCart product={{id:p.id,name:p.name,price:Number(p.sellingPrice),image:productImageUrl(p.images[0]?.url),stock:p.stock}} /></div>
+          <div className="mt-6 flex flex-wrap gap-2 sm:block"><div className="hidden rounded-2xl border border-white/10 bg-white/5 p-4 sm:block"><AddToCart product={{id:p.id,name:p.name,price:Number(p.sellingPrice),image:productImageUrl(p.images[0]?.url),stock:p.stock}} /></div><WishlistButton productId={p.id} /></div>
         </section>
       </div>
       <div className="zenvora-sticky-action fixed inset-x-0 bottom-0 px-4 py-3 sm:hidden"><AddToCart product={{id:p.id,name:p.name,price:Number(p.sellingPrice),image:productImageUrl(p.images[0]?.url),stock:p.stock}} /></div>
