@@ -11,9 +11,17 @@ export default async function Products({ searchParams }: { searchParams: { q?: s
   const size = 12;
   const q = searchParams.q?.trim();
   const category = searchParams.category?.trim();
+  const searchTerms = q ? q.split(/\\s+/).map(term => term.trim()).filter(Boolean).slice(0, 6) : [];
+  const searchFilter = searchTerms.length
+    ? { AND: searchTerms.map(term => ({ OR: [
+        { name: { contains: term, mode: 'insensitive' as const } },
+        { description: { contains: term, mode: 'insensitive' as const } },
+        { category: { name: { contains: term, mode: 'insensitive' as const } } },
+      ] })) }
+    : {};
   const where = {
     status: 'ACTIVE' as const,
-    ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' as const } }, { description: { contains: q, mode: 'insensitive' as const } }, { category: { name: { contains: q, mode: 'insensitive' as const } } }] } : {}),
+    ...searchFilter,
     ...(category ? { category: { slug: category } } : {}),
   };
   const orderBy = searchParams.sort === 'price-asc' ? { sellingPrice: 'asc' as const } : searchParams.sort === 'price-desc' ? { sellingPrice: 'desc' as const } : { createdAt: 'desc' as const };
