@@ -4,6 +4,7 @@ import { put } from '@vercel/blob';
 import { getAdminAccess } from '@/lib/admin-access';
 import { db } from '@/lib/db';
 import { parseMarketplaceSourceUrl, scrapeMarketplaceProduct } from '@/lib/marketplace-scraper';
+import { rateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,6 +82,14 @@ export async function POST(request: Request) {
   const access = await getAdminAccess();
   if (!access || (!access.isSuperAdmin && (!access.permissions.includes('products') || !access.permissions.includes('marketplaces')))) {
     return NextResponse.json({ error: 'Marketplace import permission required.' }, { status: 403 });
+  }
+
+  const limited = await rateLimit(`marketplace-direct-import:${access.id}`, 6, 60);
+  if (limited.limited) {
+    return NextResponse.json(
+      { error: 'Too many direct imports. Please wait a minute before trying again.' },
+      { status: 429, headers: { 'Retry-After': '60' } },
+    );
   }
 
   try {
