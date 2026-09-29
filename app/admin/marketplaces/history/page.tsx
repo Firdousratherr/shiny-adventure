@@ -24,7 +24,7 @@ export default async function MarketplaceHistoryPage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <AdminNav active="marketplaces" />
+      <AdminNav active="marketplace-history" />
       <div className="container py-6 sm:py-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
