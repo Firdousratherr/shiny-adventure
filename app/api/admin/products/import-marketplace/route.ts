@@ -4,7 +4,7 @@ import { put } from '@vercel/blob';
 import { getAdminAccess } from '@/lib/admin-access';
 import { db } from '@/lib/db';
 import { parseMarketplaceSourceUrl, scrapeMarketplaceProduct } from '@/lib/marketplace-scraper';
-import { rateLimit } from '@/lib/rate-limit';
+import { securityRateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -85,8 +85,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Marketplace import permission required.' }, { status: 403 });
   }
 
-  const limited = await rateLimit(`marketplace-direct-import:${access.id}`, 6, 60);
-  if (process.env.NODE_ENV === 'production' && !limited.configured) {
+  const limited = await securityRateLimit(`marketplace-direct-import:${access.id}`, 6, 60);
+  if (limited.securityUnavailable) {
     return NextResponse.json({ error: 'Direct marketplace import is temporarily unavailable because rate limiting is not configured.' }, { status: 503 });
   }
   if (limited.limited) {
