@@ -316,6 +316,7 @@ model Order {
 
   @@index([status])
   @@index([phone])
+  @@index([email, createdAt])
   @@index([createdAt])
   @@index([status, createdAt])
   @@index([paymentMethod])
