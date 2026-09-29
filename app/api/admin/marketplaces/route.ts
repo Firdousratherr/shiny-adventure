@@ -7,6 +7,7 @@ import { requireAdminPermission } from '../../../../lib/admin-access';
 import { recordAdminAudit } from '../../../../lib/admin-audit';
 import { credentialStatus, providerCapabilities, syncMarketplace } from '../../../../lib/marketplaces';
 import { getScrapingAntApiKey, getScrapingAntUsage, hasScrapingAntApiKey } from '../../../../lib/scrapingant';
+import { productImageUrl } from '../../../../lib/product-image-url';
 
 const PROVIDERS = [
   { key: 'SHOPIFY', name: 'Shopify', description: 'Shopify Admin GraphQL API', setup: 'Shopify app + client credentials' },
@@ -96,7 +97,7 @@ export async function GET() {
           stock: product.stock,
           status: product.status,
           category: product.category,
-          images: product.images,
+          images: product.images.map((image) => ({ ...image, url: productImageUrl(image.url) || image.url })),
         } : null,
       };
     });
