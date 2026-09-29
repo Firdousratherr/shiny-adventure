@@ -178,20 +178,76 @@ export async function POST(request: Request) {
     }
 
     const categoryId = matchedCategory?.id || null;
+    const productId = crypto.randomUUID();
 
-    const product = await db.product.create({
-      data: {
-        name,
-        slug,
-        description: description || null,
-        sourceUrl: parsedUrl.url,
-        sourceCost: new Prisma.Decimal(sourceCost),
-        sellingPrice: new Prisma.Decimal(preview.sellingPrice),
-        stock: 0,
-        status: 'DRAFT',
-        categoryId,
-      },
-    });
+    // Create the inventory product and its marketplace identity atomically.
+    // This closes the race where two admins import the same source at once and
+    // leaves an orphan product behind when the marketplace unique key collides.
+    let product: { id: string; name: string; sellingPrice: Prisma.Decimal; sourceCost: Prisma.Decimal | null };
+    try {
+      product = await db.$transaction(async tx => {
+        const created = await tx.product.create({
+          data: {
+            id: productId,
+            name,
+            slug,
+            description: description || null,
+            sourceUrl: parsedUrl.url,
+            sourceCost: new Prisma.Decimal(sourceCost),
+            sellingPrice: new Prisma.Decimal(preview.sellingPrice),
+            stock: 0,
+            status: 'DRAFT',
+            categoryId,
+          },
+          select: { id: true, name: true, sellingPrice: true, sourceCost: true },
+        });
+
+        await tx.marketplaceProduct.create({
+          data: {
+            integrationId: integration.id,
+            externalId: parsedUrl.id,
+            productId: created.id,
+            title: name,
+            sourceUrl: parsedUrl.url,
+            rawData: {
+              provider: parsedUrl.provider,
+              sourceCost,
+              markupPercent: markup,
+              imageCount: 0,
+              automatic: Boolean(scraped),
+              availability: scraped?.availability || 'UNKNOWN',
+            },
+            lastSourceCost: new Prisma.Decimal(sourceCost),
+            sourceAvailability: scraped?.availability || 'UNKNOWN',
+          },
+        });
+
+        await tx.marketplaceIntegration.update({
+          where: { id: integration.id },
+          data: {
+            importedProducts: { increment: 1 },
+            lastSuccessAt: new Date(),
+            lastSyncAt: new Date(),
+            healthStatus: 'HEALTHY',
+            lastError: null,
+          },
+        });
+
+        return created;
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const duplicate = await db.marketplaceProduct.findUnique({
+          where: { integrationId_externalId: { integrationId: integration.id, externalId: parsedUrl.id } },
+          select: { productId: true },
+        });
+        return NextResponse.json(
+          { error: 'This product is already imported into Zenvora.', productId: duplicate?.productId || undefined },
+          { status: 409 },
+        );
+      }
+      throw error;
+    }
 
     let importedImages = 0;
     for (let i = 0; i < images.length; i++) {
@@ -202,22 +258,19 @@ export async function POST(request: Request) {
       importedImages++;
     }
 
-    await db.marketplaceProduct.create({
+    await db.marketplaceProduct.update({
+      where: { integrationId_externalId: { integrationId: integration.id, externalId: parsedUrl.id } },
       data: {
-        integrationId: integration.id,
-        externalId: parsedUrl.id,
-        productId: product.id,
-        title: name,
-        sourceUrl: parsedUrl.url,
-        rawData: { provider: parsedUrl.provider, sourceCost, markupPercent: markup, imageCount: importedImages, automatic: Boolean(scraped), availability: scraped?.availability || 'UNKNOWN' },
-        lastSourceCost: new Prisma.Decimal(sourceCost),
+        rawData: {
+          provider: parsedUrl.provider,
+          sourceCost,
+          markupPercent: markup,
+          imageCount: importedImages,
+          automatic: Boolean(scraped),
+          availability: scraped?.availability || 'UNKNOWN',
+        },
         sourceAvailability: scraped?.availability || 'UNKNOWN',
       },
-    });
-
-    await db.marketplaceIntegration.update({
-      where: { id: integration.id },
-      data: { importedProducts: { increment: 1 }, lastSuccessAt: new Date(), lastSyncAt: new Date(), healthStatus: 'HEALTHY', lastError: null },
     });
 
     await db.marketplaceImportLog.create({
