@@ -18,40 +18,65 @@ const groups = [
 ] as const;
 
 export default function AdminNav({ active }: { active: Active }) {
-  const [open,setOpen]=useState(false);
-  return <>
-    <aside className="fixed inset-y-0 left-0 z-50 hidden w-[272px] flex-col border-r border-white/10 bg-[#070b16]/95 text-white backdrop-blur-2xl lg:flex shadow-[20px_0_70px_rgba(0,0,0,.18)]">
-      <div className="flex h-20 items-center border-b border-white/10 px-5 bg-white/[.02]">
-        <Link href="/admin/dashboard" className="text-2xl font-black tracking-tight">zenvora<span className="text-fuchsia-400">.</span><span className="ml-2 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[9px] uppercase tracking-[.18em] text-slate-400">Admin</span></Link>
-      </div>
-      <div className="flex-1 overflow-y-auto px-3 py-4">
-        {groups.map(group=><div key={group.title} className="mb-5">
-          <p className="px-3 pb-2 text-[10px] font-black uppercase tracking-[.18em] text-slate-500">{group.title}</p>
-          <nav className="space-y-1">{group.items.map(([key,label,href])=><Link key={key} href={href} className={`flex items-center rounded-xl px-3 py-2.5 text-sm font-bold transition ${active===key?'bg-white text-slate-950 shadow-lg shadow-white/10':'text-slate-300 hover:bg-white/10 hover:text-white'}`}>{label}</Link>)}</nav>
-        </div>)}
-      </div>
-      <div className="space-y-2 border-t border-white/10 p-3">
-        <Link href="/" className="block rounded-xl bg-violet-500/10 px-3 py-2.5 text-sm font-bold text-violet-300">View Store →</Link>
-        <button type="button" onClick={()=>signOut({callbackUrl:'/admin/login'})} className="w-full rounded-xl border border-white/10 px-3 py-2.5 text-left text-sm font-bold text-slate-300 hover:bg-white/10">Sign out</button>
-      </div>
-    </aside>
+  const [open, setOpen] = useState(false);
 
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070b16]/90 text-white backdrop-blur-2xl lg:ml-[272px] shadow-[0_12px_45px_rgba(0,0,0,.14)]">
-      <div className="flex min-h-16 items-center gap-3 px-3 sm:px-5">
-        <button type="button" aria-label="Open admin menu" onClick={()=>setOpen(true)} className="rounded-xl border border-white/10 px-3 py-2 lg:hidden">☰</button>
-        <div className="min-w-0 flex-1"><AdminCommandPalette /></div>
-        <Link href="/admin/notifications" className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold">🔔</Link>
-        <Link href="/" className="hidden rounded-xl bg-violet-500/10 px-3 py-2 text-sm font-bold text-violet-300 sm:block">Store</Link>
-      </div>
-    </header>
+  const navGroups = (close?: boolean) => groups.map((group) => (
+    <div key={group.title} className="mb-5">
+      <p className="nav-group-label px-3 pb-2 text-[10px] font-black uppercase tracking-[.18em]">{group.title}</p>
+      <nav className="space-y-1">
+        {group.items.map(([key, label, href]) => {
+          const activeClass = active === key ? 'nav-item-active' : '';
+          return (
+            <Link key={key} href={href} onClick={close ? () => setOpen(false) : undefined} className={'nav-item ' + activeClass + ' flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-extrabold'}>
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-100 text-[11px] font-black text-violet-700">{label.slice(0, 1)}</span>
+              <span className="min-w-0 flex-1">{label}</span>
+              {active === key ? <span className="text-xs opacity-80">›</span> : null}
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
+  ));
 
-    {open&&<div className="fixed inset-0 z-[60] lg:hidden">
-      <button aria-label="Close menu" className="absolute inset-0 bg-black/70" onClick={()=>setOpen(false)}/>
-      <aside className="relative flex h-full w-[min(86vw,320px)] flex-col overflow-y-auto border-r border-white/10 bg-[#090e1d] p-3 text-white shadow-2xl">
-        <div className="flex items-center justify-between px-2 py-3"><b className="text-xl">zenvora<span className="text-fuchsia-400">.</span></b><button onClick={()=>setOpen(false)} className="rounded-xl border border-white/10 px-3 py-2">×</button></div>
-        {groups.map(group=><div key={group.title} className="mb-4"><p className="px-3 pb-2 text-[10px] font-black uppercase tracking-[.18em] text-slate-500">{group.title}</p>{group.items.map(([key,label,href])=><Link onClick={()=>setOpen(false)} key={key} href={href} className={`block rounded-xl px-3 py-2.5 text-sm font-bold ${active===key?'bg-white text-slate-950':'text-slate-300 hover:bg-white/10'}`}>{label}</Link>)}</div>)}
-        <div className="mt-auto space-y-2 border-t border-white/10 pt-3"><Link href="/" className="block rounded-xl bg-violet-500/10 px-3 py-2.5 font-bold text-violet-300">View Store →</Link><button onClick={()=>signOut({callbackUrl:'/admin/login'})} className="w-full rounded-xl border border-white/10 px-3 py-2.5 text-left font-bold">Sign out</button></div>
+  return (
+    <>
+      <aside className="admin-sidebar fixed inset-y-0 left-0 z-50 hidden w-[272px] flex-col border-r lg:flex">
+        <div className="border-b border-slate-100 px-5 py-5">
+          <Link href="/admin/dashboard" className="brand-mark flex items-center gap-2 text-2xl font-black tracking-[-.05em]">Zenvora<span className="text-fuchsia-500">.</span><span className="rounded-full bg-violet-50 px-2 py-1 text-[9px] uppercase tracking-[.15em] text-violet-700">Admin</span></Link>
+          <p className="mt-2 text-xs text-slate-400">Manage every part of your store.</p>
+        </div>
+        <div className="flex-1 overflow-y-auto px-3 py-4">{navGroups()}</div>
+        <div className="space-y-2 border-t border-slate-100 p-3">
+          <Link href="/" className="block rounded-xl bg-violet-50 px-3 py-2.5 text-sm font-black text-violet-700 hover:bg-violet-100">View storefront →</Link>
+          <button type="button" onClick={() => signOut({ callbackUrl: '/admin/login' })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm font-extrabold text-slate-600 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700">Sign out</button>
+        </div>
       </aside>
-    </div>}
-  </>;
+
+      <header className="admin-topbar sticky top-0 z-40 border-b lg:ml-[272px]">
+        <div className="flex min-h-16 items-center gap-3 px-3 sm:px-5">
+          <button type="button" aria-label="Open admin menu" onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 lg:hidden">☰</button>
+          <div className="min-w-0 flex-1"><AdminCommandPalette /></div>
+          <Link href="/admin/notifications" className="admin-accent grid h-10 w-10 place-items-center rounded-xl text-sm" aria-label="Notifications">⌁</Link>
+          <Link href="/" className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 hover:border-violet-200 hover:text-violet-700 sm:block">Store</Link>
+        </div>
+      </header>
+
+      {open ? (
+        <div className="fixed inset-0 z-[60] lg:hidden">
+          <button aria-label="Close menu" className="absolute inset-0 bg-slate-950/35 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <aside className="admin-sidebar relative flex h-full w-[min(88vw,330px)] flex-col overflow-y-auto border-r p-3 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-2 py-3">
+              <Link href="/admin/dashboard" className="brand-mark text-xl font-black">Zenvora<span className="text-fuchsia-500">.</span></Link>
+              <button onClick={() => setOpen(false)} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600">×</button>
+            </div>
+            <div className="py-3">{navGroups(true)}</div>
+            <div className="mt-auto border-t border-slate-100 pt-3">
+              <Link href="/" className="block rounded-xl bg-violet-50 px-3 py-2.5 font-black text-violet-700">View storefront →</Link>
+              <button onClick={() => signOut({ callbackUrl: '/admin/login' })} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left font-black text-slate-600">Sign out</button>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+    </>
+  );
 }
