@@ -44,8 +44,17 @@ export async function GET() {
       where: { integrationId: meesho.id },
       orderBy: { createdAt: 'desc' },
       take: 20,
-      include: {
-        product: {
+    });
+
+    // MarketplaceImportLog stores productId but intentionally has no Prisma
+    // relation to Product. Load the linked inventory records separately.
+    const linkedProductIds = recentMeeshoImports
+      .map((log) => log.productId)
+      .filter((id): id is string => Boolean(id));
+
+    const importedProducts = linkedProductIds.length
+      ? await db.product.findMany({
+          where: { id: { in: linkedProductIds } },
           select: {
             id: true,
             name: true,
@@ -60,33 +69,37 @@ export async function GET() {
               take: 5,
             },
           },
-        },
-      },
-    });
+        })
+      : [];
 
-    const importedProductDetails = recentMeeshoImports.map((log) => ({
-      id: log.id,
-      productId: log.productId,
-      externalId: log.externalId,
-      title: log.title ?? log.product?.name ?? 'Untitled product',
-      sourceUrl: log.sourceUrl,
-      status: log.status,
-      sourceCost: log.sourceCost === null ? null : Number(log.sourceCost),
-      sellingPrice: log.sellingPrice === null ? null : Number(log.sellingPrice),
-      importedImages: log.importedImages,
-      error: log.error,
-      createdAt: log.createdAt,
-      inventory: log.product ? {
-        id: log.product.id,
-        name: log.product.name,
-        sellingPrice: Number(log.product.sellingPrice),
-        sourceCost: log.product.sourceCost === null ? null : Number(log.product.sourceCost),
-        stock: log.product.stock,
-        status: log.product.status,
-        category: log.product.category,
-        images: log.product.images,
-      } : null,
-    }));
+    const importedProductById = new Map(importedProducts.map((product) => [product.id, product]));
+
+    const importedProductDetails = recentMeeshoImports.map((log) => {
+      const product = log.productId ? importedProductById.get(log.productId) : undefined;
+      return {
+        id: log.id,
+        productId: log.productId,
+        externalId: log.externalId,
+        title: log.title ?? product?.name ?? 'Untitled product',
+        sourceUrl: log.sourceUrl,
+        status: log.status,
+        sourceCost: log.sourceCost === null ? null : Number(log.sourceCost),
+        sellingPrice: log.sellingPrice === null ? null : Number(log.sellingPrice),
+        importedImages: log.importedImages,
+        error: log.error,
+        createdAt: log.createdAt,
+        inventory: product ? {
+          id: product.id,
+          name: product.name,
+          sellingPrice: Number(product.sellingPrice),
+          sourceCost: product.sourceCost === null ? null : Number(product.sourceCost),
+          stock: product.stock,
+          status: product.status,
+          category: product.category,
+          images: product.images,
+        } : null,
+      };
+    });
 
     const scrapingAntUsage = hasScrapingAntApiKey() ? await getScrapingAntUsage() : {
       planName: null,
