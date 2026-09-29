@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useState } from 'react';
 import { productImageUrl } from '../lib/product-image-url';
 
@@ -15,12 +14,10 @@ export default function ProductGallery({ images, name, stock }: { images: ImageI
       <div className="zenvora-product-gallery relative overflow-hidden rounded-[28px] border border-white/10 bg-white/[.03] p-2 sm:rounded-[32px] sm:p-3">
         <div className="relative aspect-square overflow-hidden rounded-[22px] bg-[radial-gradient(circle_at_50%_38%,rgba(167,139,250,.18),transparent_48%),rgba(255,255,255,.025)] sm:rounded-[26px]">
           {active ? (
-            <Image
+            <img
               src={productImageUrl(active.url) || ''}
               alt={active.altText || name}
-              fill
-              sizes="(max-width: 1024px) 100vw, 55vw"
-              className="object-contain p-5 transition duration-500 hover:scale-[1.025] sm:p-10"
+              className="h-full w-full object-contain p-5 transition duration-500 hover:scale-[1.025] sm:p-10"
             />
           ) : (
             <div className="grid h-full place-items-center text-8xl opacity-70">🛍️</div>
@@ -44,7 +41,7 @@ export default function ProductGallery({ images, name, stock }: { images: ImageI
               aria-pressed={selected === index}
               className={'aspect-square overflow-hidden rounded-2xl border bg-white/[.03] transition ' + (selected === index ? 'border-violet-400/70 ring-2 ring-violet-500/15' : 'border-white/10 hover:border-white/20')}
             >
-              <Image src={productImageUrl(image.url) || ''} alt="" fill sizes="96px" className="object-contain p-2" />
+              <img src={productImageUrl(image.url) || ''} alt="" className="h-full w-full object-contain p-2" />
             </button>
           ))}
         </div>
