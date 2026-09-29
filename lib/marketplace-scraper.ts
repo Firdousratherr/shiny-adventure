@@ -373,6 +373,7 @@ export type ScrapeMarketplaceOptions = {
    * Keep this false unless the caller explicitly budgets a browser fallback.
    */
   allowBrowserFallback?: boolean;
+  onBrowserFallback?: () => void;
 };
 
 export async function scrapeMarketplaceProduct(sourceUrl: string, options: ScrapeMarketplaceOptions = {}) {
@@ -401,6 +402,7 @@ export async function scrapeMarketplaceProduct(sourceUrl: string, options: Scrap
   // budgets a fallback. A successful browser request costs 10 credits.
   if (options.allowBrowserFallback) {
     try {
+      options.onBrowserFallback?.();
       html = await scraperFetch(parsed.url, parsed.provider, { browser: true, maxAttempts: 3 });
       return parseProduct(parsed.provider, parsed.url, html, parsed.id);
     } catch (error) {
