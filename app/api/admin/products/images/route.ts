@@ -129,7 +129,7 @@ export async function DELETE(request: Request) {
     try {
       const source = new URL(image.url);
       const isPrivateBlob =
-        /(^|\\.)private\\.blob\\.vercel-storage\\.com$/i.test(source.hostname);
+        /(^|\.)private\.blob\.vercel-storage\.com$/i.test(source.hostname);
       if (isPrivateBlob) {
         await del(image.url);
       }
