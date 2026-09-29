@@ -123,6 +123,34 @@ async function fetchSitemapDocument(url: string) {
   }
 }
 
+async function discoverSearchUrls(keyword: string, limit: number) {
+  const q = clean(keyword);
+  if (!q) return [];
+  const searchUrl = 'https://www.meesho.com/search?q=' + encodeURIComponent(q);
+  try {
+    const html = await fetchSitemapDocument(searchUrl);
+    const found = new Set<string>();
+    const add = (value: string) => {
+      try {
+        const decoded = value.replace(/\\u002F/g, '/').replace(/&amp;/g, '&');
+        const absolute = decoded.startsWith('http')
+          ? decoded
+          : new URL(decoded, 'https://www.meesho.com').toString();
+        const parsed = new URL(absolute);
+        if (parsed.hostname.replace(/^www\\./, '') !== 'meesho.com') return;
+        if (/\\/p\\/[^/?#]+/i.test(parsed.pathname)) found.add(absolute);
+      } catch {}
+    };
+
+    for (const match of html.matchAll(/(?:href|url|productUrl|product_url)\\s*[:=]\\s*["']([^"']+)["']/gi)) add(match[1]);
+    for (const match of html.matchAll(/https?:\\/\\/(?:www\\.)?meesho\\.com\\/[^"'\\s<>]+\\/p\\/[^"'\\s<>?#]+/gi)) add(match[0]);
+
+    return [...found].slice(0, Math.max(1, limit));
+  } catch {
+    return [];
+  }
+}
+
 async function loadSitemapShards(settings: MeeshoAutoSettings) {
   const cached = Array.isArray(settings.sitemapShards) ? settings.sitemapShards.filter(Boolean) : [];
   const freshAt = settings.sitemapFetchedAt ? Date.parse(settings.sitemapFetchedAt) : 0;
@@ -162,11 +190,19 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
 
   const selected: string[] = [];
   const urls: string[] = [];
+
+  // Use Meesho's search result page first. This is one cheap discovery request
+  // and gives us products relevant to the requested keyword before scraping
+  // individual PDPs. Sitemap scanning is only the fallback.
+  if (keyword) {
+    urls.push(...await discoverSearchUrls(keyword, Math.max(maxItems * 3, 20)));
+  }
+
   let shardOffset = 0;
 
-  // Meesho's public search page does not expose its product grid reliably.
-  // Use the product sitemap as the discovery index, then filter product slugs
-  // by the requested keyword before spending credits on individual pages.
+  // Sitemap fallback: do not filter the URL slug by keyword. Meesho's sitemap
+  // is not a reliable keyword index; keyword matching is performed after the
+  // actual product page is scraped.
   for (
     ;
     shardOffset < Math.min(configuredShardCount, shards.length) && urls.length < maxItems * 4;
@@ -180,19 +216,7 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
       const shardUrls = parseLocs(shardDocument)
         .filter(url => /^https?:\/\/(?:www\.)?meesho\.com\/[^?#]+\/p\/[a-z0-9]+(?:[?#]|$)/i.test(url));
 
-      const matched = keywordTokens.length
-        ? shardUrls.filter(url => {
-            try {
-              const path = decodeURIComponent(new URL(url).pathname).toLowerCase();
-              const haystack = path.replace(/[-_]+/g, ' ');
-              return keywordTokens.some(token => haystack.includes(token));
-            } catch {
-              return false;
-            }
-          })
-        : shardUrls;
-
-      urls.push(...matched);
+      urls.push(...shardUrls);
     } catch {
       // Continue to the next shard; one unavailable sitemap shard must not
       // stop the whole import.
