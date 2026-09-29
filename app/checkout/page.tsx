@@ -141,14 +141,14 @@ export default function Checkout() {
   );
 
   return (
-    <main className="min-h-screen bg-[#070b16] px-4 pb-28 pt-5 text-white sm:px-6 sm:py-8 sm:pb-10">
+    <main id="main-content" className="min-h-screen bg-[#070b16] px-4 pb-28 pt-5 text-white sm:px-6 sm:py-8 sm:pb-10">
       <div className="mx-auto max-w-6xl">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <Link href="/cart" className="rounded-xl border border-white/10 bg-white/[.025] px-3 py-2 text-sm font-bold hover:bg-white/5">← Back to cart</Link>
           <span className="rounded-full border border-emerald-400/15 bg-emerald-400/5 px-3 py-1.5 text-xs font-bold text-emerald-300">🔒 Secure checkout</span>
         </div>
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_340px]">
+        <div className="mt-5"><div className="mb-5 grid grid-cols-2 gap-2 sm:max-w-md"><div className="rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2.5 text-center"><span className="block text-[10px] font-black uppercase tracking-wider text-violet-300">Step 1</span><span className="mt-0.5 block text-xs font-bold text-white">Delivery</span></div><div className="rounded-xl border border-white/10 bg-white/[.025] px-3 py-2.5 text-center"><span className="block text-[10px] font-black uppercase tracking-wider text-slate-500">Step 2</span><span className="mt-0.5 block text-xs font-bold text-slate-400">Payment</span></div></div><div className="grid gap-5 lg:grid-cols-[1fr_340px]">
           <form ref={formRef} onSubmit={submit} className="rounded-3xl border border-white/10 bg-white/[.045] p-4 shadow-2xl shadow-black/20 sm:p-6">
             <div className="flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-5">
               <div>
@@ -230,7 +230,7 @@ export default function Checkout() {
             <div className="mt-5 flex justify-between border-t border-white/10 pt-4"><span className="text-slate-300">Subtotal</span><strong>₹{subtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</strong></div>
             <p className="mt-2 text-xs text-slate-500">Final delivery and total are calculated again on the server.</p>
           </aside>
-        </div>
+        </div></div>
       </div>
     </main>
   );
