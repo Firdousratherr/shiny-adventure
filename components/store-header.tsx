@@ -57,7 +57,6 @@ export default function StoreHeader({ loggedIn = false }: { loggedIn?: boolean }
             <span className="hidden xl:inline">Cart</span>
             {count > 0 && <span className="store-cart-badge">{count > 99 ? '99+' : count}</span>}
           </Link>
-          <button type="button" className="store-icon-btn md:hidden" aria-label="Menu"><Icon name="menu" /></button>
         </div>
       </div>
       <div className="store-mobile-search store-container md:hidden">
