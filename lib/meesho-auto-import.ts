@@ -33,34 +33,58 @@ async function scrapingAnt(url: string, timeoutMs = 60000, browser = false) {
   const key = getScrapingAntApiKey();
   if (!key) throw new Error('Add SCRAPINGANT_API_KEY in Vercel before enabling Meesho Auto Import.');
 
-  const endpoint = new URL('https://api.scrapingant.com/v2/general');
-  endpoint.searchParams.set('url', url);
-  endpoint.searchParams.set('browser', browser ? 'true' : 'false');
-  endpoint.searchParams.set('proxy_country', 'in');
-  endpoint.searchParams.set('timeout', String(Math.ceil(timeoutMs / 1000)));
+  let lastError = 'ScrapingAnt request failed.';
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const endpoint = new URL('https://api.scrapingant.com/v2/general');
+    endpoint.searchParams.set('url', url);
+    endpoint.searchParams.set('browser', browser ? 'true' : 'false');
+    endpoint.searchParams.set('proxy_country', 'in');
+    endpoint.searchParams.set('timeout', String(Math.ceil(timeoutMs / 1000)));
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(endpoint.toString(), {
-      headers: { 'x-api-key': key, Accept: 'text/html,application/xml' },
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-    const body = await response.text();
-    if (!response.ok) {
-      let detail = '';
-      try {
-        const parsed = JSON.parse(body);
-        detail = typeof parsed?.message === 'string' ? ': ' + parsed.message.slice(0, 220) : '';
-      } catch {}
-      throw new Error('ScrapingAnt returned HTTP ' + response.status + detail + '.');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(endpoint.toString(), {
+        headers: { 'x-api-key': key, Accept: 'text/html,application/xml' },
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      const body = await response.text();
+      if (!response.ok) {
+        let detail = '';
+        try {
+          const parsed = JSON.parse(body);
+          const rawDetail = typeof parsed?.detail === 'string'
+            ? parsed.detail
+            : typeof parsed?.message === 'string'
+              ? parsed.message
+              : '';
+          detail = rawDetail ? ': ' + rawDetail.slice(0, 300) : '';
+        } catch {}
+
+        lastError = 'ScrapingAnt returned HTTP ' + response.status + detail + '.';
+
+        if (response.status === 409 && attempt < 5) {
+          await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+          continue;
+        }
+        throw new Error(lastError);
+      }
+      if (!body.trim()) throw new Error('ScrapingAnt returned an empty response.');
+      return body;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
+      if (attempt < 5 && !/HTTP 409/.test(lastError)) {
+        await new Promise(resolve => setTimeout(resolve, 700 * attempt));
+        continue;
+      }
+      throw new Error(lastError);
+    } finally {
+      clearTimeout(timer);
     }
-    if (!body.trim()) throw new Error('ScrapingAnt returned an empty response.');
-    return body;
-  } finally {
-    clearTimeout(timer);
   }
+
+  throw new Error(lastError);
 }
 
 async function loadSitemapShards(settings: MeeshoAutoSettings) {
