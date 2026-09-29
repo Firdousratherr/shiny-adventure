@@ -22,6 +22,7 @@ const DEFAULT_SHARD_COUNT = 1;
 const DEFAULT_MAX_ITEMS = 10;
 const MAX_BROWSER_FALLBACKS_PER_RUN = 2;
 const MAX_SIMPLE_SCRAPES_PER_RUN = 50;
+const MAX_IMPORT_RUNTIME_MS = 240000;
 
 function clean(value: unknown) {
   return String(value ?? '').trim();
@@ -224,8 +225,14 @@ export async function discoverMeeshoAutoProducts(settings: MeeshoAutoSettings) {
     );
   }
 
+  const startedAt = Date.now();
+
   for (const url of uniqueUrls) {
     if (products.length >= maxItems) break;
+    if (Date.now() - startedAt >= MAX_IMPORT_RUNTIME_MS) {
+      failureDetails.push('Import stopped safely before the runtime limit. Run it again to continue.');
+      break;
+    }
     if (simpleScrapesUsed >= MAX_SIMPLE_SCRAPES_PER_RUN) {
       failureDetails.push('Scraping budget reached. Run the import again to continue from the next sitemap shard.');
       break;
