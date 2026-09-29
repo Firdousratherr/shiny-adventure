@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { get } from '@vercel/blob';
 
-const PRIVATE_BLOB_HOST = /(^|\\.)private\\.blob\\.vercel-storage\\.com$/i;
-const REMOTE_IMAGE_HOST = /(^|\\.)meesho\\.com$/i;
+const PRIVATE_BLOB_HOST = /(^|\.)private\.blob\.vercel-storage\.com$/i;
+const REMOTE_IMAGE_HOST = /(^|\.)meesho\.com$/i;
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
 
 function blobToken() {
