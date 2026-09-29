@@ -17,10 +17,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Password must be at least 12 characters.' }, { status: 400 });
     }
 
-    const limited = await rateLimit('password-reset-verify:' + email, 10, 600);
+    const limited = await securityRateLimit('password-reset-verify:' + email, 10, 600);
     if (process.env.NODE_ENV === 'production' && !limited.configured) {
       return NextResponse.json({ error: 'Password reset is temporarily unavailable.' }, { status: 503 });
     }
+    if (limited.securityUnavailable) return NextResponse.json({ error: 'This security service is temporarily unavailable.' }, { status: 503 });
     if (limited.limited) return NextResponse.json({ error: 'Too many verification attempts. Please wait 10 minutes.' }, { status: 429 });
 
     const pending = await db.passwordResetOtp.findUnique({ where: { email } });
