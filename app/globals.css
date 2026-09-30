@@ -75,11 +75,10 @@ input, select, textarea {
   background:
     radial-gradient(circle at 12% 0%, rgba(124, 58, 237, .08), transparent 24%),
     radial-gradient(circle at 88% 0%, rgba(217, 70, 239, .08), transparent 24%),
-    #f7f8fc !important;
+    #eef0f7 !important;
   color: var(--z-ink) !important;
 }
 
-.store-dark .text-white { color: #17152b !important; }
 .store-dark .text-slate-300 { color: #475467 !important; }
 .store-dark .text-slate-400 { color: #667085 !important; }
 .store-dark .text-slate-500 { color: #667085 !important; }
@@ -150,6 +149,38 @@ input, select, textarea {
   border-color: #8b5cf6 !important;
   box-shadow: 0 0 0 4px rgba(124, 58, 237, .1) !important;
 }
+
+/* Contrast guardrails: never globally recolor white text because it is also used
+   on gradient buttons, hero surfaces and dark callout sections. */
+.store-dark .zenvora-vibrant-hero,
+.store-dark .zenvora-vibrant-hero .text-white { color: #fff !important; }
+.store-dark .zenvora-vibrant-hero .text-violet-100 { color: #ede9fe !important; }
+.store-dark .zenvora-vibrant-hero .text-cyan-200 { color: #a5f3fc !important; }
+.store-dark .zenvora-vibrant-hero .text-violet-950 { color: #2e1065 !important; }
+.store-dark .zenvora-vibrant-hero .text-fuchsia-300 { color: #f0abfc !important; }
+.store-dark .bg-slate-950,
+.store-dark [class~="bg-slate-900"] { color: #fff; }
+.store-dark .bg-slate-950 .text-slate-300,
+.store-dark [class~="bg-slate-900"] .text-slate-300 { color: #cbd5e1 !important; }
+.store-dark .bg-slate-950 .text-white,
+.store-dark [class~="bg-slate-900"] .text-white { color: #fff !important; }
+
+/* Common light-surface text utilities: keep secondary copy readable. */
+.store-dark .text-slate-400 { color: #667085 !important; }
+.store-dark .text-slate-500 { color: #5b6678 !important; }
+.store-dark .text-slate-600 { color: #475467 !important; }
+.store-dark .text-slate-700 { color: #344054 !important; }
+.store-dark .text-slate-800,
+.store-dark .text-slate-900,
+.store-dark .text-slate-950 { color: #17152b !important; }
+
+/* Admin buttons / status surfaces must retain their intended foreground color. */
+.admin-accent,
+.admin-accent .text-white,
+.admin-dark button.bg-violet-600,
+.admin-dark button.bg-violet-700,
+.admin-dark a.bg-violet-600,
+.admin-dark a.bg-violet-700 { color: #fff !important; }
 
 /* Shared motion primitives */
 @keyframes zenvora-fade-up {
@@ -633,7 +664,6 @@ input, select, textarea {
   box-shadow: 0 24px 48px rgba(109,40,217,.12) !important;
 }
 
-.admin-dark .text-white { color: #17152b !important; }
 .admin-dark .text-slate-400,
 .admin-dark .text-slate-500 { color: #667085 !important; }
 
