@@ -7,6 +7,7 @@ import { securityRateLimit } from '../../../lib/rate-limit';
 import { createPaymentAccessToken, hashPaymentAccessToken, PAYMENT_RESERVATION_MINUTES } from '../../../lib/payment-access';
 import { releaseExpiredPaymentReservations } from '../../../lib/inventory-reservations';
 import { adjustInventory } from '../../../lib/inventory';
+import { createCustomerNotification } from '../../../lib/customer-notifications';
 
 export async function POST(request: Request) {
   try {
@@ -146,6 +147,7 @@ export async function POST(request: Request) {
 
       // Inventory was reserved atomically before the order was created. Both operations
       // are in the same transaction, so a failed order creation rolls the reservation back.
+      if (created.email) await createCustomerNotification(tx, created.email, 'ORDER_CREATED', 'Order placed', `${created.orderNumber} was created and is awaiting payment.`, created.id);
       return created;
     });
 
