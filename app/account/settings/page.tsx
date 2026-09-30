@@ -33,7 +33,7 @@ export default async function AccountSettingsPage() {
           <p className="zenvora-settings-label">Profile & login</p>
           <div className="mt-3 space-y-2">
             <SettingRow icon="♙" title="Edit profile" description="Update your name and customer details." href="/account/profile" />
-            <SettingRow icon="⌑" title="Change password" description="Use secure password recovery to set a new password." href="/forgot-password" />
+            <SettingRow icon="⌑" title="Change password" description="Use secure password recovery to set a new password." href="/account/password" />
           </div>
         </section>
 
@@ -43,6 +43,7 @@ export default async function AccountSettingsPage() {
             <SettingRow icon="♡" title="Wishlist" description="View products you saved for later." href="/account/wishlist" />
             <SettingRow icon="◌" title="Recently viewed" description="Return to products you recently checked." href="/account/recently-viewed" />
             <SettingRow icon="⌖" title="Saved addresses" description="Manage your delivery addresses." href="/account/addresses" />
+            <SettingRow icon="▣" title="Payment preferences" description="Choose your preferred checkout method." href="/account/payment-methods" />
           </div>
         </section>
 
@@ -65,8 +66,10 @@ export default async function AccountSettingsPage() {
         <section className="zenvora-settings-card">
           <p className="zenvora-settings-label">Help</p>
           <div className="mt-3 space-y-2">
-            <SettingRow icon="?" title="Track an order" description="Check delivery status using your order details." href="/track" />
-            <SettingRow icon="◷" title="My orders" description="View your purchase history and order status." href="/account#orders" />
+            <SettingRow icon="?" title="Track an order" description="Check delivery status using your order details." href="/track-order" />
+            <SettingRow icon="◷" title="My orders" description="View your purchase history and order status." href="/account/orders" />
+            <SettingRow icon="◉" title="Notifications" description="Read your order and account updates." href="/account/notifications" />
+            <SettingRow icon="?" title="Help & support" description="Create a support ticket and view replies." href="/account/support" />
           </div>
         </section>
       </div>
@@ -74,7 +77,7 @@ export default async function AccountSettingsPage() {
       <section className="mt-5 rounded-[24px] border border-rose-100 bg-rose-50/60 p-5 sm:p-6">
         <p className="text-[10px] font-black uppercase tracking-[.2em] text-rose-600">Danger zone</p>
         <h2 className="mt-2 text-lg font-black text-slate-900">Account deletion</h2>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Permanent account deletion is not enabled yet. This keeps the account and order records safe until a proper deletion workflow with order-history retention rules is implemented.</p>
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Delete your customer account and saved personal data. Historical orders are retained in anonymized form for operational records.</p><Link href="/account/delete" className="mt-4 inline-flex rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-xs font-black text-rose-700">Delete account</Link>
       </section>
     </div>
   </main>;
