@@ -6,6 +6,7 @@ import { notifyCustomer } from '../../../../../lib/email';
 import { requireAdminPermission } from '../../../../../lib/admin-access';
 import { releasePaymentReservation } from '../../../../../lib/inventory-reservations';
 import { adjustInventoryBatch } from '../../../../../lib/inventory';
+import { createCustomerNotification } from '../../../../../lib/customer-notifications';
 
 const statuses = new Set<OrderStatus>(['ORDERED_FROM_SOURCE','SHIPPED','DELIVERED','CANCELLED','RTO','RETURN_REQUESTED','REFUNDED']);
 const text = (v: unknown, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : '';
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
         select: { orderNumber: true, status: true, email: true },
       });
       await tx.orderStatusHistory.create({ data: { orderId: order.id, oldStatus: order.status, newStatus: target, changedBy: adminEmail, note: note || null } });
+      if (statusMessage[target]) await createCustomerNotification(tx, order.email, 'ORDER_STATUS', 'Order ' + target.toLowerCase().replaceAll('_', ' '), statusMessage[target], order.id);
       return updated;
     });
 
