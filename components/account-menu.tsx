@@ -12,6 +12,8 @@ const items = [
   { href: '/account/addresses', label: 'Saved addresses', icon: '⌖' },
   { href: '/products', label: 'Continue shopping', icon: '↗' },
   { href: '/track', label: 'Track an order', icon: '↗' },
+  { href: '/account/wishlist', label: 'Wishlist', icon: '♥' },
+  { href: '/account/recently-viewed', label: 'Recently viewed', icon: '◌' },
 ];
 
 export default function AccountMenu({ signOutAction }: Props) {
