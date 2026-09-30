@@ -870,3 +870,88 @@ main.bg-slate-900 .bg-violet-50 { background: #f1edff !important; }
 .zenvora-product-card { background:#fbfbfd; }
 .zenvora-category-card { background:linear-gradient(145deg,#fbfbfd,#f1f2f7); }
 .admin-dark { background:radial-gradient(circle at 90% 0%,rgba(124,58,237,.07),transparent 20%),linear-gradient(180deg,#f0f1f6,#eaecf3) !important; }
+
+
+/* -------------------------------------------------------------------------- */
+/* v3 contrast audit: preserve readable text on dark/bright mixed surfaces.   */
+/* -------------------------------------------------------------------------- */
+
+/* Dark promotional surfaces must stay dark; never inherit the storefront's
+   light-theme compatibility overrides. */
+.store-dark [class~="bg-slate-950"],
+.store-dark [class~="bg-slate-900"] {
+  background: #171047 !important;
+  color: #fff !important;
+}
+.store-dark [class~="bg-slate-950"] .text-white,
+.store-dark [class~="bg-slate-900"] .text-white,
+.store-dark [class~="bg-slate-950"] .text-slate-900,
+.store-dark [class~="bg-slate-900"] .text-slate-900 { color: #fff !important; }
+.store-dark [class~="bg-slate-950"] .text-slate-800,
+.store-dark [class~="bg-slate-900"] .text-slate-800 { color: #f1f5f9 !important; }
+.store-dark [class~="bg-slate-950"] .text-slate-700,
+.store-dark [class~="bg-slate-900"] .text-slate-700 { color: #e2e8f0 !important; }
+.store-dark [class~="bg-slate-950"] .text-slate-600,
+.store-dark [class~="bg-slate-900"] .text-slate-600 { color: #cbd5e1 !important; }
+.store-dark [class~="bg-slate-950"] .text-slate-500,
+.store-dark [class~="bg-slate-900"] .text-slate-500 { color: #94a3b8 !important; }
+.store-dark [class~="bg-slate-950"] .text-slate-400,
+.store-dark [class~="bg-slate-900"] .text-slate-400 { color: #a8b3c4 !important; }
+
+/* Hero glass cards intentionally use light text. */
+.store-dark .zenvora-vibrant-hero .text-white { color: #fff !important; }
+.store-dark .zenvora-vibrant-hero .text-slate-900 { color: #fff !important; }
+.store-dark .zenvora-vibrant-hero .text-slate-800 { color: #f8fafc !important; }
+.store-dark .zenvora-vibrant-hero .text-slate-700 { color: #e2e8f0 !important; }
+.store-dark .zenvora-vibrant-hero .text-slate-600 { color: #cbd5e1 !important; }
+.store-dark .zenvora-vibrant-hero .text-slate-500 { color: #cbd5e1 !important; }
+
+/* Keep links/buttons legible when legacy utility classes are combined with
+   the new light storefront. */
+.store-dark a.text-white,
+.store-dark button.text-white { color: #fff !important; }
+.store-dark [class~="bg-violet-700"] .text-white,
+.store-dark [class~="bg-violet-600"] .text-white,
+.store-dark [class~="bg-fuchsia-500"] .text-white { color: #fff !important; }
+
+/* Inputs and controls always use a high-contrast text/placeholder pair. */
+.store-dark input,
+.store-dark select,
+.store-dark textarea,
+.admin-dark input,
+.admin-dark select,
+.admin-dark textarea {
+  color: #17152b !important;
+  -webkit-text-fill-color: #17152b;
+}
+.store-dark input::placeholder,
+.store-dark textarea::placeholder,
+.admin-dark input::placeholder,
+.admin-dark textarea::placeholder {
+  color: #667085 !important;
+  opacity: 1;
+}
+
+/* Admin dark/gradient login surfaces keep their intentional white typography. */
+main[class*="bg-\\[#f7f8fc\\]"] .bg-gradient-to-br .text-white,
+main[class*="bg-\\[#f7f8fc\\]"] .bg-gradient-to-br .text-violet-100,
+main[class*="bg-\\[#f7f8fc\\]"] .bg-gradient-to-br .text-violet-200 {
+  color: #fff !important;
+}
+
+/* Accessible status colors: dark enough on pale backgrounds. */
+.store-dark .text-violet-400 { color: #6d28d9 !important; }
+.store-dark .text-fuchsia-400 { color: #a21caf !important; }
+.store-dark .text-cyan-400 { color: #0e7490 !important; }
+.store-dark .text-emerald-400 { color: #047857 !important; }
+.store-dark .text-amber-400 { color: #b45309 !important; }
+.store-dark .text-rose-400 { color: #be123c !important; }
+
+/* Utility text on the admin application gets a minimum readable contrast. */
+.admin-dark .text-slate-950,
+.admin-dark .text-slate-900 { color: #17152b !important; }
+.admin-dark .text-slate-800 { color: #344054 !important; }
+.admin-dark .text-slate-700,
+.admin-dark .text-slate-600 { color: #475467 !important; }
+.admin-dark .text-slate-500 { color: #667085 !important; }
+.admin-dark .text-slate-400 { color: #667085 !important; }
