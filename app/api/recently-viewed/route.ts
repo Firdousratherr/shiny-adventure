@@ -3,6 +3,50 @@ import { auth } from '../../../auth';
 import { db } from '../../../lib/db';
 import { securityRateLimit } from '../../../lib/rate-limit';
 
+
+export async function GET() {
+  const session = await auth();
+  if (session?.user?.role !== 'customer' || !session.user.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const user = await db.customerUser.findUnique({
+    where: { email: session.user.email },
+    select: { id: true },
+  });
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const items = await db.recentlyViewed.findMany({
+    where: { userId: user.id },
+    orderBy: { viewedAt: 'desc' },
+    take: 30,
+    distinct: ['productId'],
+    select: {
+      id: true,
+      viewedAt: true,
+      product: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          sellingPrice: true,
+          stock: true,
+          status: true,
+          category: { select: { name: true, slug: true } },
+          images: { take: 1, orderBy: { sortOrder: 'asc' }, select: { url: true, altText: true } },
+        },
+      },
+    },
+  });
+
+  return NextResponse.json({
+    items: items.map((item) => ({
+      ...item,
+      product: { ...item.product, image: item.product.images[0] ?? null },
+    })),
+  });
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const productId = typeof body.productId === 'string' ? body.productId : '';
