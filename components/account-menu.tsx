@@ -14,6 +14,7 @@ const items = [
   { href: '/track', label: 'Track an order', icon: '↗' },
   { href: '/account/wishlist', label: 'Wishlist', icon: '♥' },
   { href: '/account/recently-viewed', label: 'Recently viewed', icon: '◌' },
+  { href: '/account/settings', label: 'Account settings', icon: '⚙' },
 ];
 
 export default function AccountMenu({ signOutAction }: Props) {
