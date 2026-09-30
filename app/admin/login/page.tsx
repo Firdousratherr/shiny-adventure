@@ -22,7 +22,7 @@ export default function Login() {
         <section className="relative hidden overflow-hidden bg-gradient-to-br from-[#171047] via-[#4b2ab7] to-[#8b3fe5] p-9 text-white md:flex md:flex-col md:justify-between lg:p-12">
           <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-fuchsia-400/20 blur-3xl" />
           <div className="absolute bottom-[-90px] left-[35%] h-64 w-64 rounded-full bg-cyan-300/15 blur-3xl" />
-          <Link href="/" className="relative text-2xl font-black tracking-tight">Zenvora<span className="text-cyan-200">.</span></Link>
+          <Link href="/" className="relative brand-lockup text-3xl font-black tracking-tight"><span className="z-logo-badge" aria-hidden="true">Z</span><span>Zenvora<span className="text-cyan-200">.</span></span></Link>
           <div className="relative max-w-lg">
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-violet-100">Admin workspace</span>
             <h1 className="mt-5 text-5xl font-black leading-[.98] tracking-[-.045em] lg:text-6xl">Your store.<br /><span className="text-cyan-200">Your control.</span></h1>
@@ -36,7 +36,7 @@ export default function Login() {
 
         <section className="flex items-center px-5 py-8 sm:px-9 lg:px-12">
           <div className="mx-auto w-full max-w-sm">
-            <div className="mb-6 flex items-center justify-between md:hidden"><Link href="/" className="text-xl font-black">Zenvora<span className="text-fuchsia-500">.</span></Link><span className="rounded-full bg-violet-50 px-3 py-1 text-[10px] font-black text-violet-700">Admin</span></div>
+            <div className="mb-6 flex items-center justify-between md:hidden"><Link href="/" className="brand-lockup text-2xl font-black"><span className="z-logo-badge" aria-hidden="true">Z</span><span>Zenvora<span className="text-fuchsia-500">.</span></span></Link><span className="rounded-full bg-violet-50 px-3 py-1 text-[10px] font-black text-violet-700">Admin</span></div>
             <Link href="/" className="text-xs font-bold text-slate-400 hover:text-violet-700">← Back to store</Link>
             <p className="mt-7 text-[10px] font-black uppercase tracking-[.2em] text-violet-600">Administrator access</p>
             <h2 className="mt-2 text-4xl font-black tracking-[-.04em] text-slate-950 sm:text-5xl">Sign in</h2>

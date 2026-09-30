@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { auth, signOut } from '../../auth';
 import { db } from '../../lib/db';
 import StoreHeader from '../../components/store-header';
+import AccountMenu from '../../components/account-menu';
 
 export default async function Account() {
   const session = await auth();
@@ -54,9 +55,11 @@ export default async function Account() {
             <h1 className="mt-4 text-4xl font-black tracking-[-.04em] sm:text-5xl">Welcome back, {customer?.name || session.user.name || 'Customer'}.</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Manage your details, saved addresses and recent orders from one place.</p>
           </div>
-          <form action={async () => { 'use server'; await signOut({ redirectTo: '/' }); }}>
-            <button className="rounded-xl border border-white/10 bg-white/[.035] px-4 py-2.5 text-xs font-black hover:bg-white/[.07]">Sign out</button>
-          </form>
+          <div className="hidden sm:block">
+            <form action={async () => { 'use server'; await signOut({ redirectTo: '/' }); }}>
+              <button className="zenvora-account-signout-hero" type="submit">Sign out</button>
+            </form>
+          </div>
         </div>
 
         <div className="mt-8 grid gap-5 lg:grid-cols-[250px_1fr]">
@@ -67,7 +70,10 @@ export default async function Account() {
             <p className="mt-4 text-lg font-black">{customer?.name || session.user.name || 'Customer'}</p>
             <p className="mt-1 break-all text-xs text-slate-500">{customer?.email || email}</p>
 
-            <nav className="mt-6 space-y-1">
+            <div className="mt-6 sm:hidden">
+              <AccountMenu signOutAction={async () => { 'use server'; await signOut({ redirectTo: '/' }); }} />
+            </div>
+            <nav className="mt-6 hidden space-y-1 sm:block">
               <Link href="/account" className="zenvora-account-link-active">Overview <span>→</span></Link>
               <Link href="/account/profile" className="zenvora-account-link">Edit profile <span>→</span></Link>
               <Link href="/account/addresses" className="zenvora-account-link">Saved addresses <span>→</span></Link>

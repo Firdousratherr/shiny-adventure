@@ -231,7 +231,7 @@ export default async function Home() {
       <footer className="border-t border-slate-200 bg-white">
         <div className="container grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <Link href="/" className="brand-mark text-2xl font-black tracking-[-.04em]">Zenvora<span className="text-fuchsia-500">.</span></Link>
+            <Link href="/" className="brand-mark brand-lockup text-3xl font-black tracking-[-.05em]"><span className="z-logo-badge" aria-hidden="true">Z</span><span>Zenvora<span className="text-fuchsia-500">.</span></span></Link>
             <p className="mt-3 max-w-xs text-sm leading-6 text-slate-500">Everyday products, clearer shopping and a storefront designed around convenience.</p>
           </div>
           <div><h3 className="text-sm font-black text-slate-900">Shop</h3><div className="mt-4 space-y-2 text-sm text-slate-500"><Link href="/products">All products</Link><Link className="block" href="/products?sort=price-desc">Deals</Link><Link className="block" href="/track">Track order</Link></div></div>

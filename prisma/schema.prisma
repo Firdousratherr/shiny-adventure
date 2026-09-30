@@ -83,6 +83,8 @@ model CustomerUser {
   recentlyViewed RecentlyViewed[]
   supportTickets SupportTicket[]
   stockAlerts StockAlert[]
+  notifications CustomerNotification[]
+  paymentPreference CustomerPaymentPreference?
 }
 
 model CustomerAddress {
@@ -535,6 +537,29 @@ model RecentlyViewed {
   @@index([productId, viewedAt])
 }
 
+
+model CustomerNotification {
+  id         String       @id @default(cuid())
+  customerId String
+  customer   CustomerUser @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type       String
+  title      String
+  message    String
+  orderId    String?
+  readAt     DateTime?
+  createdAt  DateTime     @default(now())
+
+  @@index([customerId, createdAt])
+  @@index([customerId, readAt, createdAt])
+}
+
+model CustomerPaymentPreference {
+  id         String       @id @default(cuid())
+  customerId String       @unique
+  customer   CustomerUser @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  method     String       @default("UPI_MANUAL")
+  updatedAt  DateTime     @updatedAt
+}
 
 model AdminNotification {
   id        String   @id @default(cuid())
