@@ -73,5 +73,19 @@ export async function POST(request: Request) {
   } else {
     await db.recentlyViewed.create({ data: { productId, sessionId, userId: user?.id ?? null } });
   }
+
+  // Bound high-volume telemetry so a session cannot grow the table indefinitely.
+  const latest = await db.recentlyViewed.findMany({
+    where: { sessionId },
+    orderBy: { viewedAt: 'desc' },
+    take: 30,
+    select: { id: true },
+  });
+  if (latest.length === 30) {
+    await db.recentlyViewed.deleteMany({
+      where: { sessionId, id: { notIn: latest.map(row => row.id) } },
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }

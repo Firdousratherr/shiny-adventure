@@ -24,3 +24,11 @@ export const trackingSchema = z.object({
   orderNumber: z.string().regex(/^ORD-\d{4}-\d{4,}$/),
   phone: z.string().regex(/^[6-9]\d{9}$/),
 });
+
+
+export const checkoutSessionSchema = z.object({
+  sessionKey: z.string().trim().min(8).max(128),
+  email: z.string().trim().email().max(200).optional().or(z.literal('')),
+  cartValue: z.number().finite().min(0).max(100000000).optional(),
+  itemCount: z.number().int().min(0).max(1000).optional(),
+});
